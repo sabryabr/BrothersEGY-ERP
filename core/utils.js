@@ -1,18 +1,13 @@
 // ============================================================
 // core/utils.js
 // Pure helper functions — no DOM, no Firebase, no side effects
-// Every function here takes input and returns output only
-// Safe to call from any module at any time
+// Updated to handle string booleans from Google Sheets sync
 // ============================================================
 
 // ============================================================
 // AMOUNT PARSING
 // ============================================================
 
-/**
- * Parse any money string or number into a clean float
- * Handles: "£1,234.56", "$500", "1234", 0, null, undefined
- */
 window.parseAmount = function(str) {
   if (str === null || str === undefined || str === '') return 0;
   if (typeof str === 'number') return isNaN(str) ? 0 : str;
@@ -24,36 +19,22 @@ window.parseAmount = function(str) {
 // DATE PARSING
 // ============================================================
 
-/**
- * Parse any date string into a JavaScript Date object
- * Handles:
- *   - Firestore Timestamps (.toDate())
- *   - Excel serial numbers (e.g. 45855)
- *   - Arabic AM/PM suffixes (صباحاً / مساءً)
- *   - ISO strings (2025-11-27T07:00)
- *   - Safari-incompatible strings (2025-11-27 07:00) — normalized
- *   - DD/MM/YYYY and YYYY/MM/DD formats
- * Returns null if unparseable
- */
 window.parseDBDate = function(str) {
   if (!str) return null;
-
-  // Firestore Timestamp object
   if (str && str.toDate) return str.toDate();
 
   // Excel serial date (5-digit number like 45855)
   const serial = typeof str === 'number'
     ? str
-    : (typeof str === 'string' && /^\d{5}$/.test(str.trim()) ? parseInt(str) : null);
+    : (typeof str === 'string' && /^\d{5}$/.test(str.trim())
+        ? parseInt(str) : null);
   if (serial && serial > 40000 && serial < 60000) {
     return new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
   }
 
-  // Detect Arabic AM/PM
   const isPM = /مساءً|مساء|PM/i.test(str);
   const isAM = /صباحاً|صباح|AM/i.test(str);
 
-  // Strip Arabic characters and normalize whitespace
   let clean = String(str)
     .replace(/[\u0600-\u06FF\u200c-\u200f\u202a-\u202e]/g, '')
     .replace(/,/g, '')
@@ -66,7 +47,6 @@ window.parseDBDate = function(str) {
     '$1T$2'
   );
 
-  // Try direct parse (ISO, RFC etc.)
   let d = new Date(clean);
   if (!isNaN(d.getTime())) {
     if (isPM && d.getHours() < 12) d.setHours(d.getHours() + 12);
@@ -103,16 +83,12 @@ window.parseDBDate = function(str) {
   return null;
 };
 
-/**
- * Parse a date from separate day/month/year/hour/minute fields
- * Used for orders that store date components separately
- */
 window.parseDateFromComponents = function(doc, prefix) {
-  const day   = parseInt(doc[prefix + ' يوم']   || doc[prefix + '_day']   || 0);
-  const month = parseInt(doc[prefix + ' شهر']   || doc[prefix + '_month'] || 0);
-  const year  = parseInt(doc[prefix + ' سنة']   || doc[prefix + '_year']  || 0);
-  let   hour  = parseInt(doc[prefix + ' ساعة']  || 0);
-  const min   = parseInt(doc[prefix + ' دقيقة'] || 0);
+  const day    = parseInt(doc[prefix + ' يوم']   || doc[prefix + '_day']   || 0);
+  const month  = parseInt(doc[prefix + ' شهر']   || doc[prefix + '_month'] || 0);
+  const year   = parseInt(doc[prefix + ' سنة']   || doc[prefix + '_year']  || 0);
+  let   hour   = parseInt(doc[prefix + ' ساعة']  || 0);
+  const min    = parseInt(doc[prefix + ' دقيقة'] || 0);
   const period = doc[prefix + ' الفترة'] || '';
 
   if (/مساءً|مساء|PM/i.test(period) && hour < 12) hour += 12;
@@ -125,83 +101,81 @@ window.parseDateFromComponents = function(doc, prefix) {
 
 // ============================================================
 // ORDER DATA ACCESSORS
-// Centralised field reading — handles both Arabic and reversed
-// field names that come from Google Sheets sync
 // ============================================================
 
-/**
- * Get start and end dates from any order object
- * Tries multiple field name variants for compatibility
- */
 window.getOrderDates = function(order) {
   const startRaw =
     order['تاريخ بداية الإيجار'] ||
     order['بداية التعاقد']       ||
     order['راجيالا ةيادب خيرات'] ||
-    order.col_L                  ||
+    order['col_L']               ||
+    order['L']                   ||
     order['start_date']          || '';
 
   const endRaw =
     order['تاريخ نهاية الإيجار'] ||
     order['نهاية التعاقد']       ||
     order['راجيالا ةياهن خيرات'] ||
-    order.col_T                  ||
+    order['col_T']               ||
+    order['T']                   ||
     order['end_date']            || '';
 
   let start = parseDBDate(startRaw);
   let end   = parseDBDate(endRaw);
 
-  if (!start) start = parseDateFromComponents(order, 'بداية التعاقد')
-                   || parseDateFromComponents(order, 'تاريخ بداية الإيجار');
-  if (!end)   end   = parseDateFromComponents(order, 'نهاية التعاقد')
-                   || parseDateFromComponents(order, 'تاريخ نهاية الإيجار');
+  if (!start) start =
+    parseDateFromComponents(order, 'بداية التعاقد') ||
+    parseDateFromComponents(order, 'تاريخ بداية الإيجار');
+  if (!end) end =
+    parseDateFromComponents(order, 'نهاية التعاقد') ||
+    parseDateFromComponents(order, 'تاريخ نهاية الإيجار');
 
   return { start, end };
 };
 
-/** Get the total amount due for an order */
 window.getOrderTotal = function(order) {
   return parseAmount(
     order['إجمالي المستحق (Total)'] ||
     order['قحتسملا يلامجإ (Total)'] ||
-    order.col_AU                    || 0
+    order['col_AU']                  ||
+    order['AU']                      || 0
   );
 };
 
-/** Get the total amount paid (EGP) for an order */
 window.getOrderPaid = function(order) {
   return parseAmount(
     order['المدفوع EGP'] ||
     order['عوفدملا EGP'] ||
-    order.col_AX         || 0
+    order['col_AX']      ||
+    order['AX']          || 0
   );
 };
 
-/** Get the client name from an order */
 window.getOrderClientName = function(order) {
-  return order['اسم العميل'] || order['ليمعلا مسا'] || order.col_C || '';
+  return order['اسم العميل'] ||
+         order['ليمعلا مسا'] ||
+         order['col_C']      ||
+         order['C']          || '';
 };
 
-/** Get the car code from an order */
 window.getOrderCarCode = function(order) {
-  return order['كود السيارة'] || order['ةرايسلا دوك'] || order.col_D || '';
+  return order['كود السيارة'] ||
+         order['ةرايسلا دوك'] ||
+         order['col_D']       ||
+         order['D']           || '';
 };
 
-/** Get the order reference number */
 window.getOrderNo = function(order) {
-  return order['No.'] || order.col_A || order.id || '';
+  return order['No.'] ||
+         order['col_A'] ||
+         order['A']     ||
+         order.id       || '';
 };
 
 // ============================================================
 // ORDER STATUS
-// Single authoritative function — replaces all duplicates
 // ============================================================
 
-/**
- * Compute the current status of an order
- * Priority: Accident/Cancelled → Fully Paid → Manually Closed →
- *           Active → Overdue → Future → Active (default)
- */
 window.getOrderStatus = function(order) {
   if (!order) return 'Active';
 
@@ -210,18 +184,15 @@ window.getOrderStatus = function(order) {
     order['order_status'] ||
     order['Status']       || '';
 
-  // Hard statuses that cannot be overridden
   if (raw === 'Accident'  || raw === 'Cancelled') return raw;
 
-  // Fully paid always means Closed regardless of manual flags
   const total = getOrderTotal(order);
   const paid  = getOrderPaid(order);
   if (total > 0 && paid >= total) return 'Closed';
 
-  // Manually closed
-  if (raw === 'Closed' || order.closed === true) return 'Closed';
+  if (raw === 'Closed' || order.closed === true || order.closed === 'true')
+    return 'Closed';
 
-  // Date-based status
   const { start, end } = getOrderDates(order);
   const today      = new Date();
   const todayStart = new Date();
@@ -238,18 +209,16 @@ window.getOrderStatus = function(order) {
 // DATE FORMATTING
 // ============================================================
 
-/** Format a Date as "YYYY-MM-DD HH:MM" */
 window.fmtDate = function(d) {
   if (!d) return 'N/A';
-  const Y  = d.getFullYear();
-  const M  = String(d.getMonth() + 1).padStart(2, '0');
-  const D  = String(d.getDate()).padStart(2, '0');
-  const h  = String(d.getHours()).padStart(2, '0');
-  const m  = String(d.getMinutes()).padStart(2, '0');
+  const Y = d.getFullYear();
+  const M = String(d.getMonth() + 1).padStart(2, '0');
+  const D = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
   return `${Y}-${M}-${D} ${h}:${m}`;
 };
 
-/** Format a Date as "YYYY-MM-DD" only */
 window.fmtDateShort = function(d) {
   if (!d) return 'N/A';
   const Y = d.getFullYear();
@@ -258,12 +227,12 @@ window.fmtDateShort = function(d) {
   return `${Y}-${M}-${D}`;
 };
 
-/** Format a CRM registered date (handles Excel serial + partial strings) */
 window.fmtCRMDate = function(val) {
   if (!val) return '—';
   const n = typeof val === 'number'
     ? val
-    : (typeof val === 'string' && /^\d{5}$/.test(val.trim()) ? parseInt(val) : null);
+    : (typeof val === 'string' && /^\d{5}$/.test(val.trim())
+        ? parseInt(val) : null);
   if (n && n > 40000 && n < 60000) {
     return new Date(Date.UTC(1899, 11, 30) + n * 86400000)
       .toISOString().slice(0, 10);
@@ -271,7 +240,6 @@ window.fmtCRMDate = function(val) {
   return String(val).slice(0, 10);
 };
 
-/** Return today's date as "YYYY-MM-DD" */
 window.todayISO = function() {
   const n = new Date();
   return n.getFullYear() + '-'
@@ -279,7 +247,6 @@ window.todayISO = function() {
     + String(n.getDate()).padStart(2, '0');
 };
 
-/** Return a human-readable time ago string */
 window.getTimeAgo = function(ts) {
   if (!ts) return '';
   const diff = Date.now() - ts;
@@ -296,7 +263,6 @@ window.getTimeAgo = function(ts) {
 // MONEY FORMATTING
 // ============================================================
 
-/** Format a number as Egyptian Pounds: £1,234.56 */
 window.fmtMoney = function(n) {
   return '£' + Number(n || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
@@ -308,7 +274,6 @@ window.fmtMoney = function(n) {
 // STRING HELPERS
 // ============================================================
 
-/** Get initials from a full name: "Ahmed Ali" → "AA" */
 window.initials = function(name) {
   if (!name) return '?';
   const p = name.trim().split(' ');
@@ -317,115 +282,154 @@ window.initials = function(name) {
 
 // ============================================================
 // FLEET HELPERS
+// Updated to handle pre-built labels from Sheets sync
+// and string booleans ("true"/"false" instead of true/false)
 // ============================================================
 
-/**
- * Get the display label for a car in English or Arabic
- * Falls back gracefully if pre-computed labels are missing
- */
 window.getCarLabel = function(car, lang = 'en') {
+  // Use pre-built labels from Sheets sync
   if (lang === 'ar' && car.car_label_ar) return car.car_label_ar;
   if (lang === 'en' && car.car_label)    return car.car_label;
-  if (car.car_label_ar)                  return car.car_label_ar;
+  if (lang === 'ar' && car.car_label)    return car.car_label;
 
   // Build from individual fields
-  const typeEN  = String(car.Type       || car['النوع']    || '').trim();
-  const modelEN = String(car.Model      || car.model       || '').trim();
-  const modelAR = String(car['الطراز']  || car.model_name  || '').trim();
-  const year    = String(car['سنة الصنع'] || car.year      || '').trim();
+  const typeEN  = String(car.Type    || car['النوع']   || car['col_C'] || '').trim();
+  const modelEN = String(car.Model   || car['col_F']   || '').trim();
+  const modelAR = String(car['الطراز'] || car['col_E'] || '').trim();
+  const year    = String(car['سنة الصنع'] || car['col_H'] || '').trim();
   const plate   = formatPlate(car);
 
   if (lang === 'ar') {
     const typeAR  = String(car['النوع'] || typeEN).replace(/_/g, ' ');
-    const colorAR = String(car['اللون'] || car.Color || '').trim();
+    const colorAR = String(car['اللون'] || car['col_I'] || car.Color || '').trim();
     return `${modelAR || typeAR} (${year}) ${colorAR} | ${plate}`.trim();
   }
 
-  const colorEN = String(car.Color || car['اللون'] || '').trim();
+  const colorEN = String(car.Color || car['col_J'] || car['اللون'] || '').trim();
   return `${modelEN || typeEN || 'Unknown'} (${year}) ${colorEN} | ${plate}`.trim();
 };
 
-/**
- * Build a plate number string from individual columns
- * Falls back to car.plate if already set
- */
 window.formatPlate = function(car) {
-  if (car.plate && car.plate.length > 3) return car.plate;
+  // Pre-built plate from sync
+  if (car.plate && car.plate.length > 2) return car.plate;
+
+  // Build from column fields
   const parts = [
-    car.col_W, car.col_X, car.col_Y,
-    car.col_Z, car.col_AA, car.col_AB, car.col_AC
+    car['col_W'],  car['col_X'],  car['col_Y'],
+    car['col_Z'],  car['col_AA'], car['col_AB'], car['col_AC']
   ]
     .filter(p => p && String(p).trim() && String(p).trim() !== '0')
     .map(p => String(p).trim());
+
   return parts.length ? parts.join(' ') : (car.plate || 'No Plate');
 };
 
-/**
- * Find a car by its Firestore document ID
- * Always matches by doc ID first — guaranteed unique
- */
 window.getCarById = function(id) {
   if (!id) return null;
   const strId = String(id).trim();
-  return G.fleet.find(c => String(c.id || '').trim() === strId) || null;
+
+  // Match against every possible ID field
+  return G.fleet.find(c =>
+    String(c.id       || '').trim() === strId ||
+    String(c.ID       || '').trim() === strId ||
+    String(c['No.']   || '').trim() === strId ||
+    String(c['col_A'] || '').trim() === strId ||
+    String(c['A']     || '').trim() === strId
+  ) || null;
 };
 
-/**
- * Determine the operational status category of a car
- * Returns: 'available' | 'rented' | 'accident' | 'maintenance' |
- *          'archived' | 'overdue' | 'future'
- */
+// ============================================================
+// CAR STATUS CATEGORY
+// Handles both boolean and string boolean values from sync
+// e.g. archived = "true" (string) as well as archived = true
+// ============================================================
+
 window.getCarStatusCategory = function(car) {
-  // Firestore flags take first priority
-  if (car.archived === true || car.is_active === false) return 'archived';
 
-  const cEN = (car.Contract         || '').toLowerCase().trim();
-  const cAR = (car['حاله التعاقد'] || '').toLowerCase().trim();
-  const st  = (car.status           || 'available').toLowerCase().trim();
+  // ---- Archived / inactive flags ----
+  // Sheets sync stores these as strings "true"/"false"
+  const isArchivedFlag = car.archived   === true  || car.archived   === 'true';
+  const isInactiveFlag = car.is_active  === false || car.is_active  === 'false';
+  if (isArchivedFlag || isInactiveFlag) return 'archived';
 
-  const handover = parseDBDate(car['تاريخ التسليم'] || '');
-  const isPast   = handover && new Date() > handover;
+  // ---- Contract status ----
+  // col_AZ = Arabic contract status from your sheet
+  // Contract = English contract status
+  const contractAZ = String(car['col_AZ']       || '').toLowerCase().trim();
+  const contractEN = String(
+    car['Contract'] || car['حاله التعاقد'] || ''
+  ).toLowerCase().trim();
+  const combined   = contractAZ + ' ' + contractEN;
 
-  if (
-    cEN === 'expired' || cEN === 'finished' ||
-    cAR === 'منتهي'  || cAR === 'منتهى'   || isPast
-  ) return 'archived';
+  const isExpired =
+    combined.includes('منتهي')  ||
+    combined.includes('منتهى')  ||
+    combined.includes('expired') ||
+    combined.includes('finished');
+
+  if (isExpired) return 'archived';
+
+  // ---- Handover date — if past, car returned to owner ----
+  const handover = parseDBDate(
+    car['تاريخ التسليم'] || car['handover_date'] || ''
+  );
+  if (handover && new Date() > handover) return 'archived';
+
+  // ---- Operational status ----
+  const st  = (car.status || 'available').toLowerCase().trim();
+  const cEN = contractEN;
 
   if (st === 'accident'    || cEN === 'accident')    return 'accident';
   if (st === 'maintenance' || cEN === 'maintenance') return 'maintenance';
   if (st === 'rented')                               return 'rented';
 
-  // Check against live bookings cache
+  // ---- Live booking check ----
   if (G.bookings && G.bookings.length) {
-    const today  = new Date();
-    const carId  = String(car.ID || car.id || '').trim();
-    const orders = G.bookings.filter(
-      b => String(getOrderCarCode(b) || '').trim() === carId
-    );
+    const today = new Date();
 
-    const hasActive  = orders.some(o => {
-      const { start, end } = getOrderDates(o);
-      return start && end && start <= today && today <= end;
-    });
-    if (hasActive) return 'rented';
+    // Your sheet uses numeric IDs like "1", "11", "33" etc
+    const carId = String(
+      car.ID       ||
+      car['col_A'] ||
+      car['No.']   ||
+      car['A']     ||
+      car.id       || ''
+    ).trim();
 
-    const hasOverdue = orders.some(o => getOrderStatus(o) === 'Overdue');
-    if (hasOverdue)  return 'overdue';
+    if (carId) {
+      const carOrders = G.bookings.filter(b => {
+        const bCarId = String(
+          b['كود السيارة'] ||
+          b['col_D']       ||
+          b['D']           || ''
+        ).trim();
+        return bCarId !== '' && bCarId === carId;
+      });
 
-    const hasFuture  = orders.some(o => {
-      const { start } = getOrderDates(o);
-      return start && start > today;
-    });
-    if (hasFuture)   return 'future';
+      const hasActive = carOrders.some(o => {
+        const { start, end } = getOrderDates(o);
+        return start && end && start <= today && today <= end;
+      });
+      if (hasActive) return 'rented';
+
+      const hasOverdue = carOrders.some(o => getOrderStatus(o) === 'Overdue');
+      if (hasOverdue) return 'overdue';
+
+      const hasFuture = carOrders.some(o => {
+        const { start } = getOrderDates(o);
+        return start && start > today;
+      });
+      if (hasFuture) return 'future';
+    }
   }
 
   return 'available';
 };
 
-/**
- * Count cars by status and branch
- * Returns { counts, branchCounts }
- */
+// ============================================================
+// CAR COUNTS
+// ============================================================
+
 window.getCarCounts = function() {
   const counts = {
     active: 0, archived: 0, accident: 0, maintenance: 0, rented: 0
@@ -443,14 +447,28 @@ window.getCarCounts = function() {
 
     if (cat === 'archived') return;
 
-    const b   = (car.Branch || car.City || car['المحافظة'] || '').toLowerCase();
+    // Branch from your sheet fields
+    const b   = (
+      car.Branch        ||
+      car.City          ||
+      car['محافظة']     ||
+      car['المحافظة']   ||
+      car['col_CF']     ||
+      car.current_location || ''
+    ).toLowerCase();
+
     const loc = (car.current_location || '').toUpperCase();
     let branch = '';
 
-    if (loc.startsWith('HRG') || b.includes('hurghada') || b.includes('hrg') || b.includes('الغردقة'))   branch = 'HRG';
-    else if (loc.startsWith('ALX') || b.includes('alexandria') || b.includes('alx') || b.includes('اسكندرية')) branch = 'ALX';
-    else if (loc.startsWith('CAI') || b.includes('cairo')      || b.includes('cai') || b.includes('قاهرة'))    branch = 'CAI';
-    else if (loc.startsWith('RSH') || b.includes('rashid')     || b.includes('rsh') || b.includes('رشيد'))     branch = 'RSH';
+    if (loc.startsWith('HRG') || b.includes('hurghada') ||
+        b.includes('hrg') || b.includes('الغردقة'))      branch = 'HRG';
+    else if (loc.startsWith('ALX') || b.includes('alexandria') ||
+        b.includes('alx') || b.includes('اسكندرية') ||
+        b.includes('الاسكندرية'))                         branch = 'ALX';
+    else if (loc.startsWith('CAI') || b.includes('cairo') ||
+        b.includes('cai') || b.includes('قاهرة'))         branch = 'CAI';
+    else if (loc.startsWith('RSH') || b.includes('rashid') ||
+        b.includes('rsh') || b.includes('رشيد'))          branch = 'RSH';
 
     if (!branch) branch = G.user?.branch || 'HRG';
     if (bc[branch] !== undefined) bc[branch]++;
@@ -459,17 +477,20 @@ window.getCarCounts = function() {
   return { counts, branchCounts: bc };
 };
 
-/**
- * Get the branch code for a car (HRG / ALX / CAI / RSH)
- */
 window.getCarBranchCode = function(car) {
   const b = (
-    car.Branch || car.City || car['المحافظة'] || car.current_location || ''
+    car.Branch        ||
+    car.City          ||
+    car['المحافظة']   ||
+    car['محافظة']     ||
+    car['col_CF']     ||
+    car.current_location || ''
   ).toLowerCase();
-  if (b.includes('hurghada')  || b.includes('الغردقة')    || b.includes('hrg')) return 'HRG';
-  if (b.includes('alexandria')|| b.includes('اسكندرية')   || b.includes('alx')) return 'ALX';
-  if (b.includes('cairo')     || b.includes('قاهرة')      || b.includes('cai')) return 'CAI';
-  if (b.includes('rashid')    || b.includes('رشيد')        || b.includes('rsh')) return 'RSH';
+
+  if (b.includes('hurghada')   || b.includes('الغردقة')    || b.includes('hrg')) return 'HRG';
+  if (b.includes('alexandria') || b.includes('اسكندرية')   || b.includes('alx')) return 'ALX';
+  if (b.includes('cairo')      || b.includes('قاهرة')      || b.includes('cai')) return 'CAI';
+  if (b.includes('rashid')     || b.includes('رشيد')        || b.includes('rsh')) return 'RSH';
   return '';
 };
 
@@ -477,11 +498,6 @@ window.getCarBranchCode = function(car) {
 // DOCUMENT REFERENCE GENERATOR
 // ============================================================
 
-/**
- * Generate a unique sequential document reference
- * Format: TYPE-BRANCH-DDMM-001 (e.g. CN-HRG-0512-003)
- * Uses Firestore transaction to guarantee uniqueness
- */
 window.generateDocRef = async function(type, branchCode) {
   const n    = new Date();
   const ddmm = String(n.getDate()).padStart(2, '0')
@@ -490,27 +506,25 @@ window.generateDocRef = async function(type, branchCode) {
 
   try {
     const seq = await db.runTransaction(async tx => {
-      const ref = db.collection('_counters').doc(key);
-      const doc = await tx.get(ref);
+      const ref  = db.collection('_counters').doc(key);
+      const doc  = await tx.get(ref);
       const next = doc.exists ? (doc.data().seq || 0) + 1 : 1;
       tx.set(ref, { seq: next, updated: Date.now() }, { merge: true });
       return next;
     });
     return `${type}-${branchCode || 'GEN'}-${ddmm}-${String(seq).padStart(3, '0')}`;
   } catch (e) {
-    // Fallback if transaction fails
     return `${type}-${branchCode || 'GEN'}-${ddmm}-${Date.now().toString().slice(-4)}`;
   }
 };
 
 // ============================================================
-// QR CODE AND BARCODE ATTACHMENT
+// QR CODE AND BARCODE
 // ============================================================
 
-/** Attach a QR code and barcode to elements by document reference */
 window.attachQRAndBarcode = function(ref) {
-  const qrId  = 'qr-' + ref.replace(/[^a-zA-Z0-9]/g, '');
-  const bcId  = 'bc-' + ref.replace(/[^a-zA-Z0-9]/g, '');
+  const qrId      = 'qr-' + ref.replace(/[^a-zA-Z0-9]/g, '');
+  const bcId      = 'bc-' + ref.replace(/[^a-zA-Z0-9]/g, '');
   const verifyUrl = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${ref}`;
 
   setTimeout(() => {
@@ -526,9 +540,7 @@ window.attachQRAndBarcode = function(ref) {
           colorLight:   '#ffffff',
           correctLevel: QRCode.CorrectLevel.M
         });
-      } catch (e) {
-        qrEl.textContent = ref;
-      }
+      } catch (e) { qrEl.textContent = ref; }
     }
 
     const bcEl = document.getElementById(bcId);
@@ -544,15 +556,11 @@ window.attachQRAndBarcode = function(ref) {
           margin:       2,
           background:   '#f8fafc'
         });
-      } catch (e) { /* barcode library not ready yet */ }
+      } catch (e) { /* barcode library not ready */ }
     }
   }, 300);
 };
 
-/**
- * Build the A4 document footer with QR, barcode, and stamp
- * Used by contracts, receipts, and proposals
- */
 window.a4FooterHTML = function(ref, docType, isRTL) {
   const qrId      = 'qr-' + ref.replace(/[^a-zA-Z0-9]/g, '');
   const bcId      = 'bc-' + ref.replace(/[^a-zA-Z0-9]/g, '');
@@ -560,16 +568,19 @@ window.a4FooterHTML = function(ref, docType, isRTL) {
 
   return `
     <div style="display:flex;align-items:center;gap:14px;background:#f8fafc;
-      border:1px solid #e2e8f0;border-radius:8px;padding:10px 13px;margin-top:14px;
-      ${isRTL ? 'direction:rtl;' : ''}">
+      border:1px solid #e2e8f0;border-radius:8px;padding:10px 13px;
+      margin-top:14px;${isRTL ? 'direction:rtl;' : ''}">
       <div id="${qrId}" style="flex-shrink:0;width:80px;height:80px;"></div>
       <div style="flex:1;">
         <div style="font-size:11px;font-weight:800;color:#1e40af;">
           BROTHERS EGY – ${docType}
         </div>
-        <div style="font-size:9px;color:#64748b;margin-top:2px;">Ref: ${ref}</div>
+        <div style="font-size:9px;color:#64748b;margin-top:2px;">
+          Ref: ${ref}
+        </div>
         <div style="font-size:9px;color:#64748b;">
-          Issued by: ${G.user?.username || '-'} | ${new Date().toLocaleString('en-GB')}
+          Issued by: ${G.user?.username || '-'} |
+          ${new Date().toLocaleString('en-GB')}
         </div>
         <div style="font-size:8px;color:#3b82f6;margin-top:2px;">
           Verify: sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${ref}
@@ -578,10 +589,12 @@ window.a4FooterHTML = function(ref, docType, isRTL) {
           style="max-width:180px;height:45px;display:block;margin-top:4px;">
         </canvas>
       </div>
-      <div style="border:3px solid #1e40af;border-radius:50%;width:68px;height:68px;
-        flex-shrink:0;display:flex;flex-direction:column;align-items:center;
+      <div style="border:3px solid #1e40af;border-radius:50%;
+        width:68px;height:68px;flex-shrink:0;
+        display:flex;flex-direction:column;align-items:center;
         justify-content:center;background:rgba(30,64,175,0.06);">
-        <div style="font-size:8px;font-weight:900;color:#1e40af;text-align:center;">
+        <div style="font-size:8px;font-weight:900;color:#1e40af;
+          text-align:center;">
           ${(G.user?.username || 'STAFF').toUpperCase()}
         </div>
         <div style="font-size:7px;color:#64748b;text-align:center;">
@@ -598,13 +611,9 @@ window.a4FooterHTML = function(ref, docType, isRTL) {
 // IMAGE COMPRESSION
 // ============================================================
 
-/**
- * Compress an image file before upload
- * Preserves PNG transparency, compresses JPEG
- */
 window.compressImage = function(file, maxW, quality) {
-  const outputType    = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-  const outputQuality = file.type === 'image/png' ? undefined : quality;
+  const outputType    = file.type === 'image/png' ? 'image/png'  : 'image/jpeg';
+  const outputQuality = file.type === 'image/png' ? undefined    : quality;
 
   return new Promise(resolve => {
     const img = new Image();
@@ -626,10 +635,6 @@ window.compressImage = function(file, maxW, quality) {
 // PRINT ISOLATION
 // ============================================================
 
-/**
- * Print a specific A4 element by ID
- * Hides everything else on the page during print
- */
 window.printModule = function(a4Id) {
   const a4El = document.getElementById(a4Id);
   if (!a4El) { toast('Nothing to print', 'warning'); return; }
@@ -664,13 +669,9 @@ window.printModule = function(a4Id) {
 };
 
 // ============================================================
-// DEBOUNCE UTILITY
+// DEBOUNCE
 // ============================================================
 
-/**
- * Return a debounced version of any function
- * Usage: const debouncedFn = debounce(myFn, 300);
- */
 window.debounce = function(fn, delay) {
   let timer;
   return function(...args) {
@@ -683,10 +684,6 @@ window.debounce = function(fn, delay) {
 // LOGGING
 // ============================================================
 
-/**
- * Write an action to the Firestore logs collection
- * Fails silently — never blocks the UI
- */
 window.logAction = async function(action, module, details) {
   if (!G.user) return;
   try {
@@ -707,7 +704,6 @@ window.logAction = async function(action, module, details) {
 
 // ============================================================
 // AUTO RECEIPT CREATION
-// Called after a contract is saved to create an initial receipt
 // ============================================================
 
 window.autoCreateReceipt = async function(
