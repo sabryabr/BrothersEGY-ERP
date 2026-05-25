@@ -1,0 +1,12 @@
+{
+  "name": "brothersegy-erp-sync",
+  "version": "3.0.0",
+  "description": "Brothers EGY ERP — Google Sheets to Firestore sync",
+  "scripts": {
+    "sync": "node sync-sheets.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.0.0",
+    "googleapis": "^126.0.0"
+  }
+}
