@@ -347,14 +347,11 @@ window.getCarById = function(id) {
 window.getCarStatusCategory = function(car) {
 
   // ---- Archived / inactive flags ----
-  // Sheets sync stores these as strings "true"/"false"
-  const isArchivedFlag = car.archived   === true  || car.archived   === 'true';
-  const isInactiveFlag = car.is_active  === false || car.is_active  === 'false';
+  const isArchivedFlag = car.archived  === true  || car.archived  === 'true';
+  const isInactiveFlag = car.is_active === false  || car.is_active === 'false';
   if (isArchivedFlag || isInactiveFlag) return 'archived';
 
   // ---- Contract status ----
-  // col_AZ = Arabic contract status from your sheet
-  // Contract = English contract status
   const contractAZ = String(car['col_AZ']       || '').toLowerCase().trim();
   const contractEN = String(
     car['Contract'] || car['حاله التعاقد'] || ''
@@ -362,14 +359,14 @@ window.getCarStatusCategory = function(car) {
   const combined   = contractAZ + ' ' + contractEN;
 
   const isExpired =
-    combined.includes('منتهي')  ||
-    combined.includes('منتهى')  ||
+    combined.includes('منتهي')   ||
+    combined.includes('منتهى')   ||
     combined.includes('expired') ||
     combined.includes('finished');
 
   if (isExpired) return 'archived';
 
-  // ---- Handover date — if past, car returned to owner ----
+  // ---- Handover date ----
   const handover = parseDBDate(
     car['تاريخ التسليم'] || car['handover_date'] || ''
   );
@@ -384,43 +381,45 @@ window.getCarStatusCategory = function(car) {
   if (st === 'rented')                               return 'rented';
 
   // ---- Live booking check ----
+  // The Firestore document ID is the car code used in bookings
+  // e.g. car doc "34" matches booking where كود السيارة = "34"
   if (G.bookings && G.bookings.length) {
     const today = new Date();
 
-    // Your sheet uses numeric IDs like "1", "11", "33" etc
-    const carId = String(
-      car.ID       ||
-      car['col_A'] ||
-      car['No.']   ||
-      car['A']     ||
-      car.id       || ''
-    ).trim();
+    // Use the Firestore document ID as the primary match key
+    // This is the car code from column A of your sheet
+    const carDocId = String(car.id || '').trim();
 
-    if (carId) {
-      const carOrders = G.bookings.filter(b => {
-        const bCarId = String(
-          b['كود السيارة'] ||
-          b['col_D']       ||
-          b['D']           || ''
-        ).trim();
-        return bCarId !== '' && bCarId === carId;
-      });
+    // Also check the ID field as fallback
+    const carIdField = String(car.ID || car['col_A'] || car['No.'] || '').trim();
 
-      const hasActive = carOrders.some(o => {
-        const { start, end } = getOrderDates(o);
-        return start && end && start <= today && today <= end;
-      });
-      if (hasActive) return 'rented';
+    const carOrders = G.bookings.filter(b => {
+      const bCarId = String(
+        b['كود السيارة'] ||
+        b['col_D']       ||
+        b['D']           || ''
+      ).trim();
 
-      const hasOverdue = carOrders.some(o => getOrderStatus(o) === 'Overdue');
-      if (hasOverdue) return 'overdue';
+      if (!bCarId) return false;
 
-      const hasFuture = carOrders.some(o => {
-        const { start } = getOrderDates(o);
-        return start && start > today;
-      });
-      if (hasFuture) return 'future';
-    }
+      // Match against both document ID and ID field
+      return bCarId === carDocId || bCarId === carIdField;
+    });
+
+    const hasActive = carOrders.some(o => {
+      const { start, end } = getOrderDates(o);
+      return start && end && start <= today && today <= end;
+    });
+    if (hasActive) return 'rented';
+
+    const hasOverdue = carOrders.some(o => getOrderStatus(o) === 'Overdue');
+    if (hasOverdue) return 'overdue';
+
+    const hasFuture = carOrders.some(o => {
+      const { start } = getOrderDates(o);
+      return start && start > today;
+    });
+    if (hasFuture) return 'future';
   }
 
   return 'available';
