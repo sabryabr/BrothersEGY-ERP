@@ -380,46 +380,46 @@ window.loadDashKPIs = async function() {
   window._kpiLoading = true;
 
   try {
-    const isPriv  = ['Admin', 'Executive'].includes(G.user?.role);
-    const period  = getPeriodFilter();
+    const isPriv     = ['Admin','Executive'].includes(G.user?.role);
+    const period     = getPeriodFilter();
+    const today      = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-    if (!G.activeBookings) G.activeBookings = G.bookings || [];
+    // ---- Active orders ----
+    // Streamlit definition: today is between start and end, not closed
+    const activeOrders = G.bookings.filter(o => {
+      if (o.closed === true || o.closed === 'true') return false;
+      const st = getOrderStatus(o);
+      if (st === 'Closed' || st === 'Cancelled') return false;
+      const { start, end } = getOrderDates(o);
+      if (!start || !end) return false;
+      return start <= today && end >= todayStart;
+    });
 
-    let bookings = G.activeBookings;
-    if (!isPriv) {
-      bookings = bookings.filter(o =>
-        o['فرع الإصدار']    === G.user.branch ||
-        o.assigned_user === G.user.username   ||
-        (!o['فرع الإصدار'] && !o.assigned_user)
-      );
-    }
+    _setKPI('kpi-active', activeOrders.length);
 
-    // Active orders
-    const active = bookings.filter(o => getOrderStatus(o) === 'Active').length;
-    _setKPI('kpi-active', active);
-
-    // Overdue orders (2026+ only, excludes ancient history)
-    const OVERDUE_CUTOFF = new Date('2025-01-01');
-    const overdue = G.bookings.filter(o => {
-      if (o.closed === true)              return false;
-      if (getOrderStatus(o) === 'Closed') return false;
-      if (o['الحالة'] === 'منتهي')        return false;
-      if (!isPriv &&
-          o['فرع الإصدار'] !== G.user.branch &&
-          o.assigned_user  !== G.user.username) return false;
+    // ---- Overdue orders ----
+    // End date has passed, not closed, only 2026+ to exclude history
+    const CUTOFF = new Date('2026-01-01');
+    const overdueOrders = G.bookings.filter(o => {
+      if (o.closed === true || o.closed === 'true') return false;
+      const st = getOrderStatus(o);
+      if (st === 'Closed' || st === 'Cancelled') return false;
       const { end } = getOrderDates(o);
-      if (!end || end < OVERDUE_CUTOFF)   return false;
-      return new Date() > end;
-    }).length;
-    _setKPI('kpi-overdue', overdue);
+      if (!end || end < CUTOFF) return false;
+      return end < todayStart;
+    });
 
-    // Available cars
-    const available = G.fleet.filter(c =>
-      getCarStatusCategory(c) === 'available'
+    _setKPI('kpi-overdue', overdueOrders.length);
+
+    // ---- Available cars ----
+    const availableCars = G.fleet.filter(
+      c => getCarStatusCategory(c) === 'available'
     ).length;
-    _setKPI('kpi-avail', available);
+    _setKPI('kpi-avail', availableCars);
 
-    // Tasks (cached 60s)
+    // ---- Tasks ----
     try {
       if (
         window._cachedTaskCount === undefined ||
@@ -427,7 +427,7 @@ window.loadDashKPIs = async function() {
       ) {
         const snap = await db.collection('tasks')
           .where('assigned_to', '==', G.user.username)
-          .where('status', 'in', ['pending', 'inprogress'])
+          .where('status', 'in', ['pending','inprogress'])
           .get();
         window._cachedTaskCount = snap.size;
         window._taskCacheTime   = Date.now();
@@ -437,16 +437,15 @@ window.loadDashKPIs = async function() {
       _setKPI('kpi-tasks', 0);
     }
 
-    // Draft proposals
-    _setKPI(
-      'kpi-proposals',
+    // ---- Draft proposals ----
+    _setKPI('kpi-proposals',
       G.proposals.filter(p => p.status === 'Draft').length
     );
 
-    // Revenue (period-filtered)
+    // ---- Revenue ----
     await _loadDashRevenue(period, isPriv);
 
-    // Update revenue label
+    // Update labels
     const subEl   = document.getElementById('kpi-revenue-sub');
     const labelEl = document.getElementById('kpi-revenue-label');
     if (subEl)   subEl.textContent   = period.label === 'All Time' ? 'All time' : period.label;
