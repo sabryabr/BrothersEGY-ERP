@@ -2,6 +2,7 @@
 // core/utils.js
 // Pure helper functions — no DOM, no Firebase, no side effects
 // Updated to handle string booleans from Google Sheets sync
+// Egypt timezone support
 // ============================================================
 
 // ============================================================
@@ -41,7 +42,6 @@ window.parseDBDate = function(str) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Normalize "2025-11-27 7:00" → "2025-11-27T7:00" for Safari
   clean = clean.replace(
     /^(\d{4}-\d{1,2}-\d{1,2})\s+(\d{1,2}:\d{2})/,
     '$1T$2'
@@ -54,7 +54,6 @@ window.parseDBDate = function(str) {
     return d;
   }
 
-  // DD/MM/YYYY fallback
   const dmy = clean.match(
     /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[T\s]+(\d{1,2}):(\d{2}))?/
   );
@@ -67,7 +66,6 @@ window.parseDBDate = function(str) {
     return isNaN(d.getTime()) ? null : d;
   }
 
-  // YYYY/MM/DD fallback
   const ymd = clean.match(
     /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2}))?/
   );
@@ -97,6 +95,23 @@ window.parseDateFromComponents = function(doc, prefix) {
 
   const d = new Date(year, month - 1, day, hour, min);
   return isNaN(d.getTime()) ? null : d;
+};
+
+// ============================================================
+// EGYPT TIMEZONE HELPERS
+// ============================================================
+
+window.getCairoNow = function() {
+  const cairoStr = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Africa/Cairo'
+  });
+  return new Date(cairoStr);
+};
+
+window.getCairoDateStr = function() {
+  return new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Africa/Cairo'
+  });
 };
 
 // ============================================================
@@ -166,10 +181,10 @@ window.getOrderCarCode = function(order) {
 };
 
 window.getOrderNo = function(order) {
-  return order['No.'] ||
-         order['col_A'] ||
-         order['A']     ||
-         order.id       || '';
+  return order['No.']    ||
+         order['col_A']  ||
+         order['A']      ||
+         order.id        || '';
 };
 
 // ============================================================
@@ -190,8 +205,9 @@ window.getOrderStatus = function(order) {
   const paid  = getOrderPaid(order);
   if (total > 0 && paid >= total) return 'Closed';
 
-  if (raw === 'Closed' || order.closed === true || order.closed === 'true')
-    return 'Closed';
+  if (raw === 'Closed' ||
+      order.closed === true ||
+      order.closed === 'true') return 'Closed';
 
   const { start, end } = getOrderDates(order);
   const today      = new Date();
@@ -241,10 +257,7 @@ window.fmtCRMDate = function(val) {
 };
 
 window.todayISO = function() {
-  const n = new Date();
-  return n.getFullYear() + '-'
-    + String(n.getMonth() + 1).padStart(2, '0') + '-'
-    + String(n.getDate()).padStart(2, '0');
+  return getCairoDateStr();
 };
 
 window.getTimeAgo = function(ts) {
@@ -283,16 +296,16 @@ window.initials = function(name) {
 // ============================================================
 // FLEET HELPERS
 // Updated to handle pre-built labels from Sheets sync
-// and string booleans ("true"/"false" instead of true/false)
+// and string booleans from sync
 // ============================================================
 
-window.getCarLabel = function(car, lang = 'en') {
-  // Use pre-built labels from Sheets sync
+window.getCarLabel = function(car, lang) {
+  lang = lang || 'en';
+
   if (lang === 'ar' && car.car_label_ar) return car.car_label_ar;
   if (lang === 'en' && car.car_label)    return car.car_label;
   if (lang === 'ar' && car.car_label)    return car.car_label;
 
-  // Build from individual fields
   const typeEN  = String(car.Type    || car['النوع']   || car['col_C'] || '').trim();
   const modelEN = String(car.Model   || car['col_F']   || '').trim();
   const modelAR = String(car['الطراز'] || car['col_E'] || '').trim();
@@ -310,10 +323,8 @@ window.getCarLabel = function(car, lang = 'en') {
 };
 
 window.formatPlate = function(car) {
-  // Pre-built plate from sync
   if (car.plate && car.plate.length > 2) return car.plate;
 
-  // Build from column fields
   const parts = [
     car['col_W'],  car['col_X'],  car['col_Y'],
     car['col_Z'],  car['col_AA'], car['col_AB'], car['col_AC']
@@ -327,8 +338,6 @@ window.formatPlate = function(car) {
 window.getCarById = function(id) {
   if (!id) return null;
   const strId = String(id).trim();
-
-  // Match against every possible ID field
   return G.fleet.find(c =>
     String(c.id       || '').trim() === strId ||
     String(c.ID       || '').trim() === strId ||
@@ -340,38 +349,42 @@ window.getCarById = function(id) {
 
 // ============================================================
 // CAR STATUS CATEGORY
-// Handles both boolean and string boolean values from sync
-// e.g. archived = "true" (string) as well as archived = true
+// Key rules:
+// 1. Active booking today → always RENTED (overrides archived)
+// 2. Archived/expired flags → ARCHIVED
+// 3. Future booking → FUTURE
+// 4. Recent overdue (last 30 days) → OVERDUE
+// 5. Otherwise → AVAILABLE
 // ============================================================
 
 window.getCarStatusCategory = function(car) {
 
-  // ---- Check live bookings FIRST ----
-  // A car with an active booking today is ALWAYS rented
-  // regardless of any archived/expired flags in the sheet
   const carDocId = String(car.id || '').trim();
 
+  // ---- Rule 1: Active booking TODAY overrides everything ----
   if (carDocId && G.bookings && G.bookings.length) {
     const today      = new Date();
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const carOrders = G.bookings.filter(b => {
+    const carOrders = G.bookings.filter(function(b) {
       const bCarId = String(
         b['كود السيارة'] || b['col_D'] || b['D'] || ''
       ).trim();
       return bCarId !== '' && bCarId === carDocId;
     });
 
-    // Active today — overrides everything including archived flags
-    const hasActiveToday = carOrders.some(o => {
-      const { start, end } = getOrderDates(o);
+    const hasActiveToday = carOrders.some(function(o) {
+      const dates = getOrderDates(o);
+      const start = dates.start;
+      const end   = dates.end;
       return start && end && start <= today && end >= todayStart;
     });
+
     if (hasActiveToday) return 'rented';
   }
 
-  // ---- Now check archived / inactive flags ----
+  // ---- Rule 2: Archived / inactive flags ----
   const isArchivedFlag = car.archived  === true  || car.archived  === 'true';
   const isInactiveFlag = car.is_active === false  || car.is_active === 'false';
   if (isArchivedFlag || isInactiveFlag) return 'archived';
@@ -392,13 +405,12 @@ window.getCarStatusCategory = function(car) {
   if (isExpired) return 'archived';
 
   // ---- Handover date ----
-  // Only archive if handover is past AND there is no active booking
   const handover = parseDBDate(
     car['تاريخ التسليم'] || car['handover_date'] || ''
   );
   if (handover && new Date() > handover) return 'archived';
 
-  // ---- Operational status ----
+  // ---- Operational status flags ----
   const st  = (car.status || 'available').toLowerCase().trim();
   const cEN = contractEN;
 
@@ -406,25 +418,43 @@ window.getCarStatusCategory = function(car) {
   if (st === 'maintenance' || cEN === 'maintenance') return 'maintenance';
   if (st === 'rented')                               return 'rented';
 
-  // ---- Check future and overdue bookings ----
+  // ---- Check future and recent overdue bookings ----
   if (carDocId && G.bookings && G.bookings.length) {
-    const today = new Date();
+    const today      = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-    const carOrders = G.bookings.filter(b => {
+    const carOrders = G.bookings.filter(function(b) {
       const bCarId = String(
         b['كود السيارة'] || b['col_D'] || b['D'] || ''
       ).trim();
       return bCarId !== '' && bCarId === carDocId;
     });
 
-    const hasOverdue = carOrders.some(o => getOrderStatus(o) === 'Overdue');
-    if (hasOverdue) return 'overdue';
-
-    const hasFuture = carOrders.some(o => {
-      const { start } = getOrderDates(o);
-      return start && start > today;
+    // Future booking — car is reserved
+    const hasFuture = carOrders.some(function(o) {
+      const dates = getOrderDates(o);
+      return dates.start && dates.start > today;
     });
     if (hasFuture) return 'future';
+
+    // Only mark OVERDUE if booking ended within last 30 days
+    // This prevents old 2024 bookings from marking a car as overdue
+    const cutoff30 = new Date();
+    cutoff30.setDate(cutoff30.getDate() - 30);
+
+    const hasRecentOverdue = carOrders.some(function(o) {
+      if (o.closed === true || o.closed === 'true') return false;
+      const st2 = getOrderStatus(o);
+      if (st2 === 'Closed' || st2 === 'Cancelled') return false;
+      const dates = getOrderDates(o);
+      const end   = dates.end;
+      if (!end) return false;
+      // Must have ended within the last 30 days to count as overdue
+      return end < todayStart && end > cutoff30;
+    });
+
+    if (hasRecentOverdue) return 'overdue';
   }
 
   return 'available';
@@ -440,7 +470,7 @@ window.getCarCounts = function() {
   };
   const bc = { HRG: 0, ALX: 0, CAI: 0, RSH: 0 };
 
-  G.fleet.forEach(car => {
+  G.fleet.forEach(function(car) {
     const cat = getCarStatusCategory(car);
 
     if      (cat === 'archived')    counts.archived++;
@@ -451,8 +481,7 @@ window.getCarCounts = function() {
 
     if (cat === 'archived') return;
 
-    // Branch from your sheet fields
-    const b   = (
+    const b = (
       car.Branch        ||
       car.City          ||
       car['محافظة']     ||
@@ -465,14 +494,14 @@ window.getCarCounts = function() {
     let branch = '';
 
     if (loc.startsWith('HRG') || b.includes('hurghada') ||
-        b.includes('hrg') || b.includes('الغردقة'))      branch = 'HRG';
+        b.includes('hrg')     || b.includes('الغردقة'))     branch = 'HRG';
     else if (loc.startsWith('ALX') || b.includes('alexandria') ||
-        b.includes('alx') || b.includes('اسكندرية') ||
-        b.includes('الاسكندرية'))                         branch = 'ALX';
+        b.includes('alx')     || b.includes('اسكندرية') ||
+        b.includes('الاسكندرية'))                             branch = 'ALX';
     else if (loc.startsWith('CAI') || b.includes('cairo') ||
-        b.includes('cai') || b.includes('قاهرة'))         branch = 'CAI';
+        b.includes('cai')     || b.includes('قاهرة'))         branch = 'CAI';
     else if (loc.startsWith('RSH') || b.includes('rashid') ||
-        b.includes('rsh') || b.includes('رشيد'))          branch = 'RSH';
+        b.includes('rsh')     || b.includes('رشيد'))          branch = 'RSH';
 
     if (!branch) branch = G.user?.branch || 'HRG';
     if (bc[branch] !== undefined) bc[branch]++;
@@ -509,7 +538,7 @@ window.generateDocRef = async function(type, branchCode) {
   const key  = `${type}-${branchCode || 'GEN'}-${ddmm}`;
 
   try {
-    const seq = await db.runTransaction(async tx => {
+    const seq = await db.runTransaction(async function(tx) {
       const ref  = db.collection('_counters').doc(key);
       const doc  = await tx.get(ref);
       const next = doc.exists ? (doc.data().seq || 0) + 1 : 1;
@@ -531,7 +560,7 @@ window.attachQRAndBarcode = function(ref) {
   const bcId      = 'bc-' + ref.replace(/[^a-zA-Z0-9]/g, '');
   const verifyUrl = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${ref}`;
 
-  setTimeout(() => {
+  setTimeout(function() {
     const qrEl = document.getElementById(qrId);
     if (qrEl) {
       qrEl.innerHTML = '';
@@ -584,7 +613,7 @@ window.a4FooterHTML = function(ref, docType, isRTL) {
         </div>
         <div style="font-size:9px;color:#64748b;">
           Issued by: ${G.user?.username || '-'} |
-          ${new Date().toLocaleString('en-GB')}
+          ${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' })}
         </div>
         <div style="font-size:8px;color:#3b82f6;margin-top:2px;">
           Verify: sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${ref}
@@ -605,7 +634,7 @@ window.a4FooterHTML = function(ref, docType, isRTL) {
           ${BRANCH_MAP[G.user?.branch] || G.user?.branch || ''}
         </div>
         <div style="font-size:6px;color:#94a3b8;text-align:center;">
-          ${new Date().toLocaleDateString('en-GB')}
+          ${new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Cairo' })}
         </div>
       </div>
     </div>`;
@@ -619,16 +648,16 @@ window.compressImage = function(file, maxW, quality) {
   const outputType    = file.type === 'image/png' ? 'image/png'  : 'image/jpeg';
   const outputQuality = file.type === 'image/png' ? undefined    : quality;
 
-  return new Promise(resolve => {
+  return new Promise(function(resolve) {
     const img = new Image();
     const url = URL.createObjectURL(file);
-    img.onload = () => {
+    img.onload = function() {
       const scale  = Math.min(1, maxW / img.width);
       const canvas = document.createElement('canvas');
       canvas.width  = img.width  * scale;
       canvas.height = img.height * scale;
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(b => resolve(b), outputType, outputQuality);
+      canvas.toBlob(function(b) { resolve(b); }, outputType, outputQuality);
       URL.revokeObjectURL(url);
     };
     img.src = url;
@@ -666,9 +695,11 @@ window.printModule = function(a4Id) {
     logAction('PRINT', G.currentPage, `Printed: ${a4Id}`);
   }
 
-  setTimeout(() => {
+  setTimeout(function() {
     window.print();
-    setTimeout(() => document.getElementById('print-iso')?.remove(), 500);
+    setTimeout(function() {
+      document.getElementById('print-iso')?.remove();
+    }, 500);
   }, 150);
 };
 
@@ -678,9 +709,11 @@ window.printModule = function(a4Id) {
 
 window.debounce = function(fn, delay) {
   let timer;
-  return function(...args) {
+  return function() {
+    const args = arguments;
+    const ctx  = this;
     clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), delay);
+    timer = setTimeout(function() { fn.apply(ctx, args); }, delay);
   };
 };
 
@@ -699,7 +732,7 @@ window.logAction = async function(action, module, details) {
       module,
       details,
       timestamp: Date.now(),
-      timeStr:   new Date().toLocaleString('en-GB')
+      timeStr:   new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' })
     });
   } catch (e) {
     console.warn('Log failed:', e.message);
@@ -715,8 +748,8 @@ window.autoCreateReceipt = async function(
 ) {
   if (!amount || amount <= 0) return;
 
+  const cairoDate  = getCairoDateStr();
   const now        = new Date();
-  const dateStr    = now.toISOString().slice(0, 10);
   const monthStr   = String(now.getMonth() + 1).padStart(2, '0');
   const dayStr     = String(now.getDate()).padStart(2, '0');
   const branchCode = (branch || 'HRG').toUpperCase().slice(0, 3);
@@ -724,7 +757,7 @@ window.autoCreateReceipt = async function(
   try {
     const snap = await db.collection('receipts')
       .where('branch_code', '==', branchCode)
-      .where('receipt_date', '==', dateStr)
+      .where('receipt_date', '==', cairoDate)
       .get();
 
     const nextNum    = String(snap.size + 1).padStart(3, '0');
@@ -738,7 +771,7 @@ window.autoCreateReceipt = async function(
       car_label:       carLabel,
       branch,
       branch_code:     branchCode,
-      receipt_date:    dateStr,
+      receipt_date:    cairoDate,
       type:            'Income',
       currency:        currency || 'EGP',
       amount_egp:      parseFloat(amount) || 0,
