@@ -528,20 +528,25 @@ window.renderGantt = async function() {
 // ---- Filter cars for Gantt ----
 function _filterCarsForGantt() {
   return G.fleet.filter(car => {
-    const isArchived    = car.archived === true || car.is_active === false;
-    const st            = (car.status || '').toLowerCase().trim();
-    const cEN           = (car.Contract || '').toLowerCase().trim();
-    const isAccident    = st === 'accident'    || cEN === 'accident';
-    const isMaint       = st === 'maintenance' || cEN === 'maintenance';
-    const isActive      = !isArchived && !isAccident && !isMaint;
+
+    // Always exclude archived cars from Gantt
+    // regardless of filter settings
+    const cat = getCarStatusCategory(car);
+    if (cat === 'archived') return false;
+
+    // Apply status filter
+    const isAccident    = cat === 'accident';
+    const isMaint       = cat === 'maintenance';
+    const isActive      = !isAccident && !isMaint;
 
     const statusPass =
-      (isArchived  && FLEET_FILTER.status.archived)    ||
-      (isAccident  && FLEET_FILTER.status.accident)    ||
-      (isMaint     && FLEET_FILTER.status.maintenance) ||
-      (isActive    && FLEET_FILTER.status.active);
+      (isAccident && FLEET_FILTER.status.accident)    ||
+      (isMaint    && FLEET_FILTER.status.maintenance) ||
+      (isActive   && FLEET_FILTER.status.active);
+
     if (!statusPass) return false;
 
+    // Apply branch filter
     const allOn  = Object.values(FLEET_FILTER.branches).every(v => v);
     const noneOn = !Object.values(FLEET_FILTER.branches).some(v => v);
     if (noneOn) return false;
@@ -561,8 +566,9 @@ function _filterCarsForGantt() {
       if (!branchPass) return false;
     }
 
+    // Apply search filter
     if (FLEET_FILTER.search) {
-      const q   = FLEET_FILTER.search;
+      const q   = FLEET_FILTER.search.toLowerCase();
       const hay = [
         car.plate, car.model, car.Color, car.year, car.Type,
         car['اللون'], car['الطراز'], car['سنة الصنع'],
@@ -1678,12 +1684,8 @@ function _v360RenderGrid() {
   const tab = window._v360Tab || 'active';
 
   if (tab === 'active') {
-    cars = G.fleet.filter(c =>
-      c.is_active === true ||
-      c.Contract === 'Valid' ||
-      c['حاله التعاقد'] === 'ساري' ||
-      (!c.archived && c.is_active !== false)
-    );
+  cars = G.fleet.filter(c => getCarStatusCategory(c) !== 'archived');
+  
   } else if (tab === 'archived') {
     cars = G.fleet.filter(c =>
       c.archived === true || c.is_active === false
