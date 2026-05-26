@@ -42,7 +42,8 @@ window.loadDashboard = async function() {
         <p>Welcome back, <strong>${G.user?.username}</strong> —
           ${new Date().toLocaleDateString('en-GB', {
             weekday: 'long', year: 'numeric',
-            month: 'long',   day:  'numeric'
+            month: 'long',   day:  'numeric',
+			timeZone: 'Africa/Cairo'
           })}
         </p>
       </div>
@@ -523,10 +524,12 @@ async function _loadDashRevenue(period, isPriv) {
 
 window.loadDashTodayStats = async function() {
   try {
-    const today      = new Date();
-    const todayStr   = today.toISOString().slice(0, 10);
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const todayEnd   = new Date(todayStart.getTime() + 86400000);
+	const now        = new Date();
+	const cairoStr   = now.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' }); // YYYY-MM-DD
+	const todayStr   = cairoStr;
+	const today      = new Date(cairoStr);
+	const todayStart = new Date(cairoStr);
+	const todayEnd   = new Date(todayStart.getTime() + 86400000);
     const orders     = G.bookings || [];
 
     const pickups = orders.filter(o => {

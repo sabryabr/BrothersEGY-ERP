@@ -205,7 +205,17 @@ window.loadBookingsData = async function() {
     const snap = await db.collection('bookings').limit(1000).get();
     G.bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     _buildActiveBookings();
-    updateDashboardKPIs();
+    updateDashboardKPIs();  // This is already here
+
+    // Also trigger full dashboard KPI reload if on dashboard
+    const active = document.querySelector('.page-section.active');
+    if (active?.id === 'page-dashboard' && typeof loadDashKPIs === 'function') {
+      clearTimeout(window._dashKpiTimer);
+      window._dashKpiTimer = setTimeout(() => {
+        window._kpiLoading = false;
+        loadDashKPIs();
+      }, 500);
+    }
   } catch (e) {
     console.warn('Bookings load failed:', e.message);
   }
