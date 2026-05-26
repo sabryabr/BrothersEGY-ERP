@@ -9,12 +9,7 @@
 // NAVIGATION
 // ============================================================
 
-/**
- * Navigate to a page section
- * Pushes previous page to NAV_HISTORY unless going back
- */
 window.showPage = function(pageId, params = {}) {
-  // Push previous page to history
   if (
     G.currentPage &&
     G.currentPage !== pageId &&
@@ -33,15 +28,12 @@ window.showPage = function(pageId, params = {}) {
   G._navGoingBack = false;
   G.currentParams = params;
 
-  // Deactivate all sections
   document.querySelectorAll('.page-section')
     .forEach(s => s.classList.remove('active'));
 
-  // Activate target section
   const target = document.getElementById('page-' + pageId);
   if (target) target.classList.add('active');
 
-  // Update sidebar active state
   document.querySelectorAll('.nav-item')
     .forEach(n => n.classList.remove('active'));
   const navItem = document.querySelector(
@@ -49,33 +41,20 @@ window.showPage = function(pageId, params = {}) {
   );
   if (navItem) navItem.classList.add('active');
 
-  // Update state
   G.currentPage = pageId;
-
-  // Render the page content
   renderPage(pageId);
-
-  // Log the navigation
   logAction('VIEW', pageId, `Opened: ${pageId}`);
 
-  // Handle return banner
   if (G.pendingReturn?.destination === pageId) {
     showReturnBanner();
   } else {
     hideReturnBanner();
   }
 
-  // Close mobile sidebar if open
   document.getElementById('sidebar')?.classList.remove('mobile-open');
-
-  // Update back button
   updateBackBtn();
 };
 
-/**
- * Route a page ID to its render function
- * Each module exports its render function to window
- */
 window.renderPage = function(pageId) {
   const renders = {
     'dashboard':       () => renderDashboard(),
@@ -114,10 +93,6 @@ window.renderPage = function(pageId) {
   }
 };
 
-/**
- * Show a loading spinner inside a page section
- * Called by each module before its async data loads
- */
 window.renderPageLoading = function(pageId, icon, title) {
   const el = document.getElementById(pageId);
   if (!el) return;
@@ -135,23 +110,16 @@ window.renderPageLoading = function(pageId, icon, title) {
 // SIDEBAR
 // ============================================================
 
-/**
- * Toggle sidebar between expanded and collapsed states
- */
 window.toggleSidebar = function() {
   const sb  = document.getElementById('sidebar');
   const btn = document.getElementById('sidebar-toggle');
-
   G.sidebarCollapsed = !G.sidebarCollapsed;
   sb?.classList.toggle('collapsed', G.sidebarCollapsed);
-
   if (btn) btn.textContent = G.sidebarCollapsed ? '▶' : '◀';
 };
 
 // ============================================================
 // SHARED DATA LOADING
-// Loads fleet, customers, proposals and bookings into G cache
-// Called once on login, then kept fresh by realtime listeners
 // ============================================================
 
 window.loadSharedData = async function() {
@@ -161,9 +129,7 @@ window.loadSharedData = async function() {
     loadProposalsData(),
     loadBookingsData()
   ]);
-
   updateSidebarBadges();
-
   try {
     initRealtimeListeners();
   } catch (e) {
@@ -171,42 +137,46 @@ window.loadSharedData = async function() {
   }
 };
 
+// ============================================================
+// FLEET DATA LOADER
+// Builds car_label from sheet columns if missing
+// Sets ID = Firestore doc ID so booking matching works
+// ============================================================
+
 window.loadFleetData = async function() {
   try {
-    const snap = await db.collection('fleet').get();
+    const snap    = await db.collection('fleet').get();
     const allCars = snap.docs.map(d => {
-      const data = d.data();
-
-      // The Firestore document ID IS the car code (set by sync from col A)
-      // Make sure ID field is always set to the document ID
-      // so matching against booking car codes works correctly
+      const data  = d.data();
       const docId = d.id;
 
-      // Only set ID if not already correctly set
-      if (!data.ID || String(data.ID) !== String(docId)) {
-        data.ID = docId;
-      }
+      // Firestore document ID IS the car code from col A
+      // Always sync it to the ID field
+      data.ID = docId;
 
-      // Build car_label if missing (for cars 50, 51, 52 that were
-      // added before the label-building logic existed)
+      // Build English car label if missing
       if (!data.car_label) {
-        const brand = String(data['col_C'] || data['col_B'] || data.Type || '').trim();
-        const model = String(data['col_F'] || data.Model || '').trim();
-        const year  = String(data['col_H'] || data['سنة الصنع'] || '').trim();
-        const color = String(data['col_J'] || data.Color || '').trim();
+        const brand = String(data['col_C'] || data['Type']        || '').trim();
+        const model = String(data['col_F'] || data['Model']       || '').trim();
+        const year  = String(data['col_H'] || data['سنة الصنع']  || '').trim();
+        const color = String(data['col_J'] || data['Color']       || '').trim();
         const plate = data.plate || '';
         if (brand || model) {
-          data.car_label = `${brand} ${model} (${year}) ${color} | ${plate}`.trim();
+          data.car_label =
+            `${brand} ${model} (${year}) ${color}${plate ? ' | ' + plate : ''}`.trim();
         }
       }
 
+      // Build Arabic car label if missing
       if (!data.car_label_ar) {
-        const typeAR  = String(data['col_E'] || data['الطراز'] || '').trim();
-        const colorAR = String(data['col_I'] || data['اللون'] || '').trim();
-        const year    = String(data['col_H'] || data['سنة الصنع'] || '').trim();
+        const brandAR = String(data['col_B'] || data['النوع']    || '').trim();
+        const modelAR = String(data['col_E'] || data['الطراز']   || '').trim();
+        const year    = String(data['col_H'] || data['سنة الصنع']|| '').trim();
+        const colorAR = String(data['col_I'] || data['اللون']    || '').trim();
         const plate   = data.plate || '';
-        if (typeAR) {
-          data.car_label_ar = `${typeAR} (${year}) ${colorAR} | ${plate}`.trim();
+        if (brandAR || modelAR) {
+          data.car_label_ar =
+            `${modelAR || brandAR} (${year}) ${colorAR}${plate ? ' | ' + plate : ''}`.trim();
         }
       }
 
@@ -269,50 +239,63 @@ window.loadProposalsData = async function() {
 
 // ============================================================
 // ACTIVE BOOKINGS CACHE
-// Pre-filters G.bookings to remove cancelled and old records
 // ============================================================
 
 function _buildActiveBookings() {
   const CUTOFF = new Date('2026-01-01T00:00:00');
-
   G.activeBookings = G.bookings.filter(b => {
-    // Remove cancelled orders
     if (b['الحالة'] === 'ملغي') return false;
-
-    // Remove pre-2026 data to keep system fast
-    const dates = getOrderDates(b);
+    const dates       = getOrderDates(b);
     const compareDate = dates.end || dates.start;
     if (compareDate && compareDate < CUTOFF) return false;
-
     return true;
   });
 }
 
 // ============================================================
 // DASHBOARD KPI QUICK UPDATE
-// Updates available/active/overdue counts without full reload
+// Matches Streamlit definition:
+//   Active  = today between start and end, not closed
+//   Overdue = end date past, not closed, 2026+ only
 // ============================================================
 
 window.updateDashboardKPIs = function() {
+  const today      = new Date();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const CUTOFF = new Date('2026-01-01');
+
   // Available cars
   const availEl = document.getElementById('kpi-avail');
   if (availEl && G.fleet.length) {
     availEl.textContent = G.fleet.filter(
-      c => !c.archived && getCarStatusCategory(c) === 'available'
+      c => getCarStatusCategory(c) === 'available'
     ).length;
   }
 
-  // Active and overdue order counts
+  // Active orders — today between start and end, not closed
   const activeEl  = document.getElementById('kpi-active');
   const overdueEl = document.getElementById('kpi-overdue');
 
   if ((activeEl || overdueEl) && G.bookings.length) {
-    let active = 0, overdue = 0;
-    G.bookings.forEach(o => {
+    const active = G.bookings.filter(o => {
+      if (o.closed === true || o.closed === 'true') return false;
       const st = getOrderStatus(o);
-      if (st === 'Active')  active++;
-      if (st === 'Overdue') overdue++;
-    });
+      if (st === 'Closed' || st === 'Cancelled') return false;
+      const { start, end } = getOrderDates(o);
+      if (!start || !end) return false;
+      return start <= today && end >= todayStart;
+    }).length;
+
+    const overdue = G.bookings.filter(o => {
+      if (o.closed === true || o.closed === 'true') return false;
+      const st = getOrderStatus(o);
+      if (st === 'Closed' || st === 'Cancelled') return false;
+      const { end } = getOrderDates(o);
+      if (!end || end < CUTOFF) return false;
+      return end < todayStart;
+    }).length;
+
     if (activeEl)  activeEl.textContent  = active;
     if (overdueEl) overdueEl.textContent = overdue;
   }
@@ -323,45 +306,62 @@ window.updateDashboardKPIs = function() {
 // ============================================================
 
 window.updateSidebarBadges = async function() {
-  const isPriv = ['Admin', 'Executive'].includes(G.user?.role);
+  const isPriv     = ['Admin','Executive'].includes(G.user?.role);
+  const today      = new Date();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const CUTOFF     = new Date('2026-01-01');
 
   try {
-    // Orders badge
     if (!G.activeBookings) G.activeBookings = G.bookings || [];
     let orders = G.activeBookings;
 
     if (!isPriv) {
       orders = orders.filter(o =>
-        o['فرع الإصدار'] === G.user.branch ||
-        o.assigned_user  === G.user.username ||
+        o['فرع الإصدار']  === G.user.branch ||
+        o.assigned_user === G.user.username ||
         (!o['فرع الإصدار'] && !o.assigned_user)
       );
     }
 
+    // Count active orders (today between start and end)
     const activeCount = orders.filter(o => {
+      if (o.closed === true || o.closed === 'true') return false;
       const st = getOrderStatus(o);
-      return st === 'Active' || st === 'Overdue' || st === 'Future';
+      if (st === 'Closed' || st === 'Cancelled') return false;
+      const { start, end } = getOrderDates(o);
+      if (!start || !end) return false;
+      return start <= today && end >= todayStart;
+    }).length;
+
+    // Add overdue count (2026+ only)
+    const overdueCount = orders.filter(o => {
+      if (o.closed === true || o.closed === 'true') return false;
+      const st = getOrderStatus(o);
+      if (st === 'Closed' || st === 'Cancelled') return false;
+      const { end } = getOrderDates(o);
+      if (!end || end < CUTOFF) return false;
+      return end < todayStart;
     }).length;
 
     const ob = document.getElementById('badge-orders');
-    if (ob && activeCount > 0) {
-      ob.textContent = activeCount;
+    const total = activeCount + overdueCount;
+    if (ob && total > 0) {
+      ob.textContent = total;
       ob.classList.remove('hidden');
     }
 
-    // Risk badge — compute from fleet expiry dates
-    const today = new Date();
+    // Risk badge
     let riskCount = 0;
     G.fleet.forEach(car => {
       if (getCarStatusCategory(car) === 'archived') return;
-      ['نهاية الترخيص', 'نهاية التأمين', 'نهاية التعاقد'].forEach(field => {
+      ['نهاية الترخيص','نهاية التأمين','نهاية التعاقد'].forEach(field => {
         const d = parseDBDate(car[field]);
         if (!d) return;
         const daysLeft = Math.ceil((d - today) / 86400000);
         if (daysLeft <= 7) riskCount++;
       });
     });
-
     const rb = document.getElementById('badge-risk');
     if (rb && riskCount > 0) {
       rb.textContent = riskCount;
@@ -372,7 +372,7 @@ window.updateSidebarBadges = async function() {
     try {
       const taskSnap = await db.collection('tasks')
         .where('assigned_to', '==', G.user.username)
-        .where('status', 'in', ['pending', 'inprogress'])
+        .where('status', 'in', ['pending','inprogress'])
         .get();
       const tb = document.getElementById('badge-tasks');
       if (tb && !taskSnap.empty) {
@@ -381,12 +381,11 @@ window.updateSidebarBadges = async function() {
       }
     } catch (e) { /* silent */ }
 
-    // Approvals badge (admin only)
+    // Approvals badge
     if (isPriv) {
       try {
         const apSnap = await db.collection('approvals')
-          .where('status', '==', 'pending')
-          .get();
+          .where('status', '==', 'pending').get();
         const ab = document.getElementById('badge-approvals');
         if (ab && !apSnap.empty) {
           ab.textContent = apSnap.size;
@@ -395,7 +394,6 @@ window.updateSidebarBadges = async function() {
       } catch (e) { /* silent */ }
     }
 
-    // Proposals badge
     _updateProposalsBadge();
 
   } catch (e) {
@@ -405,7 +403,7 @@ window.updateSidebarBadges = async function() {
 
 function _updateProposalsBadge() {
   const draftCount = G.proposals.filter(p => p.status === 'Draft').length;
-  const pb = document.getElementById('badge-proposals');
+  const pb         = document.getElementById('badge-proposals');
   if (!pb) return;
   if (draftCount > 0) {
     pb.textContent = draftCount;
@@ -417,8 +415,6 @@ function _updateProposalsBadge() {
 
 // ============================================================
 // REALTIME LISTENERS
-// One listener per Firestore collection
-// Each updates the local cache and refreshes the active page
 // ============================================================
 
 window.initRealtimeListeners = function() {
@@ -434,19 +430,16 @@ window.initRealtimeListeners = function() {
 
       snap.docChanges().forEach(change => {
         const doc = { id: change.doc.id, ...change.doc.data() };
-
         if (change.type === 'added' || change.type === 'modified') {
           const idx = G.bookings.findIndex(b => b.id === doc.id);
           if (idx >= 0) G.bookings[idx] = doc;
           else          G.bookings.push(doc);
-
           const idx2 = allOrders.findIndex(b => b.id === doc.id);
           if (idx2 >= 0) allOrders[idx2] = doc;
           else if (idx === -1) allOrders.push(doc);
         }
-
         if (change.type === 'removed') {
-          G.bookings  = G.bookings.filter(b => b.id !== doc.id);
+          G.bookings       = G.bookings.filter(b => b.id !== doc.id);
           window.allOrders = allOrders.filter(b => b.id !== doc.id);
         }
       });
@@ -454,14 +447,33 @@ window.initRealtimeListeners = function() {
       _buildActiveBookings();
       _refreshActivePageAfterBookings();
     });
-
   G.unsubscribers.push(_bookingUnsub);
 
   // ---- Fleet ----
   const _fleetUnsub = db.collection('fleet')
     .onSnapshot(snap => {
       snap.docChanges().forEach(change => {
-        const doc = { id: change.doc.id, ...change.doc.data() };
+        const rawData = change.doc.data();
+        const docId   = change.doc.id;
+
+        // Always keep ID in sync with document ID
+        rawData.ID = docId;
+
+        // Rebuild label if missing
+        if (!rawData.car_label) {
+          const brand = String(rawData['col_C'] || rawData['Type']       || '').trim();
+          const model = String(rawData['col_F'] || rawData['Model']      || '').trim();
+          const year  = String(rawData['col_H'] || rawData['سنة الصنع'] || '').trim();
+          const color = String(rawData['col_J'] || rawData['Color']      || '').trim();
+          const plate = rawData.plate || '';
+          if (brand || model) {
+            rawData.car_label =
+              `${brand} ${model} (${year}) ${color}${plate ? ' | ' + plate : ''}`.trim();
+          }
+        }
+
+        const doc = { id: docId, ...rawData };
+
         if (change.type === 'added' || change.type === 'modified') {
           const idx = G.fleet.findIndex(c => c.id === doc.id);
           if (idx >= 0) G.fleet[idx] = doc;
@@ -477,7 +489,6 @@ window.initRealtimeListeners = function() {
         _refreshActivePageAfterFleet();
       }, 1500);
     });
-
   G.unsubscribers.push(_fleetUnsub);
 
   // ---- Proposals ----
@@ -495,16 +506,13 @@ window.initRealtimeListeners = function() {
           G.proposals = G.proposals.filter(p => p.id !== doc.id);
         }
       });
-
       _updateProposalsBadge();
-
       const active = document.querySelector('.page-section.active');
       if (active?.id === 'page-proposals' &&
           typeof renderProposalsList === 'function') {
         renderProposalsList();
       }
     });
-
   G.unsubscribers.push(_proposalUnsub);
 
   // ---- Customers ----
@@ -521,7 +529,6 @@ window.initRealtimeListeners = function() {
           G.customers = G.customers.filter(c => c.id !== doc.id);
         }
       });
-
       const active = document.querySelector('.page-section.active');
       if (active?.id === 'page-crm' &&
           typeof filterCRM === 'function') {
@@ -529,7 +536,6 @@ window.initRealtimeListeners = function() {
         window._crmRefreshTimer = setTimeout(filterCRM, 1000);
       }
     });
-
   G.unsubscribers.push(_customerUnsub);
 
   // ---- Tasks ----
@@ -543,7 +549,6 @@ window.initRealtimeListeners = function() {
           (t.status === 'pending' || t.status === 'inprogress')
         ) myPending++;
       });
-
       const tb = document.getElementById('badge-tasks');
       if (tb) {
         if (myPending > 0) {
@@ -553,7 +558,6 @@ window.initRealtimeListeners = function() {
           tb.classList.add('hidden');
         }
       }
-
       const active = document.querySelector('.page-section.active');
       if (active?.id === 'page-tasks' &&
           typeof switchTaskTab === 'function') {
@@ -563,7 +567,6 @@ window.initRealtimeListeners = function() {
         }, 1500);
       }
     });
-
   G.unsubscribers.push(_taskUnsub);
 
   // ---- Approvals ----
@@ -571,7 +574,7 @@ window.initRealtimeListeners = function() {
     .where('status', '==', 'pending')
     .onSnapshot(snap => {
       const count = snap.size;
-      const ab = document.getElementById('badge-approvals');
+      const ab    = document.getElementById('badge-approvals');
       if (ab) {
         if (count > 0) {
           ab.textContent = count;
@@ -580,7 +583,6 @@ window.initRealtimeListeners = function() {
           ab.classList.add('hidden');
         }
       }
-
       const active = document.querySelector('.page-section.active');
       if (active?.id === 'page-approvals' &&
           typeof loadApprovalsList === 'function') {
@@ -590,7 +592,6 @@ window.initRealtimeListeners = function() {
         );
       }
     });
-
   G.unsubscribers.push(_approvalUnsub);
 };
 
@@ -631,7 +632,6 @@ function _refreshActivePageAfterFleet() {
   const active = document.querySelector('.page-section.active');
   if (!active) return;
   const pid = active.id;
-
   if (pid === 'page-fleet-radar' &&
       typeof renderFleetRadar === 'function') renderFleetRadar();
   if (pid === 'page-vehicle-360' &&
@@ -642,7 +642,6 @@ function _refreshActivePageAfterFleet() {
 
 // ============================================================
 // FLEET DROPDOWNS
-// Populates car select elements used in contracts, proposals etc.
 // ============================================================
 
 window.populateFleetDropdowns = function() {
@@ -655,23 +654,21 @@ window.populateFleetDropdowns = function() {
   const opts = booking.map(car => {
     const cat = getCarStatusCategory(car);
     const dot =
-      cat === 'available'    ? '🟢' :
-      cat === 'rented'       ? '🔵' :
-      cat === 'accident'     ? '🔴' :
-      cat === 'maintenance'  ? '🟡' : '⚪';
+      cat === 'available'   ? '🟢' :
+      cat === 'rented'      ? '🔵' :
+      cat === 'accident'    ? '🔴' :
+      cat === 'maintenance' ? '🟡' : '⚪';
     return `<option value="${car.id}">
       ${dot} ${getCarLabel(car, 'en')}
     </option>`;
   }).join('');
 
   const first = '<option value="">-- Select Car --</option>';
-
-  ['pr-car', 'en-car', 'ar-car'].forEach(id => {
+  ['pr-car','en-car','ar-car'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = first + opts;
   });
 
-  // Update available cars badge
   const availCount = G.fleet.filter(
     c => getCarStatusCategory(c) === 'available'
   ).length;
@@ -684,7 +681,6 @@ window.populateFleetDropdowns = function() {
 
 // ============================================================
 // FLEET FILTER STATE
-// Persists filter preferences per user in localStorage
 // ============================================================
 
 window.initFleetFilterState = function() {
@@ -698,9 +694,7 @@ window.initFleetFilterState = function() {
       Object.assign(FLEET_FILTER.branches, p.branches || {});
     } catch (e) { /* use defaults */ }
   }
-
-  // Non-privileged users only see their own branch
-  if (!['Admin', 'Executive'].includes(G.user?.role)) {
+  if (!['Admin','Executive'].includes(G.user?.role)) {
     Object.keys(FLEET_FILTER.branches).forEach(b => {
       FLEET_FILTER.branches[b] = (b === G.user?.branch);
     });
@@ -723,18 +717,14 @@ window.saveFleetFilterState = function() {
 
 window.addEventListener('unhandledrejection', e => {
   const msg = e.reason?.message || String(e.reason) || 'Unknown error';
-
-  // Suppress known non-critical errors
   if (msg.includes('requires an index'))   return;
   if (msg.includes('aborted'))             return;
   if (msg.includes('cancelled'))           return;
   if (msg.includes('failed-precondition')) return;
-
   console.warn('[ERP Unhandled]', msg);
 });
 
 window.addEventListener('error', e => {
-  // Only log errors from our own files
   if (e.filename && !e.filename.includes(window.location.hostname)) return;
   console.warn('[ERP Error]', e.message, 'line:', e.lineno);
 });
@@ -745,7 +735,6 @@ window.addEventListener('error', e => {
 
 function _initMobileSidebar() {
   if (window.innerWidth > 768) return;
-
   const topbar = document.getElementById('topbar');
   if (!topbar || document.getElementById('mobile-menu-btn')) return;
 
@@ -758,10 +747,8 @@ function _initMobileSidebar() {
     color:var(--text2);font-size:18px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
     flex-shrink:0;`;
-
   btn.addEventListener('click', () => {
-    document.getElementById('sidebar')
-      ?.classList.toggle('mobile-open');
+    document.getElementById('sidebar')?.classList.toggle('mobile-open');
   });
 
   const brand = topbar.querySelector('.topbar-brand');
@@ -775,11 +762,9 @@ function _initMobileSidebar() {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // ---- Sidebar toggle button ----
   document.getElementById('sidebar-toggle')
     ?.addEventListener('click', toggleSidebar);
 
-  // ---- Sidebar nav item clicks ----
   document.querySelectorAll('.nav-item[data-page]')
     .forEach(item => {
       item.addEventListener('click', () => {
@@ -788,11 +773,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-  // ---- Mobile sidebar ----
   _initMobileSidebar();
   window.addEventListener('resize', _initMobileSidebar, { passive: true });
 
-  // ---- Inject global pulse keyframe if missing ----
   if (!document.getElementById('global-pulse-style')) {
     const s = document.createElement('style');
     s.id    = 'global-pulse-style';
