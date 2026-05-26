@@ -174,9 +174,57 @@ window.loadSharedData = async function() {
 window.loadFleetData = async function() {
   try {
     const snap = await db.collection('fleet').get();
-    G.fleet = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const allCars = snap.docs.map(d => {
+      const data = d.data();
+
+      // The Firestore document ID IS the car code (set by sync from col A)
+      // Make sure ID field is always set to the document ID
+      // so matching against booking car codes works correctly
+      const docId = d.id;
+
+      // Only set ID if not already correctly set
+      if (!data.ID || String(data.ID) !== String(docId)) {
+        data.ID = docId;
+      }
+
+      // Build car_label if missing (for cars 50, 51, 52 that were
+      // added before the label-building logic existed)
+      if (!data.car_label) {
+        const brand = String(data['col_C'] || data['col_B'] || data.Type || '').trim();
+        const model = String(data['col_F'] || data.Model || '').trim();
+        const year  = String(data['col_H'] || data['سنة الصنع'] || '').trim();
+        const color = String(data['col_J'] || data.Color || '').trim();
+        const plate = data.plate || '';
+        if (brand || model) {
+          data.car_label = `${brand} ${model} (${year}) ${color} | ${plate}`.trim();
+        }
+      }
+
+      if (!data.car_label_ar) {
+        const typeAR  = String(data['col_E'] || data['الطراز'] || '').trim();
+        const colorAR = String(data['col_I'] || data['اللون'] || '').trim();
+        const year    = String(data['col_H'] || data['سنة الصنع'] || '').trim();
+        const plate   = data.plate || '';
+        if (typeAR) {
+          data.car_label_ar = `${typeAR} (${year}) ${colorAR} | ${plate}`.trim();
+        }
+      }
+
+      return { id: docId, ...data };
+    });
+
+    G.fleet = allCars;
+
+    console.log('[Fleet] Loaded', G.fleet.length, 'cars');
+    console.log('[Fleet] Active sample:', G.fleet
+      .filter(c => getCarStatusCategory(c) !== 'archived')
+      .slice(0, 5)
+      .map(c => ({ docId: c.id, ID: c.ID, label: c.car_label }))
+    );
+
     populateFleetDropdowns();
     updateDashboardKPIs();
+
   } catch (e) {
     console.warn('Fleet load failed:', e.message);
   }
