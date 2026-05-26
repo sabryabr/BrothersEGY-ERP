@@ -346,7 +346,32 @@ window.getCarById = function(id) {
 
 window.getCarStatusCategory = function(car) {
 
-  // ---- Archived / inactive flags ----
+  // ---- Check live bookings FIRST ----
+  // A car with an active booking today is ALWAYS rented
+  // regardless of any archived/expired flags in the sheet
+  const carDocId = String(car.id || '').trim();
+
+  if (carDocId && G.bookings && G.bookings.length) {
+    const today      = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const carOrders = G.bookings.filter(b => {
+      const bCarId = String(
+        b['كود السيارة'] || b['col_D'] || b['D'] || ''
+      ).trim();
+      return bCarId !== '' && bCarId === carDocId;
+    });
+
+    // Active today — overrides everything including archived flags
+    const hasActiveToday = carOrders.some(o => {
+      const { start, end } = getOrderDates(o);
+      return start && end && start <= today && end >= todayStart;
+    });
+    if (hasActiveToday) return 'rented';
+  }
+
+  // ---- Now check archived / inactive flags ----
   const isArchivedFlag = car.archived  === true  || car.archived  === 'true';
   const isInactiveFlag = car.is_active === false  || car.is_active === 'false';
   if (isArchivedFlag || isInactiveFlag) return 'archived';
@@ -367,6 +392,7 @@ window.getCarStatusCategory = function(car) {
   if (isExpired) return 'archived';
 
   // ---- Handover date ----
+  // Only archive if handover is past AND there is no active booking
   const handover = parseDBDate(
     car['تاريخ التسليم'] || car['handover_date'] || ''
   );
@@ -380,37 +406,16 @@ window.getCarStatusCategory = function(car) {
   if (st === 'maintenance' || cEN === 'maintenance') return 'maintenance';
   if (st === 'rented')                               return 'rented';
 
-  // ---- Live booking check ----
-  // The Firestore document ID is the car code used in bookings
-  // e.g. car doc "34" matches booking where كود السيارة = "34"
-  if (G.bookings && G.bookings.length) {
+  // ---- Check future and overdue bookings ----
+  if (carDocId && G.bookings && G.bookings.length) {
     const today = new Date();
-
-    // Use the Firestore document ID as the primary match key
-    // This is the car code from column A of your sheet
-    const carDocId = String(car.id || '').trim();
-
-    // Also check the ID field as fallback
-    const carIdField = String(car.ID || car['col_A'] || car['No.'] || '').trim();
 
     const carOrders = G.bookings.filter(b => {
       const bCarId = String(
-        b['كود السيارة'] ||
-        b['col_D']       ||
-        b['D']           || ''
+        b['كود السيارة'] || b['col_D'] || b['D'] || ''
       ).trim();
-
-      if (!bCarId) return false;
-
-      // Match against both document ID and ID field
-      return bCarId === carDocId || bCarId === carIdField;
+      return bCarId !== '' && bCarId === carDocId;
     });
-
-    const hasActive = carOrders.some(o => {
-      const { start, end } = getOrderDates(o);
-      return start && end && start <= today && today <= end;
-    });
-    if (hasActive) return 'rented';
 
     const hasOverdue = carOrders.some(o => getOrderStatus(o) === 'Overdue');
     if (hasOverdue) return 'overdue';
