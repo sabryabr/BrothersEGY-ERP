@@ -688,3 +688,398 @@ window.togglePanelHeader = function(id) {
 
   localStorage.setItem(storageKey, isNowCollapsed ? 'true' : 'false');
 };
+
+// ============================================================
+// PAYMENT STATUS HELPERS — global, accessible by all modules
+// ============================================================
+window.PAYMENT_STATUS_COLORS = {
+  paid   : '#22c55e',
+  partial: '#f59e0b',
+  unpaid : '#ef4444',
+  overdue: '#dc2626',
+  clear  : '#22c55e'
+};
+
+window.getPaymentStatus = function(order) {
+  const total = parseAmount(order['إجمالي المستحق (Total)'] || 0);
+  const paid  = parseAmount(order['المدفوع EGP']           || 0);
+  if (total <= 0)     return 'clear';
+  if (paid  <= 0)     return 'unpaid';
+  if (paid  >= total) return 'paid';
+  const { end } = getOrderDates(order);
+  const today   = getCairoNow();
+  if (end && today > end && !order.closed) return 'overdue';
+  return 'partial';
+};
+
+window.getPaymentStatusLabel = function(order) {
+  return {
+    paid   : '✅ Paid',
+    partial: '⚡ Partial',
+    unpaid : '❌ Unpaid',
+    overdue: '🔴 Overdue Debt',
+    clear  : '✅ Clear'
+  }[window.getPaymentStatus(order)] || '—';
+};
+
+// ============================================================
+// GLOBAL USER REGISTRY — loads once, used everywhere for tagging
+// ============================================================
+window.G_USERS = window.G_USERS || [];
+
+window.loadSystemUsers = async function() {
+  if (window.G_USERS.length > 0) return window.G_USERS;
+  try {
+    const snap = await db.collection('users').get();
+    window.G_USERS = snap.docs.map(d => ({
+      id      : d.id,
+      username: d.data().username || d.data().name || d.id,
+      role    : d.data().role     || 'Staff',
+      branch  : d.data().branch   || '',
+      email   : d.data().email    || ''
+    }));
+  } catch (_) {
+    // Fallback: extract unique usernames from logs
+    try {
+      const logSnap = await db.collection('logs')
+        .orderBy('timestamp','desc').limit(200).get();
+      const seen = new Set();
+      logSnap.docs.forEach(d => {
+        const u = d.data().user;
+        if (u && !seen.has(u)) {
+          seen.add(u);
+          window.G_USERS.push({ username: u, role: 'Staff', branch: '' });
+        }
+      });
+    } catch (_) {}
+  }
+  return window.G_USERS;
+};
+
+// Build a user dropdown HTML — call anywhere
+window.buildUserDropdown = function(
+  selectId,
+  selectedValue = '',
+  extraOption   = '<option value="">-- Select User --</option>'
+) {
+  const users = window.G_USERS.length > 0
+    ? window.G_USERS
+    : [{ username: G.user?.username || 'me', role: G.user?.role || '' }];
+
+  const opts = users.map(u => `
+    <option value="${u.username}"
+      ${u.username === selectedValue ? 'selected' : ''}>
+      ${u.username}${u.role ? ' (' + u.role + ')' : ''}
+      ${u.branch ? ' — ' + (BRANCH_MAP[u.branch] || u.branch) : ''}
+    </option>`).join('');
+
+  return extraOption + opts;
+};
+
+// ============================================================
+// MISSING: getCairoNow() fix — current version loses time
+// The current implementation only gets the DATE part, losing
+// the actual time which breaks overdue/active comparisons
+// ============================================================
+window.getCairoNow = function() {
+  // ✅ Returns a proper Date object with correct Cairo time
+  const now         = new Date();
+  const cairoStr    = now.toLocaleString('en-CA', {
+    timeZone     : 'Africa/Cairo',
+    year         : 'numeric',
+    month        : '2-digit',
+    day          : '2-digit',
+    hour         : '2-digit',
+    minute       : '2-digit',
+    second       : '2-digit',
+    hour12       : false
+  });
+  // en-CA gives: "2026-05-29, 14:32:05"
+  const clean = cairoStr.replace(',', '');
+  const d     = new Date(clean);
+  return isNaN(d.getTime()) ? new Date() : d;
+};
+
+// ============================================================
+// MISSING: fmtDateTime — date + time for receipts/contracts
+// ============================================================
+window.fmtDateTime = function(d, opts = {}) {
+  if (!d) return '—';
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  return dt.toLocaleString('en-GB', {
+    day     : '2-digit',
+    month   : 'short',
+    year    : 'numeric',
+    hour    : '2-digit',
+    minute  : '2-digit',
+    second  : opts.seconds !== false ? '2-digit' : undefined,
+    timeZone: 'Africa/Cairo',
+    ...opts
+  });
+};
+
+// ============================================================
+// MISSING: renderPageLoading — used in all entry points
+// ============================================================
+window.renderPageLoading = function(pageId, icon, title) {
+  const el = document.getElementById(pageId);
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;
+                justify-content:center;padding:80px 20px;color:var(--text3);">
+      <div style="font-size:48px;margin-bottom:16px;">${icon}</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px;">${title}</div>
+      <div class="spinner lg"></div>
+    </div>`;
+};
+
+// ============================================================
+// MISSING: pushNav — used in order/car detail modals
+// ============================================================
+window._navStack = window._navStack || [];
+window.pushNav = function(label, fn) {
+  window._navStack.push({ label, fn });
+};
+window.popNav = function() {
+  if (window._navStack.length > 1) {
+    window._navStack.pop();
+    const prev = window._navStack[window._navStack.length - 1];
+    if (prev?.fn) prev.fn();
+  }
+};
+
+// ============================================================
+// MISSING: loadSharedData — used in dashboard + other pages
+// ============================================================
+window.loadSharedData = async function() {
+  const promises = [];
+  if (!G.fleet.length)    promises.push(loadFleetData());
+  if (!G.bookings.length) promises.push(loadBookingsData());
+  if (!G.customers || !G.customers.length) {
+    promises.push(
+      db.collection('customers').limit(1000).get()
+        .then(snap => {
+          G.customers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }).catch(() => {})
+    );
+  }
+  await Promise.allSettled(promises);
+};
+
+// ============================================================
+// MISSING: loadFleetData / loadBookingsData
+// Called by multiple modules
+// ============================================================
+window.loadFleetData = async function() {
+  try {
+    const snap  = await db.collection('fleet').get();
+    G.fleet     = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    console.log(`[Fleet] Loaded ${G.fleet.length} cars`);
+    const rented    = G.fleet.filter(c => getCarStatusCategory(c) === 'rented').length;
+    const available = G.fleet.filter(c => getCarStatusCategory(c) === 'available').length;
+    console.log(`[Fleet] Active: ${rented} rented | ${available} available`);
+  } catch (e) {
+    console.warn('[Fleet] Load error:', e.message);
+  }
+};
+
+window.loadBookingsData = async function() {
+  try {
+    const isPriv = ['Admin','Executive'].includes(G.user?.role);
+    const snap   = await db.collection('bookings').limit(isPriv ? 2000 : 600).get();
+    let orders   = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!isPriv) {
+      orders = orders.filter(o =>
+        o['فرع الإصدار'] === G.user?.branch ||
+        o.assigned_user  === G.user?.username ||
+        (!o['فرع الإصدار'] && !o.assigned_user)
+      );
+    }
+    G.bookings       = orders;
+    G.activeBookings = orders;
+    window.allOrders = orders;
+  } catch (e) {
+    console.warn('[Bookings] Load error:', e.message);
+  }
+};
+
+// ============================================================
+// MISSING: modal helpers used everywhere
+// ============================================================
+window.openModal = function(title, html, wide = false) {
+  const modal   = document.getElementById('global-modal');
+  const titleEl = document.getElementById('global-modal-title');
+  const bodyEl  = document.getElementById('global-modal-body');
+  if (!modal || !bodyEl) return;
+
+  if (titleEl) titleEl.textContent = title;
+  bodyEl.innerHTML = html;
+
+  modal.classList.add('open');
+  if (wide) modal.classList.add('wide');
+  else      modal.classList.remove('wide');
+
+  // Trap focus
+  setTimeout(() => {
+    const first = bodyEl.querySelector('input,select,textarea,button');
+    if (first) first.focus();
+  }, 100);
+};
+
+window.closeModal = function() {
+  const modal = document.getElementById('global-modal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('wide');
+  }
+};
+
+// ============================================================
+// MISSING: toast notification
+// ============================================================
+window.toast = function(message, type = 'info', duration = 3500) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container    = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText =
+      'position:fixed;bottom:20px;right:20px;z-index:99999;' +
+      'display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+    document.body.appendChild(container);
+  }
+
+  const colors = {
+    success: { bg:'#22c55e', icon:'✅' },
+    error  : { bg:'#ef4444', icon:'❌' },
+    warning: { bg:'#f59e0b', icon:'⚠️' },
+    info   : { bg:'#3b82f6', icon:'ℹ️' }
+  };
+  const cfg  = colors[type] || colors.info;
+  const el   = document.createElement('div');
+  el.style.cssText =
+    `background:${cfg.bg};color:#fff;padding:10px 16px;border-radius:10px;` +
+    `font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.4);` +
+    `max-width:340px;pointer-events:auto;opacity:0;transition:opacity 0.2s;` +
+    `display:flex;align-items:center;gap:8px;`;
+  el.innerHTML = `<span>${cfg.icon}</span><span>${message}</span>`;
+  container.appendChild(el);
+
+  requestAnimationFrame(() => { el.style.opacity = '1'; });
+  setTimeout(() => {
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 250);
+  }, duration);
+};
+
+// ============================================================
+// MISSING: BRANCH_MAP and BRANCH_AR constants
+// ============================================================
+if (!window.BRANCH_MAP) {
+  window.BRANCH_MAP = {
+    HRG: 'Hurghada',
+    ALX: 'Alexandria',
+    CAI: 'Cairo',
+    RSH: 'Rashid'
+  };
+}
+
+if (!window.BRANCH_AR) {
+  window.BRANCH_AR = {
+    HRG: 'الغردقة',
+    ALX: 'الإسكندرية',
+    CAI: 'القاهرة',
+    RSH: 'رشيد'
+  };
+}
+
+// ============================================================
+// MISSING: FLEET_FILTER global state
+// ============================================================
+if (!window.FLEET_FILTER) {
+  window.FLEET_FILTER = {
+    status  : { active:true, archived:false, accident:true, maintenance:true },
+    branches: { HRG:true, ALX:true, CAI:true, RSH:true },
+    search  : ''
+  };
+}
+
+window.saveFleetFilterState = function() {
+  try {
+    localStorage.setItem('fleet_filter', JSON.stringify(FLEET_FILTER));
+  } catch (_) {}
+};
+
+window.loadFleetFilterState = function() {
+  try {
+    const saved = localStorage.getItem('fleet_filter');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      Object.assign(FLEET_FILTER.status,   parsed.status   || {});
+      Object.assign(FLEET_FILTER.branches, parsed.branches || {});
+      FLEET_FILTER.search = parsed.search || '';
+    }
+    // Non-admin: lock to own branch
+    if (!['Admin','Executive'].includes(G.user?.role)) {
+      Object.keys(FLEET_FILTER.branches).forEach(b => {
+        FLEET_FILTER.branches[b] = (b === G.user?.branch);
+      });
+    }
+  } catch (_) {}
+};
+
+// ============================================================
+// MISSING: G global state object initializer
+// ============================================================
+if (!window.G) {
+  window.G = {
+    user         : null,
+    fleet        : [],
+    bookings     : [],
+    customers    : [],
+    proposals    : [],
+    activeBookings: [],
+    ratesUSD     : 55,
+    ratesEUR     : 60,
+    settings     : {},
+    unsubscribers: []
+  };
+}
+
+// ============================================================
+// MISSING: dashCharts global
+// ============================================================
+if (!window.dashCharts) window.dashCharts = {};
+
+// ============================================================
+// VERIFY URL — uses receipt_ref for payment receipts,
+// order No. for contracts
+// ============================================================
+window.buildVerifyUrl = function(refOrOrder) {
+  if (!refOrOrder) return '';
+  // If string passed directly (receipt ref)
+  if (typeof refOrOrder === 'string') {
+    return `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${
+      encodeURIComponent(refOrOrder)}`;
+  }
+  // If order object
+  const ref = String(refOrOrder['No.'] || refOrOrder.id || '').trim();
+  if (!ref) return '';
+  return `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${
+    encodeURIComponent(ref)}`;
+};
+
+// ============================================================
+// TIMESTAMP HELPER for receipts/contracts
+// ============================================================
+window.getCairoTimestamp = function() {
+  return new Date().toLocaleString('en-GB', {
+    day     : '2-digit',
+    month   : 'short',
+    year    : 'numeric',
+    hour    : '2-digit',
+    minute  : '2-digit',
+    second  : '2-digit',
+    timeZone: 'Africa/Cairo'
+  });
+};

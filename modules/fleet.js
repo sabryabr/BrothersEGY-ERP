@@ -1,10 +1,8 @@
 // ============================================================
 // modules/fleet.js
-// Fleet Radar, Gantt chart, fleet filter pills,
-// car detail modal, car edit modal, location saving
 // ============================================================
 
-// Order status colors (top half of bar)
+// Order status colors (top half of bar) — keep this local
 const ORDER_STATUS_COLORS = {
   active   : '#3b82f6',
   overdue  : '#ef4444',
@@ -14,37 +12,7 @@ const ORDER_STATUS_COLORS = {
   cancelled: '#94a3b8'
 };
 
-// Payment status colors (bottom half of bar)
-const PAYMENT_STATUS_COLORS = {
-  paid   : '#22c55e',
-  partial: '#f59e0b',
-  unpaid : '#ef4444',
-  overdue: '#dc2626',
-  clear  : '#22c55e'
-};
-
-function _getPaymentStatus(order) {
-  const total = parseAmount(order['إجمالي المستحق (Total)'] || 0);
-  const paid  = parseAmount(order['المدفوع EGP'] || 0);
-  if (total <= 0)    return 'clear';
-  if (paid <= 0)     return 'unpaid';
-  if (paid >= total) return 'paid';
-  const { end } = getOrderDates(order);
-  const today   = getCairoNow();
-  if (end && today > end && !order.closed) return 'overdue';
-  return 'partial';
-}
-
-function _getPaymentStatusLabel(order) {
-  const s = _getPaymentStatus(order);
-  return {
-    paid   : '✅ Paid',
-    partial: '⚡ Partial',
-    unpaid : '❌ Unpaid',
-    overdue: '🔴 Overdue Debt',
-    clear  : '✅ Clear'
-  }[s] || s;
-}
+// ✅ REMOVED local PAYMENT_STATUS_COLORS — now uses window.PAYMENT_STATUS_COLORS from utils.js
 
 // ============================================================
 // ENTRY POINTS
@@ -564,10 +532,13 @@ window.renderGantt = async function() {
         <!-- Sticky header -->
         <div style="display:flex;position:sticky;top:0;z-index:20;
                     background:var(--surface3);border-bottom:2px solid var(--border2);">
-          <div style="position:sticky;left:0;z-index:22;background:var(--surface3);
-                      width:${CAR_COL}px;min-width:${CAR_COL}px;height:${HEADER_H}px;
-                      display:flex;align-items:center;padding:0 12px;
-                      border-right:1px solid var(--border2);">
+          <div style="position:sticky;left:0;z-index:22;
+				background:var(--surface3);
+				width:${CAR_COL}px;min-width:${CAR_COL}px;height:${HEADER_H}px;
+				display:flex;align-items:center;padding:0 12px;
+				border-right:2px solid var(--border2);
+				box-shadow:4px 0 8px rgba(0,0,0,0.5);
+				isolation:isolate;">
             <span style="font-size:10px;font-weight:800;color:var(--text3);
                          text-transform:uppercase;letter-spacing:0.1em;">
               Vehicle (${activeCars.length}) — Click for details
@@ -577,10 +548,14 @@ window.renderGantt = async function() {
                       height:${HEADER_H}px;flex-shrink:0;overflow:hidden;">
             ${headerMonthHTML}${headerDayHTML}
           </div>
-          <div style="position:sticky;right:0;z-index:22;background:var(--surface3);
-                      width:${ASSIGN_COL}px;min-width:${ASSIGN_COL}px;height:${HEADER_H}px;
-                      display:flex;flex-direction:column;justify-content:center;
-                      padding:0 10px;border-left:1px solid var(--border2);">
+          <div style="position:sticky;right:0;z-index:22;
+				background:var(--surface3);
+				width:${ASSIGN_COL}px;min-width:${ASSIGN_COL}px;height:${HEADER_H}px;
+				display:flex;flex-direction:column;justify-content:center;
+				padding:0 10px;
+				border-left:2px solid var(--border2);
+				box-shadow:-4px 0 8px rgba(0,0,0,0.5);
+				isolation:isolate;">
             <span style="font-size:9px;font-weight:800;color:var(--text3);
                          text-transform:uppercase;letter-spacing:0.1em;">Assignment</span>
             <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;">
@@ -750,8 +725,8 @@ function _buildGanttRows(
     };
     const dotColor    = statusColors[catStatus] || 'var(--text3)';
     const statusLabel = catStatus.charAt(0).toUpperCase() + catStatus.slice(1);
-    const rowBg       = ci % 2 === 0 ? 'var(--surface)' : 'rgba(255,255,255,0.015)';
-    const stickyBg    = ci % 2 === 0 ? 'var(--surface)' : 'var(--surface2)';
+    const rowBg    = ci % 2 === 0 ? 'var(--surface)' : 'var(--surface2)';
+	const stickyBg = ci % 2 === 0 ? 'var(--surface)' : 'var(--surface2)';
 
     // Collect orders for this car
     let carOrders = [];
@@ -796,10 +771,14 @@ function _buildGanttRows(
     rowsHTML += `
       <div style="display:flex;background:${rowBg};border-bottom:1px solid var(--border);">
         <!-- Sticky car label -->
-        <div style="position:sticky;left:0;z-index:15;background:${stickyBg};
-                    width:${CAR_COL}px;min-width:${CAR_COL}px;height:${rowHeight}px;
-                    padding:0 10px;border-right:1px solid var(--border2);
-                    display:flex;align-items:center;cursor:pointer;"
+        <div style="position:sticky;left:0;z-index:15;
+				background:${stickyBg};
+				width:${CAR_COL}px;min-width:${CAR_COL}px;height:${rowHeight}px;
+				padding:0 10px;
+				border-right:2px solid var(--border2);
+				box-shadow:4px 0 8px rgba(0,0,0,0.5);
+				isolation:isolate;
+				display:flex;align-items:center;cursor:pointer;"
              onclick="openCarDetailModal('${carIdStr}')"
              onmouseover="this.style.background='var(--glass2)'"
              onmouseout="this.style.background='${stickyBg}'">
@@ -905,10 +884,13 @@ function _buildGanttRowBars(
         </div>
         ${aHTML ? `
           <div style="position:sticky;right:0;width:230px;min-width:230px;
-                      height:${ROW_H}px;padding:4px 10px;background:var(--surface2);
-                      border-left:1px solid var(--border2);
-                      display:flex;flex-direction:column;
-                      justify-content:center;z-index:5;">
+				height:${ROW_H}px;padding:4px 10px;
+				background:var(--surface2);
+				border-left:2px solid var(--border2);
+				box-shadow:-4px 0 8px rgba(0,0,0,0.5);
+				display:flex;flex-direction:column;
+				justify-content:center;z-index:5;
+				isolation:isolate;">
             ${aHTML}
           </div>` : ''}
       </div>`;
@@ -1015,9 +997,9 @@ function _buildOrderBar(
   const orderColor = ORDER_STATUS_COLORS[orderKey] || '#3b82f6';
 
   // ── Payment status color ────────────────────────────────────
-  const payKey     = _getPaymentStatus(order);
-  const payColor   = PAYMENT_STATUS_COLORS[payKey] || '#f59e0b';
-  const payLabel   = _getPaymentStatusLabel(order);
+  const payKey   = getPaymentStatus(order);                          // ✅ global
+  const payColor = window.PAYMENT_STATUS_COLORS[payKey] || '#f59e0b'; // ✅ global
+  const payLabel = getPaymentStatusLabel(order); 
 
   // ── Tail backgrounds ────────────────────────────────────────
   let tailBg = null;
@@ -1163,9 +1145,9 @@ function _buildAssignmentInfo(lastOrd, today, DAY_PX) {
   }
 
   // Payment status indicator in assignment panel
-  const payKey   = _getPaymentStatus(lastOrd);
-  const payColor = PAYMENT_STATUS_COLORS[payKey] || '#f59e0b';
-  const payLbl   = _getPaymentStatusLabel(lastOrd);
+  const payKey   = getPaymentStatus(lastOrd);
+  const payColor = window.PAYMENT_STATUS_COLORS[payKey] || '#f59e0b';
+  const payLbl   = getPaymentStatusLabel(lastOrd);
 
   return `
     <div style="font-size:10px;font-weight:700;">${lastOrd['اسم العميل']||'-'}</div>
@@ -1468,6 +1450,18 @@ window.openCarDetailModal = async function(carId) {
           onclick="openCarEditModal('${car.ID||car.id}')">✏️ Edit Status</button>
       ` : ''}
       <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+	  <button class="btn btn-ghost btn-sm"
+	  onclick="createTaskFromCar('${car.id}')">
+	  📌 Task
+	</button>
+	<button class="btn btn-ghost btn-sm"
+	  onclick="closeModal();showPage('order-book');
+		setTimeout(()=>{
+		  const s=document.getElementById('ob-search');
+		  if(s){s.value='${plateStr}';filterOrders();}
+		},300)">
+	  📋 Orders
+	</button>
     </div>
   `;
 
@@ -1745,10 +1739,16 @@ function _v360RenderGrid() {
   let cars = G.fleet;
   const tab = window._v360Tab || 'active';
   if (tab === 'active') {
-    cars = G.fleet.filter(c => getCarStatusCategory(c) !== 'archived');
-  } else if (tab === 'archived') {
-    cars = G.fleet.filter(c => c.archived === true || c.is_active === false);
-  }
+	  cars = G.fleet.filter(c => {
+		const cat      = getCarStatusCategory(c);
+		if (cat === 'archived') return false;
+		// Only show cars with valid/active contracts
+		const contract = String(c.Contract || c['حاله التعاقد'] || '').toLowerCase();
+		return contract === 'valid' || contract === 'ساري' ||
+			   cat === 'rented' || cat === 'available' ||
+			   cat === 'accident' || cat === 'maintenance';
+	  });
+	}
 
   if (!cars.length) {
     gridEl.innerHTML = `
@@ -1959,9 +1959,9 @@ window.loadVehicle360Details = async function() {
                        const {start,end} = getOrderDates(o);
                        const st    = getOrderStatus(o);
                        const sk    = st==='Accident'?'accident':st==='Overdue'?'overdue':st==='Closed'?'closed':'active';
-                       const payK  = _getPaymentStatus(o);
-                       const payLbl= _getPaymentStatusLabel(o);
-                       const payC  = PAYMENT_STATUS_COLORS[payK]||'#f59e0b';
+                       const payK   = getPaymentStatus(o);
+					   const payLbl = getPaymentStatusLabel(o);
+					   const payC   = window.PAYMENT_STATUS_COLORS[payK] || '#f59e0b';
                        return `
                          <tr style="cursor:pointer;" onclick="openOrderDetail('${o.id}')">
                            <td><span style="color:var(--accent);font-weight:700;">
