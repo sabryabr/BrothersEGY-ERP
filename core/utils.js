@@ -251,24 +251,24 @@ window.initials = function(name) {
 // FLEET HELPERS
 // ============================================================
 
-window.getCarLabel = function(car, lang) {
-  lang = lang || 'en';
-  if (lang === 'ar' && car.car_label_ar) return car.car_label_ar;
-  if (lang === 'en' && car.car_label)    return car.car_label;
-  if (car.car_label)                     return car.car_label;
-
-  const brand = String(car['col_C']||car.Type    ||car['النوع'] ||'').trim();
-  const model = String(car['col_F']||car.Model   ||car['col_E']||car['الطراز']||'').trim();
-  const year  = String(car['col_H']||car['سنة الصنع']||'').trim();
+window.getCarLabel = function(car, lang = 'en') {
+  if (!car) return '';
   const plate = formatPlate(car);
-  const color = String(car.Color||car['col_J']||car['col_I']||car['اللون']||'').trim();
+  const plateStr = plate ? ` | ${plate}` : '';
 
   if (lang === 'ar') {
-    const modelAR = String(car['col_E']||car['الطراز']||model||'').trim();
-    const colorAR = String(car['col_I']||car['اللون'] ||color||'').trim();
-    return (modelAR+' ('+year+') '+colorAR+(plate?' | '+plate:'')).trim();
+    const name = car['الطراز'] || car['النوع'] || car.Model || '';
+    const year = car['سنة الصنع'] || '';
+    return `${name} (${year})${plateStr}`;
   }
-  return (brand+' '+model+' ('+year+') '+color+(plate?' | '+plate:'')).trim();
+  // English
+  const label = car.car_label || '';
+  if (label) return `${label}${plateStr}`;
+  const type  = car.Type  || car['النوع']  || '';
+  const model = car.Model || car['الطراز'] || '';
+  const year  = car['سنة الصنع'] || '';
+  const color = car.Color || car['اللون'] || '';
+  return `${type} ${model} (${year}) ${color}${plateStr}`.trim();
 };
 
 window.getCarInfo = function(car) {
@@ -297,12 +297,21 @@ window.getCarInfo = function(car) {
 };
 
 window.formatPlate = function(car) {
-  if (car.plate && car.plate.length > 2) return car.plate;
-  const parts = [car['col_W'],car['col_X'],car['col_Y'],
-    car['col_Z'],car['col_AA'],car['col_AB'],car['col_AC']]
-    .filter(function(p){ return p && String(p).trim() && String(p).trim()!=='0'; })
-    .map(function(p){ return String(p).trim(); });
-  return parts.length ? parts.join(' ') : (car.plate||'—');
+  if (!car) return '';
+
+  // Direct plate field
+  if (car.plate && String(car.plate).trim() &&
+      String(car.plate).trim() !== '-') return String(car.plate).trim();
+
+  // Build from Arabic plate parts
+  const letters = String(car['احرف اللوحة'] || car['حرف']   || '').trim();
+  const numbers = String(car['رقم اللوحة']  || '').trim();
+
+  if (letters && numbers) return `${letters} ${numbers}`;
+  if (letters)            return letters;
+  if (numbers)            return numbers;
+
+  return '';
 };
 
 window.getCarById = function(id) {
@@ -326,65 +335,69 @@ window.getCarById = function(id) {
 window.getCarStatusCategory = function(car) {
   if (!car) return 'available';
 
-  // ── 1. Archived check ──────────────────────────────────────────────────
-  const archived   = car.archived;
-  const isActive   = car.is_active;
-  const contractSt = String(car.Contract || car['حالة العقد'] || '').toLowerCase();
-  const handover   = car['تاريخ التسليم'] || car.handover_date || '';
+  const today = getCairoNow();
 
-  if (archived === true || archived === 'true' || archived === 1) return 'archived';
-  if (isActive === false || isActive === 'false' || isActive === 0) return 'archived';
-  if (contractSt.includes('منتهي') || contractSt.includes('expired') ||
-      contractSt.includes('finished')) return 'archived';
+  // ── 1. ARCHIVED CHECKS ────────────────────────────────────────────────
+  // Explicit archived flag
+  if (car.archived === true || car.archived === 'true') return 'archived';
+
+  // is_active = false
+  if (car.is_active === false || car.is_active === 'false' ||
+      car.is_active === 0    || car.is_active === '0') return 'archived';
+
+  // Contract field
+  const contract = String(car.Contract || car['حاله التعاقد'] || '').toLowerCase();
+  if (contract === 'expired' || contract === 'منتهي' ||
+      contract === 'finished'|| contract === 'cancelled') return 'archived';
+
+  // Handover date passed (car returned to owner)
+  const handover = car['تاريخ التسليم'] || car.handover_date || '';
   if (handover) {
     const hd = new Date(handover);
-    if (!isNaN(hd) && hd < getCairoNow()) return 'archived';
+    if (!isNaN(hd.getTime()) && hd < today) return 'archived';
   }
 
-  // ── 2. Maintenance ─────────────────────────────────────────────────────
+  // ── 2. MAINTENANCE ────────────────────────────────────────────────────
   const statusField = String(car.status || car['الحالة'] || '').toLowerCase();
   if (statusField === 'maintenance' || statusField === 'صيانة') return 'maintenance';
 
-  // ── 3. Check bookings for TODAY ────────────────────────────────────────
-  // A car is "rented" only if there is a booking that covers today
-  // Future bookings and overdue bookings do NOT block the car
-  const carCode = String(car.ID || car.id || '');
-  const today   = getCairoNow();
+  // ── 3. CHECK IF CAR IS RENTED TODAY ───────────────────────────────────
+  // ONLY mark rented if a booking covers today's date
+  // Future bookings and overdue bookings do NOT block availability
+  const carCode = String(car.ID || car.id || '').trim();
 
-  if (G.bookings && G.bookings.length) {
-    const activeToday = G.bookings.find(b => {
-      // Must belong to this car
-      const bCarCode = String(b['كود السيارة'] || b.car_id || '');
-      if (bCarCode !== carCode) return false;
+  if (G.bookings && G.bookings.length && carCode) {
+    const todayBooking = G.bookings.find(b => {
+      // Must match this car
+      const bCar = String(b['كود السيارة'] || b.car_id || '').trim();
+      if (bCar !== carCode) return false;
 
-      // Must not be closed/cancelled
-      const bStatus = String(b['حالة الطلب'] || b.status || '').toLowerCase();
-      if (b.closed || bStatus === 'closed' || bStatus === 'cancelled') return false;
+      // Skip closed / cancelled
+      const bSt = String(b['حالة الطلب'] || b.status || '').toLowerCase();
+      if (b.closed === true || b.closed === 'true') return false;
+      if (bSt === 'closed' || bSt === 'cancelled')  return false;
 
+      // Accident = car always blocked
+      if (bSt === 'accident') return true;
+
+      // Active today: booking start <= now <= booking end
       const { start, end } = getOrderDates(b);
       if (!start || !end) return false;
-
-      // Accident counts as rented (car is blocked)
-      if (bStatus === 'accident') {
-        return true; // accident cars always blocked regardless of dates
-      }
-
-      // Active today: start <= today <= end
       return start <= today && today <= end;
     });
 
-    if (activeToday) {
-      const bStatus = String(activeToday['حالة الطلب'] || '').toLowerCase();
-      if (bStatus === 'accident') return 'accident';
+    if (todayBooking) {
+      const bSt = String(todayBooking['حالة الطلب'] || '').toLowerCase();
+      if (bSt === 'accident') return 'accident';
       return 'rented';
     }
   }
 
-  // ── 4. Status field overrides ──────────────────────────────────────────
+  // ── 4. MANUAL STATUS OVERRIDE ─────────────────────────────────────────
   if (statusField === 'accident')   return 'accident';
-  if (statusField === 'rented')     return 'rented'; // manual override
+  if (statusField === 'rented')     return 'rented';
 
-  // ── 5. Default → available ─────────────────────────────────────────────
+  // ── 5. DEFAULT ────────────────────────────────────────────────────────
   return 'available';
 };
 
