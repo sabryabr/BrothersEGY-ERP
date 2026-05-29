@@ -1402,7 +1402,7 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
     const clientName  = payment.client_name || getOrderClientName(order) || '';
     const carLabel    = payment.car_label || '';
     const { start, end } = getOrderDates(order || {});
-    const verifyUrl = buildVerifyUrl(order || { 'No.': contractNo, id: orderId });
+    const verifyUrl = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${encodeURIComponent(rcRef)}`;
     const logo        = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
 
     const dateStr = new Date(payment.datetime || Date.now())
@@ -1544,15 +1544,16 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
 
     // Save receipt record to Firestore
     await db.collection('receipts').add({
-      ...payment,
-      receipt_ref  : rcRef,
-      payment_id   : paymentId,
-      contract_no  : contractNo,
-      qr_ref       : contractNo,
-      verify_url   : verifyUrl,
-      receipt_type : 'single_payment',
-      _sys_created : firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(() => {});
+	  ...payment,
+	  receipt_ref  : rcRef,
+	  payment_id   : paymentId,
+	  contract_no  : contractNo,
+	  order_id     : orderId,       // ✅ make sure this is saved
+	  qr_ref       : rcRef,         // ✅ changed from contractNo to rcRef
+	  verify_url   : `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${encodeURIComponent(rcRef)}`,
+	  receipt_type : 'single_payment',
+	  _sys_created : firebase.firestore.FieldValue.serverTimestamp()
+	}).catch(() => {});
 
   } catch (e) {
     console.error('Receipt generation error:', e);
