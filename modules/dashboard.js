@@ -279,14 +279,15 @@ window.loadDashKPIs = async function() {
     });
 
     // Active = bookings running TODAY (= rented cars)
-    const active=bookings.filter(function(o){
-      if (o.closed===true||o.closed==='true') return false;
-      const st=getOrderStatus(o);
-      if (st==='Closed'||st==='Cancelled') return false;
-      const d=getOrderDates(o);
-      if (!d.start||!d.end) return false;
-      return d.start<=cairoToday&&d.end>=todayStart;
-    }).length;
+    const today = getCairoNow();
+	const activeOrders = G.bookings.filter(b => {
+	  if (b.closed) return false;
+	  const st = String(b['حالة الطلب'] || '').toLowerCase();
+	  if (st === 'closed' || st === 'cancelled') return false;
+	  const { start, end } = getOrderDates(b);
+	  if (!start || !end) return false;
+	  return start <= today && today <= end;
+	}).length;
     _setKPI('kpi-active',active);
 
     // Overdue = end past AND zero payment (true bad debt)

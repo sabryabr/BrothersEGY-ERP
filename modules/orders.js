@@ -1902,30 +1902,34 @@ window.viewOrderPayments = async function(orderId, orderNo) {
               </tr>
             </thead>
             <tbody>
-              ${payments.map(p => `
-                <tr style="border-bottom:1px solid var(--border);">
-                  <td style="padding:6px;">
-                    ${p.date || (p.timestamp
-                      ? new Date(p.timestamp).toLocaleDateString('en-GB')
-                      : '—')}
-                  </td>
-                  <td style="padding:6px;text-align:right;">
-                    ${fmtMoney(p.amount || p.amount_egp || 0)}
-                  </td>
-                  <td style="padding:6px;">
-                    ${p.method || p.payment_method || '—'}
-                  </td>
-                  <td style="padding:6px;">
-                    ${p.category || '—'}
-                  </td>
-                  <td style="padding:6px;">
-                    ${p.collected_by || '—'}
-                  </td>
-                  <td style="padding:6px;">
-                    ${p.note || p.notes || '—'}
-                  </td>
-                </tr>
-              `).join('')}
+              // Inside viewOrderPayments — replace the payments.map() section:
+			${payments.map(p => `
+			  <tr style="border-bottom:1px solid var(--border);">
+				<td style="padding:6px;">
+				  ${p.date || (p.timestamp
+					? new Date(p.timestamp).toLocaleDateString('en-GB') : '—')}
+				</td>
+				<td style="padding:6px;text-align:right;font-weight:700;color:var(--success);">
+				  ${fmtMoney(p.amount_egp || p.amount || 0)}
+				</td>
+				<td style="padding:6px;">${p.payment_method || p.method || '—'}</td>
+				<td style="padding:6px;">${p.category || '—'}</td>
+				<td style="padding:6px;">${p.collected_by || '—'}</td>
+				<td style="padding:6px;">${p.notes || '—'}</td>
+				${['Admin','Executive'].includes(G.user?.role) ? `
+				<td style="padding:6px;white-space:nowrap;">
+				  <button class="btn btn-warning btn-xs"
+					onclick="editPayment('${p.id}','${orderId}')">✏️</button>
+				  ${G.user?.role === 'Admin' ? `
+				  <button class="btn btn-danger btn-xs"
+					onclick="deletePayment('${p.id}','${orderId}',${p.amount_egp||0})">
+					🗑️
+				  </button>
+				  ` : ''}
+				</td>
+				` : '<td></td>'}
+			  </tr>
+			`).join('')}
             </tbody>
           </table>
         ` : `
@@ -1980,6 +1984,205 @@ window.viewOrderPayments = async function(orderId, orderNo) {
   } catch (e) {
     openModal('💳 Payments',
       `<p style="color:var(--danger);">Failed to load: ${e.message}</p>`);
+  }
+};
+
+// ============================================================
+// PAYMENT EDIT & DELETE (Admin only)
+// ============================================================
+window.editPayment = async function(paymentId, orderId) {
+  if (!['Admin', 'Executive'].includes(G.user?.role)) {
+    toast('Admin access required', 'error'); return;
+  }
+
+  let payment = null;
+  try {
+    const snap = await db.collection('payment_log').doc(paymentId).get();
+    if (!snap.exists) { toast('Payment not found', 'error'); return; }
+    payment = { id: snap.id, ...snap.data() };
+  } catch (e) {
+    toast('Failed to load payment: ' + e.message, 'error'); return;
+  }
+
+  const html = `
+    <div style="display:grid;gap:10px;">
+      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);
+                  border-radius:8px;padding:10px;font-size:11px;color:var(--warning);">
+        ⚠️ Admin edit — changes are permanent and will update the payment record.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Amount EGP
+          </label>
+          <input type="number" id="ep-egp" min="0"
+            value="${payment.amount_egp || 0}"
+            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Amount USD
+          </label>
+          <input type="number" id="ep-usd" min="0"
+            value="${payment.amount_usd || 0}"
+            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Amount EUR
+          </label>
+          <input type="number" id="ep-eur" min="0"
+            value="${payment.amount_eur || 0}"
+            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Date
+          </label>
+          <input type="date" id="ep-date"
+            value="${payment.date || ''}"
+            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">
+          Payment Method
+        </label>
+        <input type="text" id="ep-method"
+          value="${payment.payment_method || ''}"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+      </div>
+
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Category</label>
+        <select id="ep-category"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);">
+          <option value="Rental Payment"      ${payment.category==='Rental Payment'      ?'selected':''}>Rental Payment</option>
+          <option value="Advance Payment"     ${payment.category==='Advance Payment'     ?'selected':''}>Advance Payment</option>
+          <option value="Full Settlement"     ${payment.category==='Full Settlement'     ?'selected':''}>Full Settlement</option>
+          <option value="Overdue Settlement"  ${payment.category==='Overdue Settlement'  ?'selected':''}>Overdue Settlement</option>
+          <option value="Traffic Fine"        ${payment.category==='Traffic Fine'        ?'selected':''}>Traffic Fine</option>
+          <option value="Accident Settlement" ${payment.category==='Accident Settlement' ?'selected':''}>Accident Settlement</option>
+          <option value="Security Deposit"    ${payment.category==='Security Deposit'    ?'selected':''}>Security Deposit</option>
+          <option value="Other"               ${payment.category==='Other'               ?'selected':''}>Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Notes</label>
+        <input type="text" id="ep-notes"
+          value="${(payment.notes || '').replace(/"/g,'&quot;')}"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-success" style="flex:1;"
+          onclick="savePaymentEdit('${paymentId}','${orderId}')">
+          💾 Save Changes
+        </button>
+        <button class="btn btn-ghost" style="flex:1;"
+          onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  openModal(`✏️ Edit Payment`, html);
+};
+
+window.savePaymentEdit = async function(paymentId, orderId) {
+  if (!['Admin', 'Executive'].includes(G.user?.role)) return;
+
+  const newEGP    = parseFloat(document.getElementById('ep-egp')?.value)  || 0;
+  const newUSD    = parseFloat(document.getElementById('ep-usd')?.value)  || 0;
+  const newEUR    = parseFloat(document.getElementById('ep-eur')?.value)  || 0;
+  const newDate   = document.getElementById('ep-date')?.value     || '';
+  const newMethod = document.getElementById('ep-method')?.value   || '';
+  const newCat    = document.getElementById('ep-category')?.value || '';
+  const newNotes  = document.getElementById('ep-notes')?.value    || '';
+
+  const totalEquiv = newEGP + (newUSD * (G.ratesUSD||55)) + (newEUR * (G.ratesEUR||60));
+
+  try {
+    await db.collection('payment_log').doc(paymentId).update({
+      amount_egp      : newEGP,
+      amount_usd      : newUSD,
+      amount_eur      : newEUR,
+      total_egp_equiv : totalEquiv,
+      date            : newDate,
+      payment_method  : newMethod,
+      category        : newCat,
+      notes           : newNotes,
+      _edited_by      : G.user?.username || '',
+      _edited_at      : Date.now()
+    });
+
+    await logAction('EDIT', 'Payment Log',
+      `Edited payment ${paymentId} on order ${orderId}`);
+    toast('Payment updated!', 'success');
+    closeModal();
+
+    // Reopen payments view
+    const order = allOrders.find(o => o.id === orderId);
+    setTimeout(() => viewOrderPayments(
+      orderId, order?.['No.'] || orderId
+    ), 300);
+  } catch (e) {
+    toast('Update failed: ' + e.message, 'error');
+  }
+};
+
+window.deletePayment = async function(paymentId, orderId, amountEGP) {
+  if (!['Admin'].includes(G.user?.role)) {
+    toast('Admin only', 'error'); return;
+  }
+  if (!confirm(
+    `Delete this payment of ${fmtMoney(amountEGP)}?\n\n` +
+    `This will also reduce the order's paid amount by ${fmtMoney(amountEGP)}.\n` +
+    `This cannot be undone.`
+  )) return;
+
+  try {
+    // Delete the payment record
+    await db.collection('payment_log').doc(paymentId).delete();
+
+    // Reduce paid amount on the order
+    const order = allOrders.find(o => o.id === orderId);
+    if (order) {
+      const currentPaid = parseAmount(order['المدفوع EGP'] || 0);
+      const newPaid     = Math.max(0, currentPaid - amountEGP);
+
+      await db.collection('bookings').doc(orderId).update({
+        'المدفوع EGP' : String(newPaid),
+        '_sys_updated': Date.now()
+      });
+
+      // Update local cache
+      const idx = allOrders.findIndex(o => o.id === orderId);
+      if (idx >= 0) allOrders[idx]['المدفوع EGP'] = String(newPaid);
+      const gIdx = G.bookings.findIndex(o => o.id === orderId);
+      if (gIdx >= 0) G.bookings[gIdx]['المدفوع EGP'] = String(newPaid);
+    }
+
+    await logAction('DELETE', 'Payment Log',
+      `Deleted payment ${paymentId} (${fmtMoney(amountEGP)}) from order ${orderId}`);
+    toast('Payment deleted and order balance updated', 'success');
+    closeModal();
+    filterOrders();
+
+    setTimeout(() => viewOrderPayments(
+      orderId, order?.['No.'] || orderId
+    ), 300);
+  } catch (e) {
+    toast('Delete failed: ' + e.message, 'error');
   }
 };
 
@@ -2366,8 +2569,37 @@ window.generateOrderContractDirect = async function(orderId, lang) {
     });
 
     const file = lang === 'ar' ? 'contract-ar.html' : 'contract-en.html';
-    window.open(file + '?' + params.toString(), '_blank');
-    toast('✅ Contract generated', 'success');
+    // Add this block just before window.open(file + '?' + ...) in generateOrderContractDirect:
+
+	// ✅ Save contract as proposal record
+	const proposalRef = `PR-${branch.slice(0,3).toUpperCase()}-${
+	  new Date().toISOString().slice(2,10).replace(/-/g,'')}-${
+	  String(Date.now()).slice(-4)}`;
+
+	await db.collection('proposals').add({
+	  proposal_ref  : proposalRef,
+	  order_id      : orderId,
+	  contract_no   : contractNo,
+	  client_name   : clientName,
+	  car_label     : carLabel,
+	  car_plate     : plate,
+	  branch,
+	  lang,
+	  daily_rate    : daily,
+	  rental_days   : days,
+	  rental_mode   : days > 28 ? 'Monthly' : 'Daily',
+	  start_date    : start ? start.toISOString().slice(0,10) : '',
+	  end_date      : end   ? end.toISOString().slice(0,10)   : '',
+	  params_url    : file + '?' + params.toString(),
+	  generated_by  : G.user?.username || '',
+	  generated_at  : Date.now(),
+	  type          : lang === 'ar' ? 'contract_ar' : 'contract_en',
+	  status        : 'generated',
+	  _sys_created  : firebase.firestore.FieldValue.serverTimestamp()
+	}).catch(() => {});
+
+	toast('✅ Contract generated and saved to Proposals', 'success');
+	window.open(file + '?' + params.toString(), '_blank');
   } catch (e) {
     toast('Contract error: ' + e.message, 'error');
   }

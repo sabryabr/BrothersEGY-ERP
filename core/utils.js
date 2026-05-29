@@ -303,13 +303,29 @@ window.formatPlate = function(car) {
   if (car.plate && String(car.plate).trim() &&
       String(car.plate).trim() !== '-') return String(car.plate).trim();
 
-  // Build from Arabic plate parts
-  const letters = String(car['احرف اللوحة'] || car['حرف']   || '').trim();
-  const numbers = String(car['رقم اللوحة']  || '').trim();
+  // ── Try _c columns first (most reliable from your sheet structure) ──
+  // Letters come from _c23, _c24, _c25 (or احرف اللوحة field)
+  // Numbers come from _c26, _c27, _c28 (or رقم اللوحة field)
+  const c23 = String(car._c23 || '').trim();
+  const c24 = String(car._c24 || '').trim();
+  const c25 = String(car._c25 || '').trim();
+  const c26 = String(car._c26 || '').trim();
+  const c27 = String(car._c27 || '').trim();
+  const c28 = String(car._c28 || '').trim();
 
-  if (letters && numbers) return `${letters} ${numbers}`;
-  if (letters)            return letters;
-  if (numbers)            return numbers;
+  const letters = [c23, c24, c25].filter(Boolean).join(' ');
+  const numbers = [c26, c27, c28].filter(Boolean).join(' ');
+
+  if (letters || numbers) {
+    return [letters, numbers].filter(Boolean).join(' ');
+  }
+
+  // ── Fallback: احرف اللوحة + رقم اللوحة ──
+  const lettersField = String(car['احرف اللوحة'] || car['حرف'] || car['حرف_1'] || '').trim();
+  const numbersField = String(car['رقم اللوحة']  || '').trim();
+  if (lettersField || numbersField) {
+    return [lettersField, numbersField].filter(Boolean).join(' ');
+  }
 
   return '';
 };
@@ -619,4 +635,55 @@ window.buildVerifyUrl = function(order) {
   const ref = String(order['No.'] || order.id || '').trim();
   if (!ref) return '';
   return `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${encodeURIComponent(ref)}`;
+};
+
+// core/utils.js — collapsible panel helper
+window.buildCollapsibleHeader = function(id, html, defaultOpen = true) {
+  const storageKey = `panel_collapsed_${id}`;
+  const isCollapsed = localStorage.getItem(storageKey) === 'true' ? true : !defaultOpen;
+
+  return `
+    <div id="panel-header-${id}"
+      style="position:relative;margin-bottom:${isCollapsed ? '8px' : '0'};">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  flex-wrap:wrap;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          ${html}
+        </div>
+        <button id="panel-toggle-${id}"
+          onclick="togglePanelHeader('${id}')"
+          style="background:var(--surface2);border:1px solid var(--border);
+                 border-radius:6px;padding:4px 8px;cursor:pointer;
+                 color:var(--text3);font-size:12px;white-space:nowrap;
+                 flex-shrink:0;transition:all 0.2s;"
+          title="${isCollapsed ? 'Show' : 'Hide'} panel">
+          ${isCollapsed ? '▼ Show' : '▲ Hide'}
+        </button>
+      </div>
+      <div id="panel-body-${id}"
+        style="overflow:hidden;transition:max-height 0.3s ease;
+               max-height:${isCollapsed ? '0px' : '500px'};">
+      </div>
+    </div>
+  `;
+};
+
+window.togglePanelHeader = function(id) {
+  const storageKey = `panel_collapsed_${id}`;
+  const body       = document.getElementById(`panel-body-${id}`);
+  const btn        = document.getElementById(`panel-toggle-${id}`);
+  const header     = document.getElementById(`panel-header-${id}`);
+
+  const isNowCollapsed = body.style.maxHeight !== '0px';
+
+  body.style.maxHeight = isNowCollapsed ? '0px' : '500px';
+  if (btn) {
+    btn.textContent = isNowCollapsed ? '▼ Show' : '▲ Hide';
+    btn.title       = isNowCollapsed ? 'Show panel' : 'Hide panel';
+  }
+  if (header) {
+    header.style.marginBottom = isNowCollapsed ? '8px' : '0';
+  }
+
+  localStorage.setItem(storageKey, isNowCollapsed ? 'true' : 'false');
 };

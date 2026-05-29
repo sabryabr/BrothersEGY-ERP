@@ -1,12 +1,6 @@
 // ============================================================
 // modules/risk.js
-// Risk Radar — license, insurance, contract expiry monitoring,
-// deposit return risks, branch availability summary,
-// branch and type filters, severity badges, sidebar badge
-// ============================================================
-
-// ============================================================
-// ENTRY POINT
+// Risk Radar — license, insurance, contract expiry monitoring
 // ============================================================
 
 window.renderRiskRadar = function() {
@@ -18,475 +12,501 @@ window.loadRiskRadar = async function() {
   const el = document.getElementById('page-risk-radar');
   if (!el) return;
 
+  // Collapsible header state
+  const hKey      = 'risk_radar_header_collapsed';
+  const collapsed = localStorage.getItem(hKey) === 'true';
+
   el.innerHTML = `
-    <div class="section-header">
-      <div>
-        <h2>⚠️ Risk Radar</h2>
-        <p>License, insurance and contract expiry monitoring for all fleet</p>
+    <!-- Collapsible Header -->
+    <div style="background:var(--surface2);border:1px solid var(--border);
+                border-radius:var(--radius);margin-bottom:12px;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+                  padding:10px 14px;cursor:pointer;"
+           onclick="toggleRiskHeader()">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <h2 style="margin:0;font-size:16px;font-weight:800;">⚠️ Risk Radar</h2>
+            <span style="color:var(--text3);font-size:11px;">
+              License, insurance and contract expiry monitoring for all fleet
+            </span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;"
+             onclick="event.stopPropagation()">
+          <!-- Window filter -->
+          <select id="risk-window" onchange="renderRiskContent()"
+            style="padding:5px 8px;background:var(--surface);border:1px solid var(--border);
+                   border-radius:6px;color:var(--text);font-size:11px;">
+            <option value="7">Next 7 Days</option>
+            <option value="30">Next 30 Days</option>
+            <option value="60" selected>Next 60 Days</option>
+            <option value="90">Next 90 Days</option>
+            <option value="180">Next 6 Months</option>
+            <option value="365">Next 1 Year</option>
+          </select>
+          <button class="btn btn-ghost btn-sm"
+            onclick="loadRiskRadar()">🔄 Refresh</button>
+          <button id="risk-toggle-btn"
+            onclick="toggleRiskHeader()"
+            style="background:var(--surface);border:1px solid var(--border);
+                   border-radius:6px;padding:3px 8px;cursor:pointer;
+                   color:var(--text3);font-size:11px;">
+            ${collapsed ? '▼ Show' : '▲ Hide'}
+          </button>
+        </div>
       </div>
-      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
-        <select id="risk-range" onchange="loadRiskRadar()"
-          style="padding:7px 10px;background:var(--surface2);
-            border:1px solid var(--border);border-radius:8px;
-            color:var(--text);font-size:12px;">
-          <option value="7">Next 7 Days</option>
-          <option value="30">Next 30 Days</option>
-          <option value="60" selected>Next 60 Days</option>
-          <option value="90">Next 90 Days</option>
-          <option value="180">Next 6 Months</option>
-          <option value="365">Next 1 Year</option>
-        </select>
-        <button class="btn btn-ghost btn-sm"
-          onclick="loadRiskRadar()">🔄 Refresh</button>
+
+      <!-- Collapsible KPI summary -->
+      <div id="risk-header-collapsible"
+        style="overflow:hidden;transition:max-height 0.3s ease;
+               max-height:${collapsed ? '0px' : '300px'};">
+        <div style="padding:0 14px 12px;">
+          <div id="risk-kpi-bar"
+            style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        </div>
       </div>
     </div>
 
-    <!-- KPI Row -->
-    <div id="risk-kpis"
-      style="display:grid;
-        grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
-        gap:10px;margin-bottom:16px;">
-    </div>
+    <!-- Branch availability strip -->
+    <div id="risk-branch-strip"
+      style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
 
-    <!-- Branch Availability Summary -->
-    <div id="risk-branch-avail"
-      style="display:grid;
-        grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-        gap:8px;margin-bottom:14px;">
-    </div>
-
-    <!-- Branch filter -->
-    <div style="display:flex;gap:6px;margin-bottom:8px;
-      flex-wrap:wrap;align-items:center;">
-      <span style="font-size:9px;font-weight:800;color:var(--text3);
-        text-transform:uppercase;">BRANCH:</span>
-      <button class="btn btn-ghost btn-sm risk-branch-btn" id="rb-all"
-        onclick="filterRiskBranch('all',this)"
-        style="border-color:var(--accent);color:var(--accent);">
-        🌐 All
-      </button>
-      <button class="btn btn-ghost btn-sm risk-branch-btn" id="rb-HRG"
-        onclick="filterRiskBranch('HRG',this)">🌊 Hurghada</button>
-      <button class="btn btn-ghost btn-sm risk-branch-btn" id="rb-ALX"
-        onclick="filterRiskBranch('ALX',this)">🏙 Alexandria</button>
-      <button class="btn btn-ghost btn-sm risk-branch-btn" id="rb-CAI"
-        onclick="filterRiskBranch('CAI',this)">🏛 Cairo</button>
-      <button class="btn btn-ghost btn-sm risk-branch-btn" id="rb-RSH"
-        onclick="filterRiskBranch('RSH',this)">⚓ Rashid</button>
-    </div>
-
-    <!-- Type filter -->
-    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-      <button class="btn btn-ghost btn-sm risk-type-btn"
-        id="risk-type-all"
-        style="border-color:var(--accent);color:var(--accent);"
-        onclick="filterRiskTable('all',this)">
-        📋 All
-      </button>
-      <button class="btn btn-ghost btn-sm risk-type-btn"
-        id="risk-type-license"
-        onclick="filterRiskTable('License',this)">
-        🪪 License
-      </button>
-      <button class="btn btn-ghost btn-sm risk-type-btn"
-        id="risk-type-insurance"
-        onclick="filterRiskTable('Insurance',this)">
-        🛡 Insurance
-      </button>
-      <button class="btn btn-ghost btn-sm risk-type-btn"
-        id="risk-type-contract"
-        onclick="filterRiskTable('Contract',this)">
-        📄 Contract
-      </button>
-      <button class="btn btn-ghost btn-sm risk-type-btn"
-        id="risk-type-deposit"
-        onclick="filterRiskTable('Deposit',this)">
-        🔒 Deposits
-      </button>
-    </div>
-
-    <!-- Risk Table -->
-    <div class="panel">
-      <div id="risk-table-wrap" class="table-wrap">
-        <div class="empty-state"><div class="spinner lg"></div></div>
+    <!-- Main content -->
+    <div id="risk-content">
+      <div class="empty-state">
+        <div class="spinner lg"></div>
       </div>
-    </div>`;
+    </div>
+  `;
 
-  const days     = parseInt(document.getElementById('risk-range')?.value || 60);
-  const today    = new Date();
-  const allRisks = [];
+  window.toggleRiskHeader = function() {
+    const body = document.getElementById('risk-header-collapsible');
+    const btn  = document.getElementById('risk-toggle-btn');
+    if (!body) return;
+    const isNowCollapsed = body.style.maxHeight !== '0px';
+    body.style.maxHeight = isNowCollapsed ? '0px' : '300px';
+    if (btn) btn.textContent = isNowCollapsed ? '▼ Show' : '▲ Hide';
+    localStorage.setItem(hKey, isNowCollapsed ? 'true' : 'false');
+  };
 
-  // ---- Fleet expiry risks ----
+  if (!G.fleet || !G.fleet.length) await loadFleetData();
+  renderRiskContent();
+};
+
+window.renderRiskContent = function() {
+  const windowDays = parseInt(
+    document.getElementById('risk-window')?.value || '60'
+  );
+  const today    = getCairoNow();
+  const deadline = new Date(today.getTime() + windowDays * 86400000);
+
+  // ── Parse all fleet risk items ──────────────────────────────
+  const risks = [];
+
   G.fleet.forEach(car => {
-    if (getCarStatusCategory(car) === 'archived') return;
+    // Skip truly archived cars
+    if (car.archived === true || car.is_active === false) return;
 
-    [
-      { field: 'نهاية الترخيص', label: 'License',   icon: '🪪' },
-      { field: 'نهاية التأمين', label: 'Insurance',  icon: '🛡' },
-      { field: 'نهاية التعاقد', label: 'Contract',   icon: '📄' }
-    ].forEach(({ field, label, icon }) => {
-      const d = parseDBDate(car[field]);
-      if (!d) return;
-      const daysLeft = Math.ceil((d - today) / 86400000);
-      if (daysLeft < -7 || daysLeft > days) return;
-      allRisks.push({
-        car,
-        label,
-        icon,
-        date: d,
-        daysLeft,
-        risk:     daysLeft <= 0  ? 'expired' :
-                  daysLeft <= 7  ? 'high'    :
-                  daysLeft <= 14 ? 'high'    :
-                  daysLeft <= 45 ? 'medium'  : 'low',
-        carLabel: getCarLabel(car, 'en'),
-        owner:    ((car['الاسم الأول'] || '') + ' ' +
-                   (car['الاسم الأخير'] || '')).trim() || '—',
-        plate:    car.plate || formatPlate(car)
+    const label    = getCarLabel(car, 'en');
+    const plateStr = formatPlate(car);
+    const carId    = car.id || car.ID;
+    const branch   = car.Branch || car.City || car['المحافظة'] || '—';
+
+    // ── Helper: parse a date field from car ──────────────────
+    function parseCarDate(val) {
+      if (!val) return null;
+      const s = String(val).trim();
+      if (!s || s === '-' || s === 'لا يوجد') return null;
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function daysUntil(d) {
+      if (!d) return null;
+      return Math.ceil((d - today) / 86400000);
+    }
+
+    function severity(days) {
+      if (days === null) return null;
+      if (days < 0)   return 'expired';
+      if (days <= 45) return 'high';
+      if (days <= 60) return 'medium';
+      return 'low';
+    }
+
+    // ── 1. License expiry ─────────────────────────────────────
+    // Fields: نهاية الترخيص
+    const licDate  = parseCarDate(car['نهاية الترخيص']);
+    const licDays  = daysUntil(licDate);
+    const licSev   = severity(licDays);
+    if (licDate && (licDate <= deadline || licDays < 0)) {
+      risks.push({
+        carId, label, plateStr, branch,
+        type     : 'license',
+        typeLabel: '📋 License',
+        date     : licDate,
+        days     : licDays,
+        severity : licSev,
+        field    : 'نهاية الترخيص',
+        status   : car['حاله الترخيص'] || car.License || '—'
       });
-    });
-  });
+    }
 
-  // ---- Deposit return risks ----
-  G.bookings.forEach(b => {
-    const held     = parseAmount(b.deposit_held     || b['الوديعة المحتجزة'] || 0);
-    const returned = parseAmount(b.deposit_returned || b['الوديعة المردودة'] || 0);
-    const isClosed = b.closed || b.status === 'Closed' ||
-                     b['حالة الطلب'] === 'Closed';
-    const { end }  = getOrderDates(b);
-    const daysLeft = end ? Math.ceil((end - today) / 86400000) : 99;
+    // ── 2. Insurance expiry ───────────────────────────────────
+    // Fields: نهاية التأمين
+    const insDate  = parseCarDate(car['نهاية التأمين']);
+    const insDays  = daysUntil(insDate);
+    const insSev   = severity(insDays);
+    if (insDate && (insDate <= deadline || insDays < 0)) {
+      risks.push({
+        carId, label, plateStr, branch,
+        type     : 'insurance',
+        typeLabel: '🛡️ Insurance',
+        date     : insDate,
+        days     : insDays,
+        severity : insSev,
+        field    : 'نهاية التأمين',
+        status   : car['حالة التأمين'] || car.Insurance || '—',
+        company  : car['شركة التأمين'] || car['Insurance Comp.'] || '—'
+      });
+    }
 
-    if (held > returned && held > 0) {
-      if (isClosed) {
-        allRisks.push({
-          car:         null,
-          label:       'Deposit Return Due',
-          icon:        '🔒',
-          daysLeft:    -1,
-          risk:        'expired',
-          carLabel:    b.car_label || b['كود السيارة'] || '—',
-          owner:       b['اسم العميل'] || '—',
-          plate:       b['No.'] || b.id,
-          depositNote: `${fmtMoney(held - returned)} not returned to client`,
-          orderId:     b.id,
-          orderNo:     b['No.'] || b.id,
-          date:        null
-        });
-      } else if (daysLeft >= 0 && daysLeft <= 3) {
-        allRisks.push({
-          car:         null,
-          label:       'Deposit Due Soon',
-          icon:        '⚠️',
-          daysLeft,
-          risk:        daysLeft <= 0 ? 'expired' : 'high',
-          carLabel:    b.car_label || b['كود السيارة'] || '—',
-          owner:       b['اسم العميل'] || '—',
-          plate:       b['No.'] || b.id,
-          depositNote: `${fmtMoney(held - returned)} to return in ${daysLeft}d`,
-          orderId:     b.id,
-          orderNo:     b['No.'] || b.id,
-          date:        end
-        });
-      }
+    // ── 3. Contract expiry ────────────────────────────────────
+    // Fields: نهاية التعاقد
+    const conDate  = parseCarDate(car['نهاية التعاقد']);
+    const conDays  = daysUntil(conDate);
+    const conSev   = severity(conDays);
+    if (conDate && (conDate <= deadline || conDays < 0)) {
+      risks.push({
+        carId, label, plateStr, branch,
+        type     : 'contract',
+        typeLabel: '📄 Contract',
+        date     : conDate,
+        days     : conDays,
+        severity : conSev,
+        field    : 'نهاية التعاقد',
+        status   : car['حاله التعاقد'] || car.Contract || '—'
+      });
+    }
+
+    // ── 4. Handover date ──────────────────────────────────────
+    // Fields: تاريخ التسليم
+    const handDate = parseCarDate(car['تاريخ التسليم']);
+    const handDays = daysUntil(handDate);
+    const handSev  = severity(handDays);
+    if (handDate && handDays !== null && handDays >= 0 && handDate <= deadline) {
+      risks.push({
+        carId, label, plateStr, branch,
+        type     : 'handover',
+        typeLabel: '🔑 Handover',
+        date     : handDate,
+        days     : handDays,
+        severity : handSev,
+        field    : 'تاريخ التسليم',
+        status   : 'Upcoming return to owner'
+      });
+    }
+
+    // ── 5. Inspection date ────────────────────────────────────
+    // Fields: تاريخ الفحص
+    const inspDate = parseCarDate(car['تاريخ الفحص']);
+    const inspDays = daysUntil(inspDate);
+    const inspSev  = severity(inspDays);
+    if (inspDate && (inspDate <= deadline || inspDays < 0)) {
+      risks.push({
+        carId, label, plateStr, branch,
+        type     : 'inspection',
+        typeLabel: '🔍 Inspection',
+        date     : inspDate,
+        days     : inspDays,
+        severity : inspSev,
+        field    : 'تاريخ الفحص',
+        status   : '—'
+      });
     }
   });
 
-  // Sort: expired first, then by days ascending
-  allRisks.sort((a,b) => a.daysLeft - b.daysLeft);
-
-  // Store for filtering
-  window._riskData   = allRisks;
-  window._riskBranch = 'all';
-  window._riskType   = 'all';
-
-  // ---- KPIs ----
-  const expired     = allRisks.filter(r => r.risk === 'expired').length;
-  const high        = allRisks.filter(r => r.risk === 'high').length;
-  const medium      = allRisks.filter(r => r.risk === 'medium').length;
-  const low         = allRisks.filter(r => r.risk === 'low').length;
-  const depositRisk = allRisks.filter(r =>
-    r.label === 'Deposit Return Due' || r.label === 'Deposit Due Soon'
-  ).length;
-
-  const kpiEl = document.getElementById('risk-kpis');
-  if (kpiEl) {
-    kpiEl.innerHTML = `
-      <div class="kpi-card" style="cursor:pointer;"
-        onclick="filterRiskTable('all',document.getElementById('risk-type-all'))">
-        <div class="kpi-label">Total Risks</div>
-        <div class="kpi-value text-accent">${allRisks.length}</div>
-        <div class="kpi-sub">Within ${days} days</div>
-      </div>
-      <div class="kpi-card" style="cursor:pointer;"
-        onclick="filterRiskTable('expired',null)">
-        <div class="kpi-label">Expired</div>
-        <div class="kpi-value text-danger">${expired}</div>
-        <div class="kpi-sub">Immediate action required</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">High Risk</div>
-        <div class="kpi-value text-danger">${high}</div>
-        <div class="kpi-sub">Within 45 days</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Medium Risk</div>
-        <div class="kpi-value text-warning">${medium}</div>
-        <div class="kpi-sub">Within 60 days</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Low Risk</div>
-        <div class="kpi-value text-success">${low}</div>
-        <div class="kpi-sub">Expiring soon</div>
-      </div>
-      <div class="kpi-card" style="cursor:pointer;"
-        onclick="filterRiskTable('Deposit',document.getElementById('risk-type-deposit'))">
-        <div class="kpi-label">Deposit Returns Due</div>
-        <div class="kpi-value" style="color:var(--warning);">${depositRisk}</div>
-        <div class="kpi-sub">Unreturned deposits</div>
-      </div>`;
-  }
-
-  // Update sidebar badge
-  const rb = document.getElementById('badge-risk');
-  if (rb) {
-    rb.textContent = expired + high;
-    rb.classList.toggle('hidden', (expired + high) === 0);
-  }
-
-  // ---- Branch availability summary ----
-  const branchDefs = [
-    { code: 'HRG', label: 'Hurghada',   icon: '🌊', keywords: ['hurghada','الغردقة','hrg']   },
-    { code: 'ALX', label: 'Alexandria', icon: '🏙', keywords: ['alexandria','اسكندرية','alx'] },
-    { code: 'CAI', label: 'Cairo',      icon: '🏛', keywords: ['cairo','قاهرة','cai']          },
-    { code: 'RSH', label: 'Rashid',     icon: '⚓', keywords: ['rashid','رشيد','rsh']          }
-  ];
-
-  const activeCars = G.fleet.filter(c => getCarStatusCategory(c) !== 'archived');
-  const branchAvailEl = document.getElementById('risk-branch-avail');
-  if (branchAvailEl) {
-    branchAvailEl.innerHTML = branchDefs.map(bd => {
-      const branchCars = activeCars.filter(c => {
-        const b = (c.Branch || c.City || c['المحافظة'] || c.current_location || '').toLowerCase();
-        return bd.keywords.some(k => b.includes(k));
+  // ── 6. Unreturned deposits from bookings ──────────────────
+  const depositRisks = [];
+  if (G.bookings) {
+    G.bookings.forEach(b => {
+      const held     = parseAmount(b['الوديعة المحتجزة'] || b.deposit_held     || 0);
+      const returned = parseAmount(b['الوديعة المردودة'] || b.deposit_returned || 0);
+      const balance  = held - returned;
+      if (balance <= 0) return;
+      const st = getOrderStatus(b);
+      if (st !== 'Closed' && !b.closed) return; // only flag closed orders with held deposit
+      depositRisks.push({
+        orderId  : b.id,
+        orderNo  : b['No.'] || b.id,
+        client   : getOrderClientName(b) || '—',
+        balance,
+        carLabel : b['اسم السيارة'] || '—'
       });
-      const avail  = branchCars.filter(c => getCarStatusCategory(c) === 'available').length;
-      const rented = branchCars.filter(c => getCarStatusCategory(c) === 'rented').length;
-      const other  = branchCars.length - avail - rented;
+    });
+  }
+
+  // ── Sort risks: expired first, then by days asc ──────────
+  risks.sort((a, b) => {
+    if (a.days === null) return 1;
+    if (b.days === null) return -1;
+    return (a.days) - (b.days);
+  });
+
+  // ── KPI counts ────────────────────────────────────────────
+  const expired  = risks.filter(r => r.severity === 'expired').length;
+  const high     = risks.filter(r => r.severity === 'high').length;
+  const medium   = risks.filter(r => r.severity === 'medium').length;
+  const low      = risks.filter(r => r.severity === 'low').length;
+
+  // ── KPI bar ───────────────────────────────────────────────
+  const kpiBar = document.getElementById('risk-kpi-bar');
+  if (kpiBar) {
+    const kpis = [
+      { label:'Total Risks',         value: risks.length,        color:'var(--accent)',   sub:`Within ${windowDays} days` },
+      { label:'Expired',             value: expired,             color:'var(--danger)',   sub:'Immediate action required' },
+      { label:'High Risk',           value: high,                color:'#f97316',         sub:'Within 45 days' },
+      { label:'Medium Risk',         value: medium,              color:'var(--warning)',  sub:'Within 60 days' },
+      { label:'Low Risk',            value: low,                 color:'var(--success)',  sub:'Expiring soon' },
+      { label:'Deposit Returns Due', value: depositRisks.length, color:'#8b5cf6',        sub:'Unreturned deposits' }
+    ];
+    kpiBar.innerHTML = kpis.map(k => `
+      <div style="background:var(--surface);border:1px solid var(--border);
+                  border-radius:10px;padding:10px 16px;text-align:center;min-width:100px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;">
+          ${k.label}
+        </div>
+        <div style="font-size:22px;font-weight:900;color:${k.color};">${k.value}</div>
+        <div style="font-size:9px;color:var(--text3);">${k.sub}</div>
+      </div>
+    `).join('');
+  }
+
+  // ── Branch availability strip ─────────────────────────────
+  const strip = document.getElementById('risk-branch-strip');
+  if (strip) {
+    const branches = [
+      { code:'HRG', label:'🌊 Hurghada',  terms:['hurghada','الغردقة','hrg'] },
+      { code:'ALX', label:'🏙 Alexandria', terms:['alexandria','اسكندرية','alx'] },
+      { code:'CAI', label:'🏛 Cairo',      terms:['cairo','قاهرة','cai'] },
+      { code:'RSH', label:'⚓ Rashid',     terms:['rashid','رشيد','rsh'] }
+    ];
+
+    strip.innerHTML = branches.map(br => {
+      const brCars = G.fleet.filter(c => {
+        if (getCarStatusCategory(c) === 'archived') return false;
+        const b = (c.Branch || c.City || c['المحافظة'] ||
+                   c['اسم الفرع'] || '').toLowerCase();
+        return br.terms.some(t => b.includes(t));
+      });
+      const avail  = brCars.filter(c => getCarStatusCategory(c) === 'available').length;
+      const rented = brCars.filter(c => getCarStatusCategory(c) === 'rented').length;
+      const total  = brCars.length;
+
       return `
-        <div class="kpi-card" style="cursor:pointer;"
-          onclick="filterRiskBranch('${bd.code}',
-            document.getElementById('rb-${bd.code}'))">
-          <div class="kpi-label">${bd.icon} ${bd.label}</div>
-          <div style="display:flex;gap:7px;align-items:baseline;margin:4px 0;">
-            <span style="font-size:18px;font-weight:900;color:var(--success);">
-              ${avail}
-            </span>
-            <span style="font-size:10px;color:var(--text3);">avail</span>
-            <span style="font-size:14px;font-weight:700;color:var(--accent);">
-              ${rented}
-            </span>
-            <span style="font-size:10px;color:var(--text3);">rented</span>
+        <div style="background:var(--surface2);border:1px solid var(--border);
+                    border-radius:10px;padding:10px 14px;min-width:130px;">
+          <div style="font-size:11px;font-weight:800;margin-bottom:6px;">
+            ${br.label}
           </div>
-          <div class="kpi-sub">${branchCars.length} total cars</div>
+          <div style="display:flex;gap:8px;font-size:11px;">
+            <span style="color:var(--success);font-weight:700;">
+              <strong>${avail}</strong> avail
+            </span>
+            <span style="color:var(--accent);font-weight:700;">
+              <strong>${rented}</strong> rented
+            </span>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">
+            ${total} total cars
+          </div>
         </div>`;
     }).join('');
   }
 
-  // Initial render
-  renderRiskTable(allRisks);
-};
+  // ── Main content ──────────────────────────────────────────
+  const content = document.getElementById('risk-content');
+  if (!content) return;
 
-// ============================================================
-// BRANCH FILTER
-// ============================================================
-
-window.filterRiskBranch = function(branch, btn) {
-  window._riskBranch = branch;
-
-  // Update branch button styles
-  document.querySelectorAll('.risk-branch-btn').forEach(b => {
-    b.style.borderColor = 'var(--border)';
-    b.style.color       = 'var(--text2)';
-  });
-  if (btn) {
-    btn.style.borderColor = 'var(--accent)';
-    btn.style.color       = 'var(--accent)';
-  }
-
-  _applyRiskFilters();
-};
-
-// ============================================================
-// TYPE FILTER
-// ============================================================
-
-window.filterRiskTable = function(type, btn) {
-  window._riskType = type;
-
-  // Update type button styles
-  document.querySelectorAll('.risk-type-btn').forEach(b => {
-    b.style.borderColor = 'var(--border)';
-    b.style.color       = 'var(--text2)';
-  });
-  if (btn) {
-    btn.style.borderColor = 'var(--accent)';
-    btn.style.color       = 'var(--accent)';
-  }
-
-  _applyRiskFilters();
-};
-
-// ============================================================
-// APPLY COMBINED FILTERS
-// ============================================================
-
-function _applyRiskFilters() {
-  const risks  = window._riskData || [];
-  const branch = window._riskBranch || 'all';
-  const type   = window._riskType   || 'all';
-
-  let filtered = risks;
-
-  // Branch filter
-  if (branch !== 'all') {
-    filtered = filtered.filter(r => {
-      if (!r.car) return true; // deposit risks always shown
-      return getCarBranchCode(r.car) === branch;
-    });
-  }
-
-  // Type filter
-  if (type === 'expired') {
-    filtered = filtered.filter(r => r.risk === 'expired');
-  } else if (type === 'Deposit') {
-    filtered = filtered.filter(r =>
-      r.label === 'Deposit Return Due' || r.label === 'Deposit Due Soon'
-    );
-  } else if (type !== 'all') {
-    filtered = filtered.filter(r => r.label === type);
-  }
-
-  renderRiskTable(filtered);
-}
-
-// ============================================================
-// RENDER RISK TABLE
-// ============================================================
-
-window.renderRiskTable = function(risks) {
-  const wrap = document.getElementById('risk-table-wrap');
-  if (!wrap) return;
-
-  if (!risks.length) {
-    wrap.innerHTML = `
-      <div class="empty-state">
-        <div class="es-icon">✅</div>
-        <p>No risks found in this category</p>
+  if (risks.length === 0 && depositRisks.length === 0) {
+    content.innerHTML = `
+      <div class="empty-state" style="padding:60px 20px;">
+        <div style="font-size:48px;margin-bottom:16px;">✅</div>
+        <p style="font-size:14px;font-weight:700;color:var(--success);">
+          All Clear!
+        </p>
+        <p style="color:var(--text3);">
+          No expiring documents within ${windowDays} days.
+        </p>
       </div>`;
     return;
   }
 
-  wrap.innerHTML = `
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Car</th>
-          <th>Plate / Ref</th>
-          <th>Risk Type</th>
-          <th>Expires / Note</th>
-          <th>Days Left</th>
-          <th>Risk Level</th>
-          <th>Owner / Client</th>
-          <th>Branch</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${risks.map(r => {
-          const isDepositRisk = r.label === 'Deposit Return Due' ||
-                                r.label === 'Deposit Due Soon';
-          const carId = isDepositRisk
-            ? null
-            : (r.car?.ID || r.car?.id);
+  // Group risks by type
+  const grouped = {};
+  risks.forEach(r => {
+    if (!grouped[r.type]) grouped[r.type] = [];
+    grouped[r.type].push(r);
+  });
 
-          const riskColor = r.risk === 'expired' ? 'var(--danger)'  :
-                            r.risk === 'high'    ? 'var(--danger)'  :
-                            r.risk === 'medium'  ? 'var(--warning)' : 'var(--success)';
+  const typeOrder = ['license','insurance','contract','handover','inspection'];
+  const typeIcons = {
+    license   : '📋 License Expiry',
+    insurance : '🛡️ Insurance Expiry',
+    contract  : '📄 Contract Expiry',
+    handover  : '🔑 Upcoming Handovers',
+    inspection: '🔍 Inspection Due'
+  };
 
-          const borderColor = r.risk === 'expired' ? '#ef4444' :
-                              r.risk === 'high'    ? '#f97316' :
-                              r.risk === 'medium'  ? '#eab308' : '#22c55e';
+  const sevColors = {
+    expired: { bg:'rgba(239,68,68,0.12)',  border:'rgba(239,68,68,0.4)',  text:'#f87171',  badge:'EXPIRED' },
+    high   : { bg:'rgba(249,115,22,0.12)', border:'rgba(249,115,22,0.4)', text:'#fb923c',  badge:'HIGH RISK' },
+    medium : { bg:'rgba(245,158,11,0.12)', border:'rgba(245,158,11,0.4)', text:'#fbbf24',  badge:'MEDIUM' },
+    low    : { bg:'rgba(34,197,94,0.08)',  border:'rgba(34,197,94,0.3)',  text:'#4ade80',  badge:'LOW' }
+  };
 
-          const branchCode = r.car ? getCarBranchCode(r.car) : '';
-          const branchName = BRANCH_MAP[branchCode] || branchCode || '—';
+  let html = '';
 
-          const daysDisplay = isDepositRisk
-            ? (r.daysLeft < 0 ? 'Overdue' : r.daysLeft + ' days')
-            : (r.daysLeft <= 0
-                ? `EXPIRED ${Math.abs(r.daysLeft)}d ago`
-                : r.daysLeft + ' days');
+  // ── Risks by type ─────────────────────────────────────────
+  typeOrder.forEach(type => {
+    const group = grouped[type];
+    if (!group || group.length === 0) return;
 
-          return `
-            <tr style="border-left:3px solid ${borderColor};">
-              <td style="font-size:11px;max-width:160px;
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                ${carId
-                  ? `<span style="cursor:pointer;color:var(--accent);"
-                      onclick="openCarDetailModal('${carId}')">
-                      ${r.carLabel}
-                    </span>`
-                  : r.carLabel}
-              </td>
-              <td style="font-size:11px;">${r.plate || '—'}</td>
-              <td>${r.icon} ${r.label}</td>
-              <td style="font-size:11px;">
-                ${r.depositNote || (r.date ? fmtDateShort(r.date) : '—')}
-              </td>
-              <td>
-                <strong style="color:${riskColor};">${daysDisplay}</strong>
-              </td>
-              <td>
-                <span class="pill pill-${
-                  r.risk === 'expired' ? 'high'   :
-                  r.risk === 'high'    ? 'high'   :
-                  r.risk === 'medium'  ? 'medium' : 'low'}">
-                  ${r.risk.toUpperCase()}
-                </span>
-              </td>
-              <td style="font-size:11px;">${r.owner}</td>
-              <td style="font-size:11px;">${branchName}</td>
-              <td>
-                <div style="display:flex;gap:3px;">
-                  ${isDepositRisk ? `
+    html += `
+      <div style="background:var(--surface2);border:1px solid var(--border);
+                  border-radius:var(--radius);margin-bottom:12px;overflow:hidden;">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);
+                    display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:13px;font-weight:800;">${typeIcons[type]}</div>
+          <span style="font-size:11px;color:var(--text3);">
+            ${group.length} car${group.length > 1 ? 's' : ''}
+          </span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="background:var(--surface);color:var(--text3);
+                         font-size:10px;font-weight:700;text-transform:uppercase;">
+                <th style="padding:8px;text-align:left;">Car</th>
+                <th style="padding:8px;text-align:left;">Plate</th>
+                <th style="padding:8px;text-align:left;">Branch</th>
+                <th style="padding:8px;text-align:left;">Expiry Date</th>
+                <th style="padding:8px;text-align:center;">Days</th>
+                <th style="padding:8px;text-align:center;">Risk</th>
+                <th style="padding:8px;text-align:left;">Status</th>
+                <th style="padding:8px;text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${group.map(r => {
+                const sc = sevColors[r.severity] || sevColors.low;
+                const daysLabel = r.days === null ? '—'
+                  : r.days < 0  ? `${Math.abs(r.days)}d ago`
+                  : r.days === 0 ? 'TODAY'
+                  : `${r.days}d`;
+                return `
+                  <tr style="border-bottom:1px solid var(--border);
+                              background:${r.severity==='expired'
+                                ? 'rgba(239,68,68,0.04)' : 'transparent'};"
+                      onmouseover="this.style.background='var(--surface2)'"
+                      onmouseout="this.style.background='${r.severity==='expired'
+                        ? 'rgba(239,68,68,0.04)':'transparent'}'">
+                    <td style="padding:8px;font-weight:600;">
+                      <span style="cursor:pointer;color:var(--accent);"
+                            onclick="openCarDetailModal('${r.carId}')">
+                        ${r.label}
+                      </span>
+                    </td>
+                    <td style="padding:8px;font-family:monospace;font-size:10px;">
+                      ${r.plateStr||'—'}
+                    </td>
+                    <td style="padding:8px;color:var(--text3);">${r.branch}</td>
+                    <td style="padding:8px;">
+                      ${r.date ? r.date.toLocaleDateString('en-GB',{
+                        day:'2-digit',month:'short',year:'numeric'
+                      }) : '—'}
+                    </td>
+                    <td style="padding:8px;text-align:center;font-weight:800;
+                               color:${sc.text};">
+                      ${daysLabel}
+                    </td>
+                    <td style="padding:8px;text-align:center;">
+                      <span style="padding:2px 7px;border-radius:99px;font-size:9px;
+                                   font-weight:800;background:${sc.bg};
+                                   color:${sc.text};border:1px solid ${sc.border};">
+                        ${sc.badge}
+                      </span>
+                    </td>
+                    <td style="padding:8px;color:var(--text3);font-size:10px;">
+                      ${r.status}
+                      ${r.company ? `<br><span style="color:var(--text3);">
+                        ${r.company}</span>` : ''}
+                    </td>
+                    <td style="padding:8px;text-align:center;">
+                      <button class="btn btn-ghost btn-xs"
+                        onclick="openCarEditModal('${r.carId}')">✏️</button>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  });
+
+  // ── Deposit risks ─────────────────────────────────────────
+  if (depositRisks.length > 0) {
+    html += `
+      <div style="background:var(--surface2);border:1px solid var(--border);
+                  border-radius:var(--radius);margin-bottom:12px;overflow:hidden;">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);
+                    display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:13px;font-weight:800;">
+            🔒 Unreturned Deposits (Closed Orders)
+          </div>
+          <span style="font-size:11px;color:var(--text3);">
+            ${depositRisks.length} order${depositRisks.length > 1 ? 's' : ''}
+          </span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="background:var(--surface);color:var(--text3);
+                         font-size:10px;font-weight:700;text-transform:uppercase;">
+                <th style="padding:8px;text-align:left;">Order #</th>
+                <th style="padding:8px;text-align:left;">Client</th>
+                <th style="padding:8px;text-align:left;">Car</th>
+                <th style="padding:8px;text-align:right;">Balance</th>
+                <th style="padding:8px;text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${depositRisks.map(d => `
+                <tr style="border-bottom:1px solid var(--border);"
+                    onmouseover="this.style.background='var(--surface2)'"
+                    onmouseout="this.style.background=''">
+                  <td style="padding:8px;">
+                    <span style="color:var(--accent);font-weight:700;cursor:pointer;"
+                          onclick="openOrderDetail('${d.orderId}')">
+                      #${d.orderNo}
+                    </span>
+                  </td>
+                  <td style="padding:8px;">${d.client}</td>
+                  <td style="padding:8px;color:var(--text3);">${d.carLabel}</td>
+                  <td style="padding:8px;text-align:right;font-weight:700;
+                             color:#8b5cf6;">
+                    ${fmtMoney(d.balance)}
+                  </td>
+                  <td style="padding:8px;text-align:center;">
                     <button class="btn btn-ghost btn-xs"
-                      onclick="openOrderDetail('${r.orderId}')"
-                      title="Open Order">
-                      📋
-                    </button>
-                    <button class="btn btn-warning btn-xs"
-                      onclick="addDepositPayment('${r.orderId}','return')"
-                      title="Return Deposit">
-                      ↩️
-                    </button>` : `
-                    <button class="btn btn-ghost btn-xs"
-                      onclick="showPage('vehicle-360');
-                        setTimeout(()=>loadVehicle360ById('${carId}'),300)"
-                      title="Vehicle 360">
-                      🔭
-                    </button>
-                    <button class="btn btn-ghost btn-xs"
-                      onclick="openCarDetailModal('${carId}')"
-                      title="Car Details">
-                      👁
-                    </button>`}
-                </div>
-              </td>
-            </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-    <div style="padding:9px 11px;font-size:11px;color:var(--text3);
-      border-top:1px solid var(--border);">
-      Showing ${risks.length} risk item${risks.length !== 1 ? 's' : ''}
-    </div>`;
+                      onclick="openOrderDetail('${d.orderId}')">👁</button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  content.innerHTML = html;
 };
