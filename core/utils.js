@@ -610,3 +610,13 @@ window.autoCreateReceipt = async function(orderId,orderNo,amount,currency,client
     return rcRef;
   } catch(e){console.warn('autoCreateReceipt failed:',e.message);}
 };
+
+// core/utils.js — add this function
+// All receipts and QR codes must use this to build the verify URL
+window.buildVerifyUrl = function(order) {
+  if (!order) return '';
+  // Use order No. if available, fallback to Firestore doc ID
+  const ref = String(order['No.'] || order.id || '').trim();
+  if (!ref) return '';
+  return `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${encodeURIComponent(ref)}`;
+};

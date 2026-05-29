@@ -1402,7 +1402,7 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
     const clientName  = payment.client_name || getOrderClientName(order) || '';
     const carLabel    = payment.car_label || '';
     const { start, end } = getOrderDates(order || {});
-    const verifyUrl   = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${encodeURIComponent(contractNo)}`;
+    const verifyUrl = buildVerifyUrl(order || { 'No.': contractNo, id: orderId });
     const logo        = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
 
     const dateStr = new Date(payment.datetime || Date.now())
@@ -1586,8 +1586,7 @@ window.viewOrReprintReceipt = async function(orderId, orderNo) {
 
 window.reprintFromRecord = function(r) {
   const verifyUrl = r.verify_url ||
-    `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${
-      encodeURIComponent(r.contract_no || r.qr_ref || '')}`;
+  buildVerifyUrl({ 'No.': r.contract_no || r.order_ref || r.qr_ref, id: r.order_id });
 
   const logo = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
 
@@ -2424,7 +2423,7 @@ window.generateOrderReceiptDirect = async function(orderId) {
       String(Date.now()).slice(-4)}`;
 
     const logo       = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
-    const verifyUrl  = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${contractNo}`;
+    const verifyUrl = buildVerifyUrl(o);
 
     const slip = copyType => `
       <div style="font-family:'Courier New',monospace;width:80mm;padding:10px;

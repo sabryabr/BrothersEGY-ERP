@@ -3,211 +3,525 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Brothers EGY — Verify Document</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <title>Brothers EGY — Receipt Verification</title>
   <style>
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',sans-serif; background:#f1f5f9; color:#1e293b; padding:20px; }
-    .card { max-width:600px; margin:40px auto; background:#fff; border-radius:16px;
-            box-shadow:0 4px 24px rgba(0,0,0,0.1); overflow:hidden; }
-    .header { background:#1e40af; color:#fff; padding:24px; text-align:center; }
-    .header img { height:50px; margin-bottom:10px; }
-    .header h1 { font-size:22px; font-weight:800; }
-    .header p  { font-size:13px; opacity:0.8; margin-top:4px; }
-    .body { padding:24px; }
-    .status-badge { display:inline-flex; align-items:center; gap:8px; padding:10px 18px;
-                    border-radius:99px; font-size:14px; font-weight:700; margin-bottom:20px; }
-    .status-valid   { background:#dcfce7; color:#166534; }
-    .status-invalid { background:#fee2e2; color:#dc2626; }
-    .status-loading { background:#eff6ff; color:#1d4ed8; }
-    .field { margin-bottom:12px; }
-    .field label { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;
-                   letter-spacing:0.05em; display:block; margin-bottom:3px; }
-    .field value { font-size:14px; font-weight:600; color:#1e293b; }
-    .divider { border:none; border-top:1px solid #e2e8f0; margin:16px 0; }
-    .footer { text-align:center; padding:16px; background:#f8fafc; font-size:11px; color:#94a3b8; }
-    .ref-badge { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
-                 padding:10px 16px; font-family:monospace; font-size:16px; font-weight:800;
-                 color:#1d4ed8; text-align:center; margin-bottom:20px; }
-    .payment-row { display:flex; justify-content:space-between; padding:8px 0;
-                   border-bottom:1px dotted #e2e8f0; font-size:13px; }
-    .payment-row:last-child { border-bottom:none; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .logo img {
+      height: 50px;
+      object-fit: contain;
+    }
+
+    .logo h1 {
+      font-size: 20px;
+      font-weight: 800;
+      margin-top: 8px;
+      color: #f8fafc;
+    }
+
+    .logo p {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .status-valid {
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.4);
+      color: #4ade80;
+    }
+
+    .status-invalid {
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.4);
+      color: #f87171;
+    }
+
+    .status-loading {
+      background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.4);
+      color: #60a5fa;
+    }
+
+    .icon { font-size: 22px; }
+
+    .section {
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 12px;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+    .row:last-child { margin-bottom: 0; }
+
+    .row .label { color: #64748b; flex-shrink: 0; }
+    .row .value { font-weight: 600; text-align: right; word-break: break-word; }
+
+    .value-green  { color: #4ade80; }
+    .value-red    { color: #f87171; }
+    .value-yellow { color: #fbbf24; }
+    .value-blue   { color: #60a5fa; }
+
+    .payment-row {
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    .payment-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 10px;
+      color: #475569;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #1e293b;
+    }
+
+    .ref-box {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      color: #60a5fa;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #334155;
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .not-found {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .not-found .big-icon { font-size: 48px; margin-bottom: 12px; }
   </style>
 </head>
 <body>
-
 <div class="card">
-  <div class="header">
-    <img src="https://brothersegy.com/wp-content/uploads/2026/02/12345.png" alt="Brothers EGY"/>
-    <h1>BROTHERS EGY</h1>
-    <p>Document Verification Portal</p>
+  <div class="logo">
+    <img src="https://brothersegy.com/wp-content/uploads/2026/02/12345.png"
+         onerror="this.style.display='none'" alt="Brothers EGY"/>
+    <h1>Brothers EGY</h1>
+    <p>Receipt & Order Verification</p>
   </div>
 
-  <div class="body" id="body">
-    <div class="status-badge status-loading">⏳ Verifying document...</div>
+  <div id="status-area" class="status-badge status-loading">
+    <div class="spinner"></div>
+    <span>Verifying...</span>
   </div>
+
+  <div id="ref-area" class="ref-box" style="display:none;"></div>
+  <div id="content-area"></div>
 
   <div class="footer">
-    Brothers EGY Car Rental Services &nbsp;|&nbsp; www.brothersegy.com
+    Verified by Brothers EGY ERP System<br>
+    If you believe this is an error, contact Brothers EGY directly.
   </div>
 </div>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
 <script>
-firebase.initializeApp({
-  apiKey:     "AIzaSyDNY5lqsr_EoWQxhK7WN4WCJP2_V7IcwFc",
-  authDomain: "brothers-egy-portal.firebaseapp.com",
-  projectId:  "brothers-egy-portal"
-});
+// ── Firebase config — same as your app.js ──────────────────────────────────
+const firebaseConfig = {
+  "apiKey": "AIzaSyDNY5lqsr_EoWQxhK7WN4WCJP2_V7IcwFc",
+  "authDomain": "brothers-egy-portal.firebaseapp.com",
+  "projectId": "brothers-egy-portal",
+  "storageBucket": "brothers-egy-portal.firebasestorage.app",
+  "messagingSenderId": "673531280760",
+  "appId": "1:673531280760:web:f0d5484c0e8eabc1dd9c8d",
+  "measurementId": "G-YV2SHPQYT9"
+};
+
+// ── Replace the config above with your actual Firebase config ──────────────
+// You can copy it from your app.js firebaseConfig object
+
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-async function verify() {
-  const body  = document.getElementById('body');
-  const params= new URLSearchParams(window.location.search);
-  const ref   = params.get('ref') || '';
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmtMoney(n) {
+  const num = parseFloat(String(n).replace(/[^0-9.-]/g, '')) || 0;
+  return '£' + num.toLocaleString('en-EG', {
+    minimumFractionDigits: 0, maximumFractionDigits: 0
+  });
+}
 
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  return dt.toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  });
+}
+
+function parseAmt(v) {
+  if (!v) return 0;
+  return parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0;
+}
+
+// ── Get ref from URL ───────────────────────────────────────────────────────
+const params    = new URLSearchParams(window.location.search);
+const rawRef    = params.get('ref') || '';
+const ref       = decodeURIComponent(rawRef).trim();
+
+const statusEl  = document.getElementById('status-area');
+const refArea   = document.getElementById('ref-area');
+const contentEl = document.getElementById('content-area');
+
+function setStatus(type, icon, text) {
+  statusEl.className = `status-badge status-${type}`;
+  statusEl.innerHTML = `<span class="icon">${icon}</span><span>${text}</span>`;
+}
+
+function row(label, value, cls = '') {
+  return `
+    <div class="row">
+      <span class="label">${label}</span>
+      <span class="value ${cls}">${value}</span>
+    </div>
+  `;
+}
+
+// ── Main verify function ───────────────────────────────────────────────────
+async function verify() {
   if (!ref) {
-    body.innerHTML = '<div class="status-badge status-invalid">❌ No reference provided</div>';
+    setStatus('invalid', '❌', 'No reference provided');
+    contentEl.innerHTML = `
+      <div class="not-found">
+        <div class="big-icon">🔍</div>
+        <p>No reference code was provided in this link.</p>
+      </div>
+    `;
     return;
   }
 
-  body.innerHTML = '<div class="ref-badge">🔍 ' + ref + '</div>'
-    + '<div class="status-badge status-loading">⏳ Searching database...</div>';
+  refArea.style.display = 'block';
+  refArea.textContent   = `REF: ${ref}`;
 
   try {
-    let data = null, docType = '', docId = '';
+    // ── Step 1: Find the order ─────────────────────────────────────────
+    // Try by No. field first (most common), then by doc ID
+    let order     = null;
+    let orderId   = null;
 
-    // Search receipts
-    const rcSnap = await db.collection('receipts').doc(ref).get();
-    if (rcSnap.exists) {
-      data = rcSnap.data(); docType = 'Receipt'; docId = rcSnap.id;
+    // Query by No. field
+    const byNo = await db.collection('bookings')
+      .where('No.', '==', ref)
+      .limit(1)
+      .get()
+      .catch(() => null);
+
+    if (byNo && !byNo.empty) {
+      order   = { id: byNo.docs[0].id, ...byNo.docs[0].data() };
+      orderId = order.id;
     }
 
-    // Search receipts by receipt_ref field
-    if (!data) {
-      const rcQ = await db.collection('receipts').where('receipt_ref','==',ref).limit(1).get();
-      if (!rcQ.empty) { data = rcQ.docs[0].data(); docType = 'Receipt'; docId = rcQ.docs[0].id; }
+    // If not found by No., try by Firestore doc ID
+    if (!order) {
+      const byId = await db.collection('bookings').doc(ref).get().catch(() => null);
+      if (byId && byId.exists) {
+        order   = { id: byId.id, ...byId.data() };
+        orderId = byId.id;
+      }
     }
 
-    // Search bookings by No.
-    if (!data) {
-      const bQ = await db.collection('bookings').where('No.','==',ref).limit(1).get();
-      if (!bQ.empty) { data = bQ.docs[0].data(); docType = 'Booking'; docId = bQ.docs[0].id; }
+    // ── Step 2: Find receipts for this order ───────────────────────────
+    let receipts = [];
+
+    if (orderId) {
+      // Query by order_id (Firestore doc ID)
+      const rcByOrderId = await db.collection('receipts')
+        .where('order_id', '==', orderId)
+        .get()
+        .catch(() => null);
+
+      if (rcByOrderId && !rcByOrderId.empty) {
+        receipts = rcByOrderId.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
     }
 
-    // Search contracts
-    if (!data) {
-      const cQ = await db.collection('contracts').where('contract_no','==',ref).limit(1).get();
-      if (!cQ.empty) { data = cQ.docs[0].data(); docType = 'Contract'; docId = cQ.docs[0].id; }
+    // Also try by contract_no = ref (catches older records)
+    if (receipts.length === 0) {
+      const rcByRef = await db.collection('receipts')
+        .where('contract_no', '==', ref)
+        .get()
+        .catch(() => null);
+
+      if (rcByRef && !rcByRef.empty) {
+        receipts = [
+          ...receipts,
+          ...rcByRef.docs.map(d => ({ id: d.id, ...d.data() }))
+        ];
+      }
     }
 
-    // Search payment_log
-    if (!data) {
-      const pQ = await db.collection('payment_log').where('order_ref','==',ref).limit(1).get();
-      if (!pQ.empty) { data = pQ.docs[0].data(); docType = 'Payment'; docId = pQ.docs[0].id; }
+    // Also try by order_ref = ref
+    if (receipts.length === 0) {
+      const rcByOrderRef = await db.collection('receipts')
+        .where('order_ref', '==', ref)
+        .get()
+        .catch(() => null);
+
+      if (rcByOrderRef && !rcByOrderRef.empty) {
+        receipts = [
+          ...receipts,
+          ...rcByOrderRef.docs.map(d => ({ id: d.id, ...d.data() }))
+        ];
+      }
     }
 
-    if (!data) {
-      body.innerHTML = '<div class="ref-badge">' + ref + '</div>'
-        + '<div class="status-badge status-invalid">❌ Document not found</div>'
-        + '<p style="color:#64748b;font-size:13px;">This reference was not found in our database. '
-        + 'It may be invalid or the document has been removed.</p>';
+    // Sort receipts newest first
+    receipts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    // ── Step 3: Also pull payment_log ─────────────────────────────────
+    let payments = [];
+    if (orderId) {
+      const pmSnap = await db.collection('payment_log')
+        .where('order_id', '==', orderId)
+        .get()
+        .catch(() => null);
+
+      if (pmSnap && !pmSnap.empty) {
+        payments = pmSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      }
+    }
+
+    // ── Step 4: Render ─────────────────────────────────────────────────
+    if (!order && receipts.length === 0) {
+      setStatus('invalid', '❌', 'Not Found');
+      contentEl.innerHTML = `
+        <div class="not-found">
+          <div class="big-icon">🔍</div>
+          <p style="color:#94a3b8;font-size:13px;">
+            No order or receipt found for reference <strong>${ref}</strong>.<br><br>
+            This QR code may be invalid or the record may have been removed.
+          </p>
+        </div>
+      `;
       return;
     }
 
-    // Render verified document
-    const isReceipt  = docType === 'Receipt';
-    const isBooking  = docType === 'Booking';
-    const isPayment  = docType === 'Payment';
+    // ── Render order summary ───────────────────────────────────────────
+    let html = '';
 
-    let html = '<div class="ref-badge">✅ ' + ref + '</div>'
-      + '<div class="status-badge status-valid">✅ VERIFIED — Authentic Brothers EGY Document</div>';
+    if (order) {
+      const total  = parseAmt(order['إجمالي المستحق (Total)'] || 0);
+      const paid   = parseAmt(order['المدفوع EGP'] || 0);
+      const debt   = Math.max(0, total - paid);
+      const status = String(order['حالة الطلب'] || order.status || 'Active');
+      const isClosed = order.closed === true || status === 'Closed';
 
-    html += '<div class="field"><label>Document Type</label><value>' + docType + '</value></div>';
+      // Parse dates
+      const startRaw = order['تاريخ البداية'] || order['بداية الإيجار'] ||
+        order.col_S || order.start_date || '';
+      const endRaw   = order['تاريخ الانتهاء'] || order['نهاية الإيجار'] ||
+        order.col_T || order.end_date || '';
+      const startDt  = startRaw ? new Date(startRaw) : null;
+      const endDt    = endRaw   ? new Date(endRaw)   : null;
 
-    if (data.receipt_date || data.datetime) {
-      const d = data.receipt_date || data.datetime;
-      html += '<div class="field"><label>Date</label><value>' + d + '</value></div>';
+      const statusColor = isClosed ? 'value-green'
+        : status === 'Accident' ? 'value-yellow'
+        : debt > 0 ? 'value-red' : 'value-green';
+
+      const verifiedIcon = isClosed ? '✅' :
+        status === 'Accident' ? '⚠️' :
+        debt > 0 ? '⚠️' : '✅';
+
+      const verifiedText = isClosed
+        ? 'Verified — Order Closed'
+        : status === 'Accident'
+        ? 'Verified — Accident Order'
+        : debt > 0
+        ? 'Verified — Outstanding Balance'
+        : 'Verified — Fully Paid';
+
+      setStatus(
+        isClosed || debt === 0 ? 'valid' : 'invalid',
+        verifiedIcon,
+        verifiedText
+      );
+
+      html += `
+        <div class="section">
+          <div class="section-title">📋 Order Details</div>
+          ${row('Contract #', `<strong>#${order['No.'] || order.id}</strong>`, 'value-blue')}
+          ${row('Client',    order['اسم العميل'] || '—')}
+          ${row('Car',       order['اسم السيارة'] || order.car_label || '—')}
+          ${row('Branch',    order['فرع الإصدار'] || order.branch || '—')}
+          ${row('Start',     fmtDate(startDt || startRaw))}
+          ${row('End',       fmtDate(endDt   || endRaw))}
+          ${row('Status',    status, statusColor)}
+        </div>
+
+        <div class="section">
+          <div class="section-title">💰 Financial Summary</div>
+          ${row('Contract Total', fmtMoney(total))}
+          ${row('Total Paid',     fmtMoney(paid), 'value-green')}
+          ${row('Outstanding',
+            debt > 0 ? fmtMoney(debt) : '✅ CLEAR',
+            debt > 0 ? 'value-red' : 'value-green'
+          )}
+        </div>
+      `;
+    } else {
+      // Only receipts found, no order
+      setStatus('valid', '✅', 'Receipt Verified');
+      const r = receipts[0];
+      html += `
+        <div class="section">
+          <div class="section-title">🧾 Receipt Details</div>
+          ${row('Ref',     r.receipt_ref || r.id, 'value-blue')}
+          ${row('Client',  r.client_name || '—')}
+          ${row('Car',     r.car_label   || '—')}
+          ${row('Date',    r.receipt_date || '—')}
+          ${row('Branch',  r.branch || '—')}
+          ${row('Amount',  fmtMoney(r.total_egp_equiv || r.amount_egp || 0), 'value-green')}
+        </div>
+      `;
     }
 
-    if (data.client_name || data['اسم العميل']) {
-      html += '<div class="field"><label>Client</label><value>'
-        + (data.client_name || data['اسم العميل']) + '</value></div>';
+    // ── Payment history ────────────────────────────────────────────────
+    if (payments.length > 0) {
+      html += `
+        <div class="section">
+          <div class="section-title">💳 Payment History (${payments.length})</div>
+          ${payments.map(p => `
+            <div class="payment-row">
+              <div class="row">
+                <span class="label">
+                  ${p.date || (p.timestamp
+                    ? new Date(p.timestamp).toLocaleDateString('en-GB')
+                    : '—')}
+                </span>
+                <span class="value value-green">
+                  ${fmtMoney(p.amount_egp || p.amount || 0)}
+                </span>
+              </div>
+              <div style="font-size:10px;color:#64748b;">
+                ${p.payment_method || p.method || 'Cash'}
+                ${p.category ? ' · ' + p.category : ''}
+                ${p.collected_by ? ' · By: ' + p.collected_by : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else if (receipts.length > 0) {
+      // Show receipts list if no payment_log entries
+      html += `
+        <div class="section">
+          <div class="section-title">🧾 Receipts (${receipts.length})</div>
+          ${receipts.map(r => `
+            <div class="payment-row">
+              <div class="row">
+                <span class="label">${r.receipt_date || '—'}</span>
+                <span class="value value-green">
+                  ${fmtMoney(r.total_egp_equiv || r.amount_egp || 0)}
+                </span>
+              </div>
+              <div style="font-size:10px;color:#64748b;">
+                ${r.receipt_ref || r.id}
+                ${r.payment_details ? ' · ' + r.payment_details : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
     }
 
-    if (data.client_id || data['كود العميل']) {
-      html += '<div class="field"><label>Client ID / Passport</label><value>'
-        + (data.client_id || data['كود العميل']) + '</value></div>';
-    }
-
-    if (data.car_label || data['اسم السيارة']) {
-      html += '<div class="field"><label>Vehicle</label><value>'
-        + (data.car_label || data['اسم السيارة']) + '</value></div>';
-    }
-
-    if (data.contract_no || data['No.'] || data.order_ref) {
-      html += '<div class="field"><label>Contract / Order No.</label><value>'
-        + (data.contract_no || data['No.'] || data.order_ref) + '</value></div>';
-    }
-
-    if (data.rental_start || data['بداية التعاقد']) {
-      html += '<div class="field"><label>Rental Start</label><value>'
-        + (data.rental_start || data['بداية التعاقد']) + '</value></div>';
-    }
-
-    if (data.rental_end || data['نهاية التعاقد']) {
-      html += '<div class="field"><label>Rental End</label><value>'
-        + (data.rental_end || data['نهاية التعاقد']) + '</value></div>';
-    }
-
-    html += '<hr class="divider"/>';
-
-    if (isReceipt || isPayment) {
-      const amt = data.total_egp_equiv || data.amount_egp || 0;
-      html += '<div class="payment-row"><span><strong>Amount Received</strong></span>'
-        + '<span style="font-size:18px;font-weight:800;color:#1e40af;">£'
-        + Number(amt).toLocaleString() + '</span></div>';
-      if (data.payment_method) {
-        html += '<div class="payment-row"><span>Payment Method</span><span>' + data.payment_method + '</span></div>';
-      }
-      if (data.outstanding_balance !== undefined) {
-        const ob = Number(data.outstanding_balance);
-        html += '<div class="payment-row"><span>Outstanding Balance</span>'
-          + '<span style="color:' + (ob > 0 ? '#dc2626' : '#16a34a') + ';font-weight:700;">'
-          + (ob > 0 ? '£' + ob.toLocaleString() : '✅ FULLY PAID') + '</span></div>';
-      }
-      if (data.collected_by || data.issued_by) {
-        html += '<div class="payment-row"><span>Issued By</span><span>'
-          + (data.collected_by || data.issued_by) + '</span></div>';
-      }
-    }
-
-    if (isBooking) {
-      const total = Number(String(data['إجمالي المستحق (Total)']||data['col_AU']||0).replace(/[£,]/g,''))||0;
-      const paid  = Number(String(data['المدفوع EGP']||data['col_AX']||0).replace(/[£,]/g,''))||0;
-      const outstanding = Math.max(0, total - paid);
-      html += '<div class="payment-row"><span>Contract Value</span><span>£' + total.toLocaleString() + '</span></div>';
-      html += '<div class="payment-row"><span>Total Paid</span><span style="color:#16a34a;font-weight:700;">£' + paid.toLocaleString() + '</span></div>';
-      html += '<div class="payment-row"><span>Outstanding</span>'
-        + '<span style="color:' + (outstanding > 0 ? '#dc2626' : '#16a34a') + ';font-weight:700;">'
-        + (outstanding > 0 ? '£' + outstanding.toLocaleString() : '✅ PAID') + '</span></div>';
-      const st = data['حالة الطلب'] || data.status || '—';
-      html += '<div class="payment-row"><span>Status</span><span>' + st + '</span></div>';
-    }
-
-    html += '<hr class="divider"/>';
-    html += '<div style="font-size:11px;color:#64748b;text-align:center;">'
-      + 'This document was verified against the Brothers EGY database on '
-      + new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' })
-      + '<br>Reference: ' + ref
-      + '</div>';
-
-    body.innerHTML = html;
+    contentEl.innerHTML = html;
 
   } catch (e) {
-    body.innerHTML = '<div class="ref-badge">' + ref + '</div>'
-      + '<div class="status-badge status-invalid">❌ Verification failed</div>'
-      + '<p style="color:#64748b;font-size:13px;">Error: ' + e.message + '</p>';
+    console.error('Verify error:', e);
+    setStatus('invalid', '❌', 'Verification Error');
+    contentEl.innerHTML = `
+      <div class="not-found">
+        <div class="big-icon">⚠️</div>
+        <p style="color:#94a3b8;font-size:13px;">
+          An error occurred while verifying: ${e.message}
+        </p>
+      </div>
+    `;
   }
 }
 
