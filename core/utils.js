@@ -314,59 +314,77 @@ window.getCarById = function(id) {
   })||null;
 };
 
-// ============================================================
-// CAR STATUS CATEGORY v4.0
-//
-// Priority order:
-// 1. Active booking TODAY → RENTED (overrides all flags)
-// 2. Archived/expired/inactive → ARCHIVED
-// 3. Accident/maintenance status → ACCIDENT/MAINTENANCE
-// 4. Default → AVAILABLE
-//
-// NOTE: Future bookings do NOT affect availability.
-//       A car remains AVAILABLE until the rental actually starts.
-//       Future is shown in Gantt only (informational).
-// ============================================================
+// core/utils.js — getCarStatusCategory()
+// Priority:
+// 1. Archived / inactive → archived
+// 2. Has active booking TODAY (start <= today <= end) → rented
+// 3. Has active booking TODAY that is accident → accident
+// 4. Status field = maintenance → maintenance
+// 5. Otherwise → available
+// NOTE: Future and Overdue do NOT block the car — they are ORDER states, not CAR states
 
 window.getCarStatusCategory = function(car) {
-  const carDocId = String(car.id||'').trim();
+  if (!car) return 'available';
 
-  // Rule 1: Active booking TODAY — car is currently rented
-  if (carDocId && G.bookings && G.bookings.length) {
-    const today      = new Date();
-    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  // ── 1. Archived check ──────────────────────────────────────────────────
+  const archived   = car.archived;
+  const isActive   = car.is_active;
+  const contractSt = String(car.Contract || car['حالة العقد'] || '').toLowerCase();
+  const handover   = car['تاريخ التسليم'] || car.handover_date || '';
 
-    const isRentedToday = G.bookings.some(function(b) {
-      const bCarId = String(b['كود السيارة']||b['col_D']||b['D']||'').trim();
-      if (!bCarId || bCarId !== carDocId) return false;
-      const d = getOrderDates(b);
-      return d.start && d.end && d.start <= today && d.end >= todayStart;
-    });
-    if (isRentedToday) return 'rented';
+  if (archived === true || archived === 'true' || archived === 1) return 'archived';
+  if (isActive === false || isActive === 'false' || isActive === 0) return 'archived';
+  if (contractSt.includes('منتهي') || contractSt.includes('expired') ||
+      contractSt.includes('finished')) return 'archived';
+  if (handover) {
+    const hd = new Date(handover);
+    if (!isNaN(hd) && hd < getCairoNow()) return 'archived';
   }
 
-  // Rule 2: Archived/expired/inactive
-  if (car.archived===true || car.archived==='true') return 'archived';
-  if (car.is_active===false || car.is_active==='false') return 'archived';
+  // ── 2. Maintenance ─────────────────────────────────────────────────────
+  const statusField = String(car.status || car['الحالة'] || '').toLowerCase();
+  if (statusField === 'maintenance' || statusField === 'صيانة') return 'maintenance';
 
-  const contractAZ = String(car['col_AZ']||'').toLowerCase().trim();
-  const contractEN = String(car.Contract||car['حاله التعاقد']||'').toLowerCase().trim();
-  const combined   = contractAZ+' '+contractEN;
-  if (combined.includes('منتهي')||combined.includes('منتهى')||
-      combined.includes('expired')||combined.includes('finished')) return 'archived';
+  // ── 3. Check bookings for TODAY ────────────────────────────────────────
+  // A car is "rented" only if there is a booking that covers today
+  // Future bookings and overdue bookings do NOT block the car
+  const carCode = String(car.ID || car.id || '');
+  const today   = getCairoNow();
 
-  const handover = parseDBDate(car['تاريخ التسليم']||car['handover_date']||'');
-  if (handover && new Date() > handover) return 'archived';
+  if (G.bookings && G.bookings.length) {
+    const activeToday = G.bookings.find(b => {
+      // Must belong to this car
+      const bCarCode = String(b['كود السيارة'] || b.car_id || '');
+      if (bCarCode !== carCode) return false;
 
-  // Rule 3: Operational status flags
-  const st  = (car.status||'available').toLowerCase().trim();
-  const cEN = contractEN;
-  if (st==='accident'    || cEN==='accident')    return 'accident';
-  if (st==='maintenance' || cEN==='maintenance') return 'maintenance';
-  if (st==='rented')                             return 'rented';
+      // Must not be closed/cancelled
+      const bStatus = String(b['حالة الطلب'] || b.status || '').toLowerCase();
+      if (b.closed || bStatus === 'closed' || bStatus === 'cancelled') return false;
 
-  // Rule 4: Available — future bookings do NOT affect this
-  // A car is available until the day the rental actually starts
+      const { start, end } = getOrderDates(b);
+      if (!start || !end) return false;
+
+      // Accident counts as rented (car is blocked)
+      if (bStatus === 'accident') {
+        return true; // accident cars always blocked regardless of dates
+      }
+
+      // Active today: start <= today <= end
+      return start <= today && today <= end;
+    });
+
+    if (activeToday) {
+      const bStatus = String(activeToday['حالة الطلب'] || '').toLowerCase();
+      if (bStatus === 'accident') return 'accident';
+      return 'rented';
+    }
+  }
+
+  // ── 4. Status field overrides ──────────────────────────────────────────
+  if (statusField === 'accident')   return 'accident';
+  if (statusField === 'rented')     return 'rented'; // manual override
+
+  // ── 5. Default → available ─────────────────────────────────────────────
   return 'available';
 };
 

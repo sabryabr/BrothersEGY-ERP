@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Brothers EGY — Verify Document</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Segoe UI',sans-serif; background:#f1f5f9; color:#1e293b; padding:20px; }
+    .card { max-width:600px; margin:40px auto; background:#fff; border-radius:16px;
+            box-shadow:0 4px 24px rgba(0,0,0,0.1); overflow:hidden; }
+    .header { background:#1e40af; color:#fff; padding:24px; text-align:center; }
+    .header img { height:50px; margin-bottom:10px; }
+    .header h1 { font-size:22px; font-weight:800; }
+    .header p  { font-size:13px; opacity:0.8; margin-top:4px; }
+    .body { padding:24px; }
+    .status-badge { display:inline-flex; align-items:center; gap:8px; padding:10px 18px;
+                    border-radius:99px; font-size:14px; font-weight:700; margin-bottom:20px; }
+    .status-valid   { background:#dcfce7; color:#166534; }
+    .status-invalid { background:#fee2e2; color:#dc2626; }
+    .status-loading { background:#eff6ff; color:#1d4ed8; }
+    .field { margin-bottom:12px; }
+    .field label { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;
+                   letter-spacing:0.05em; display:block; margin-bottom:3px; }
+    .field value { font-size:14px; font-weight:600; color:#1e293b; }
+    .divider { border:none; border-top:1px solid #e2e8f0; margin:16px 0; }
+    .footer { text-align:center; padding:16px; background:#f8fafc; font-size:11px; color:#94a3b8; }
+    .ref-badge { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
+                 padding:10px 16px; font-family:monospace; font-size:16px; font-weight:800;
+                 color:#1d4ed8; text-align:center; margin-bottom:20px; }
+    .payment-row { display:flex; justify-content:space-between; padding:8px 0;
+                   border-bottom:1px dotted #e2e8f0; font-size:13px; }
+    .payment-row:last-child { border-bottom:none; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <img src="https://brothersegy.com/wp-content/uploads/2026/02/12345.png" alt="Brothers EGY"/>
+    <h1>BROTHERS EGY</h1>
+    <p>Document Verification Portal</p>
+  </div>
+
+  <div class="body" id="body">
+    <div class="status-badge status-loading">⏳ Verifying document...</div>
+  </div>
+
+  <div class="footer">
+    Brothers EGY Car Rental Services &nbsp;|&nbsp; www.brothersegy.com
+  </div>
+</div>
+
+<script>
+firebase.initializeApp({
+  apiKey:     "AIzaSyDNY5lqsr_EoWQxhK7WN4WCJP2_V7IcwFc",
+  authDomain: "brothers-egy-portal.firebaseapp.com",
+  projectId:  "brothers-egy-portal"
+});
+const db = firebase.firestore();
+
+async function verify() {
+  const body  = document.getElementById('body');
+  const params= new URLSearchParams(window.location.search);
+  const ref   = params.get('ref') || '';
+
+  if (!ref) {
+    body.innerHTML = '<div class="status-badge status-invalid">❌ No reference provided</div>';
+    return;
+  }
+
+  body.innerHTML = '<div class="ref-badge">🔍 ' + ref + '</div>'
+    + '<div class="status-badge status-loading">⏳ Searching database...</div>';
+
+  try {
+    let data = null, docType = '', docId = '';
+
+    // Search receipts
+    const rcSnap = await db.collection('receipts').doc(ref).get();
+    if (rcSnap.exists) {
+      data = rcSnap.data(); docType = 'Receipt'; docId = rcSnap.id;
+    }
+
+    // Search receipts by receipt_ref field
+    if (!data) {
+      const rcQ = await db.collection('receipts').where('receipt_ref','==',ref).limit(1).get();
+      if (!rcQ.empty) { data = rcQ.docs[0].data(); docType = 'Receipt'; docId = rcQ.docs[0].id; }
+    }
+
+    // Search bookings by No.
+    if (!data) {
+      const bQ = await db.collection('bookings').where('No.','==',ref).limit(1).get();
+      if (!bQ.empty) { data = bQ.docs[0].data(); docType = 'Booking'; docId = bQ.docs[0].id; }
+    }
+
+    // Search contracts
+    if (!data) {
+      const cQ = await db.collection('contracts').where('contract_no','==',ref).limit(1).get();
+      if (!cQ.empty) { data = cQ.docs[0].data(); docType = 'Contract'; docId = cQ.docs[0].id; }
+    }
+
+    // Search payment_log
+    if (!data) {
+      const pQ = await db.collection('payment_log').where('order_ref','==',ref).limit(1).get();
+      if (!pQ.empty) { data = pQ.docs[0].data(); docType = 'Payment'; docId = pQ.docs[0].id; }
+    }
+
+    if (!data) {
+      body.innerHTML = '<div class="ref-badge">' + ref + '</div>'
+        + '<div class="status-badge status-invalid">❌ Document not found</div>'
+        + '<p style="color:#64748b;font-size:13px;">This reference was not found in our database. '
+        + 'It may be invalid or the document has been removed.</p>';
+      return;
+    }
+
+    // Render verified document
+    const isReceipt  = docType === 'Receipt';
+    const isBooking  = docType === 'Booking';
+    const isPayment  = docType === 'Payment';
+
+    let html = '<div class="ref-badge">✅ ' + ref + '</div>'
+      + '<div class="status-badge status-valid">✅ VERIFIED — Authentic Brothers EGY Document</div>';
+
+    html += '<div class="field"><label>Document Type</label><value>' + docType + '</value></div>';
+
+    if (data.receipt_date || data.datetime) {
+      const d = data.receipt_date || data.datetime;
+      html += '<div class="field"><label>Date</label><value>' + d + '</value></div>';
+    }
+
+    if (data.client_name || data['اسم العميل']) {
+      html += '<div class="field"><label>Client</label><value>'
+        + (data.client_name || data['اسم العميل']) + '</value></div>';
+    }
+
+    if (data.client_id || data['كود العميل']) {
+      html += '<div class="field"><label>Client ID / Passport</label><value>'
+        + (data.client_id || data['كود العميل']) + '</value></div>';
+    }
+
+    if (data.car_label || data['اسم السيارة']) {
+      html += '<div class="field"><label>Vehicle</label><value>'
+        + (data.car_label || data['اسم السيارة']) + '</value></div>';
+    }
+
+    if (data.contract_no || data['No.'] || data.order_ref) {
+      html += '<div class="field"><label>Contract / Order No.</label><value>'
+        + (data.contract_no || data['No.'] || data.order_ref) + '</value></div>';
+    }
+
+    if (data.rental_start || data['بداية التعاقد']) {
+      html += '<div class="field"><label>Rental Start</label><value>'
+        + (data.rental_start || data['بداية التعاقد']) + '</value></div>';
+    }
+
+    if (data.rental_end || data['نهاية التعاقد']) {
+      html += '<div class="field"><label>Rental End</label><value>'
+        + (data.rental_end || data['نهاية التعاقد']) + '</value></div>';
+    }
+
+    html += '<hr class="divider"/>';
+
+    if (isReceipt || isPayment) {
+      const amt = data.total_egp_equiv || data.amount_egp || 0;
+      html += '<div class="payment-row"><span><strong>Amount Received</strong></span>'
+        + '<span style="font-size:18px;font-weight:800;color:#1e40af;">£'
+        + Number(amt).toLocaleString() + '</span></div>';
+      if (data.payment_method) {
+        html += '<div class="payment-row"><span>Payment Method</span><span>' + data.payment_method + '</span></div>';
+      }
+      if (data.outstanding_balance !== undefined) {
+        const ob = Number(data.outstanding_balance);
+        html += '<div class="payment-row"><span>Outstanding Balance</span>'
+          + '<span style="color:' + (ob > 0 ? '#dc2626' : '#16a34a') + ';font-weight:700;">'
+          + (ob > 0 ? '£' + ob.toLocaleString() : '✅ FULLY PAID') + '</span></div>';
+      }
+      if (data.collected_by || data.issued_by) {
+        html += '<div class="payment-row"><span>Issued By</span><span>'
+          + (data.collected_by || data.issued_by) + '</span></div>';
+      }
+    }
+
+    if (isBooking) {
+      const total = Number(String(data['إجمالي المستحق (Total)']||data['col_AU']||0).replace(/[£,]/g,''))||0;
+      const paid  = Number(String(data['المدفوع EGP']||data['col_AX']||0).replace(/[£,]/g,''))||0;
+      const outstanding = Math.max(0, total - paid);
+      html += '<div class="payment-row"><span>Contract Value</span><span>£' + total.toLocaleString() + '</span></div>';
+      html += '<div class="payment-row"><span>Total Paid</span><span style="color:#16a34a;font-weight:700;">£' + paid.toLocaleString() + '</span></div>';
+      html += '<div class="payment-row"><span>Outstanding</span>'
+        + '<span style="color:' + (outstanding > 0 ? '#dc2626' : '#16a34a') + ';font-weight:700;">'
+        + (outstanding > 0 ? '£' + outstanding.toLocaleString() : '✅ PAID') + '</span></div>';
+      const st = data['حالة الطلب'] || data.status || '—';
+      html += '<div class="payment-row"><span>Status</span><span>' + st + '</span></div>';
+    }
+
+    html += '<hr class="divider"/>';
+    html += '<div style="font-size:11px;color:#64748b;text-align:center;">'
+      + 'This document was verified against the Brothers EGY database on '
+      + new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' })
+      + '<br>Reference: ' + ref
+      + '</div>';
+
+    body.innerHTML = html;
+
+  } catch (e) {
+    body.innerHTML = '<div class="ref-badge">' + ref + '</div>'
+      + '<div class="status-badge status-invalid">❌ Verification failed</div>'
+      + '<p style="color:#64748b;font-size:13px;">Error: ' + e.message + '</p>';
+  }
+}
+
+verify();
+</script>
+</body>
+</html>

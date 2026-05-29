@@ -7,7 +7,6 @@
 // ============================================================
 // ENTRY POINT
 // ============================================================
-
 window.renderOrderBook = function() {
   renderPageLoading('page-order-book', '📋', 'Order Book');
   loadOrderBook();
@@ -18,43 +17,30 @@ window.loadOrderBook = async function() {
   if (!el) return;
 
   el.innerHTML = `
-    <div class="section-header">
-      <div>
-        <h2>📋 Order Book</h2>
-        <p>All rental orders with live status and debt tracking</p>
+    <div style="padding:16px 0 8px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <h2 style="margin:0;font-size:18px;font-weight:800;">📋 Order Book</h2>
+        <span style="color:var(--text3);font-size:12px;">All rental orders with live status and debt tracking</span>
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="showPage('en-contract')">➕ New Order</button>
+          <button class="btn btn-ghost btn-sm" onclick="refreshOrderBook()">🔄 Refresh</button>
+          <button id="bulk-mode-btn" class="btn btn-ghost btn-sm" onclick="toggleBulkMode()">☑️ Select</button>
+        </div>
       </div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm"
-          onclick="showPage('en-contract')">➕ New Order</button>
-        <button class="btn btn-ghost btn-sm"
-          onclick="refreshOrderBook()">🔄 Refresh</button>
-        <button id="bulk-mode-btn" class="btn btn-ghost btn-sm"
-          onclick="toggleBulkMode()">☑️ Select</button>
-      </div>
-    </div>
 
-    <!-- Filters -->
-    <div class="panel" style="margin-bottom:14px;">
-      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:1;min-width:170px;">
-          <div style="font-size:10px;color:var(--text3);
-            margin-bottom:3px;font-weight:700;">🔍 SEARCH</div>
-          <input type="text" id="ob-search"
-            placeholder="Client, order #, car..."
-            style="width:100%;padding:7px 11px;
-              background:var(--surface2);
-              border:1px solid var(--border);
-              border-radius:8px;color:var(--text);"
-            oninput="clearTimeout(window._obSearchTimer);
-              window._obSearchTimer=setTimeout(filterOrders,300)"/>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;">
+        <div>
+          <div style="margin-bottom:3px;font-weight:700;font-size:11px;">SEARCH</div>
+          <input id="ob-search" type="text" placeholder="Client, car, order #…"
+            oninput="filterOrders()"
+            style="padding:7px 9px;background:var(--surface2);border:1px solid var(--border);
+                   border-radius:8px;color:var(--text);min-width:180px;"/>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--text3);
-            margin-bottom:3px;font-weight:700;">STATUS</div>
+          <div style="margin-bottom:3px;font-weight:700;font-size:11px;">STATUS</div>
           <select id="ob-status" onchange="filterOrders()"
-            style="padding:7px 9px;background:var(--surface2);
-              border:1px solid var(--border);
-              border-radius:8px;color:var(--text);">
+            style="padding:7px 9px;background:var(--surface2);border:1px solid var(--border);
+                   border-radius:8px;color:var(--text);">
             <option value="all">All</option>
             <option value="Active">Active</option>
             <option value="overdue">Overdue</option>
@@ -65,12 +51,10 @@ window.loadOrderBook = async function() {
           </select>
         </div>
         <div id="ob-branch-wrap">
-          <div style="font-size:10px;color:var(--text3);
-            margin-bottom:3px;font-weight:700;">BRANCH</div>
+          <div style="margin-bottom:3px;font-weight:700;font-size:11px;">BRANCH</div>
           <select id="ob-branch" onchange="filterOrders()"
-            style="padding:7px 9px;background:var(--surface2);
-              border:1px solid var(--border);
-              border-radius:8px;color:var(--text);">
+            style="padding:7px 9px;background:var(--surface2);border:1px solid var(--border);
+                   border-radius:8px;color:var(--text);">
             <option value="all">All Branches</option>
             <option value="HRG">Hurghada</option>
             <option value="ALX">Alexandria</option>
@@ -79,76 +63,47 @@ window.loadOrderBook = async function() {
           </select>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--text3);
-            margin-bottom:3px;font-weight:700;">FROM</div>
+          <div style="margin-bottom:3px;font-weight:700;font-size:11px;">FROM</div>
           <input type="date" id="ob-from" onchange="filterOrders()"
-            style="padding:7px 9px;background:var(--surface2);
-              border:1px solid var(--border);
-              border-radius:8px;color:var(--text);"/>
+            style="padding:7px 9px;background:var(--surface2);border:1px solid var(--border);
+                   border-radius:8px;color:var(--text);"/>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--text3);
-            margin-bottom:3px;font-weight:700;">TO</div>
+          <div style="margin-bottom:3px;font-weight:700;font-size:11px;">TO</div>
           <input type="date" id="ob-to" onchange="filterOrders()"
-            style="padding:7px 9px;background:var(--surface2);
-              border:1px solid var(--border);
-              border-radius:8px;color:var(--text);"/>
+            style="padding:7px 9px;background:var(--surface2);border:1px solid var(--border);
+                   border-radius:8px;color:var(--text);"/>
         </div>
-        <button class="btn btn-ghost btn-sm"
-          onclick="clearOrderFilters()">✕ Clear</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearOrderFilters()">✕ Clear</button>
       </div>
-      <div id="ob-filter-pills"
-        style="display:flex;gap:5px;flex-wrap:wrap;margin-top:9px;">
+
+      <div id="ob-filter-pills" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:9px;"></div>
+
+      <div id="bulk-toolbar"
+        style="display:none;background:var(--surface2);border:1px solid var(--accent);
+               border-radius:8px;padding:10px 14px;margin-bottom:10px;
+               align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="bulk-count" style="font-size:11px;font-weight:700;color:var(--accent);">0 selected</span>
+        <button class="btn btn-ghost btn-sm" onclick="bulkSelectAll()">Select All</button>
+        <button class="btn btn-ghost btn-sm" onclick="bulkClearAll()">Clear</button>
+        <select id="bulk-status-sel"
+          style="padding:4px 8px;background:var(--surface2);border:1px solid var(--border);
+                 border-radius:6px;color:var(--text);">
+          <option value="">-- Set Status --</option>
+          <option value="Active">Active</option>
+          <option value="Closed">Closed</option>
+          <option value="Cancelled">Cancelled</option>
+          <option value="Accident">Accident</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="bulkUpdateStatus()">✅ Apply Status</button>
+        <button class="btn btn-danger btn-sm" onclick="bulkDelete()">🗑️ Delete Selected</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleBulkMode()">✕ Cancel</button>
       </div>
-    </div>
 
-    <!-- Summary bar -->
-    <div style="display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
-      gap:7px;margin-bottom:14px;" id="ob-summary-bar">
+      <div id="ob-summary-bar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+      <div id="ob-table-wrap"></div>
     </div>
-
-    <!-- Bulk toolbar -->
-    <div id="bulk-toolbar"
-      style="display:none;background:var(--surface2);
-        border:1px solid var(--accent);border-radius:8px;
-        padding:10px 14px;margin-bottom:10px;
-        align-items:center;gap:10px;flex-wrap:wrap;">
-      <span id="bulk-count"
-        style="font-size:11px;font-weight:700;color:var(--accent);">
-        0 selected
-      </span>
-      <button class="btn btn-ghost btn-sm"
-        onclick="bulkSelectAll()">Select All</button>
-      <button class="btn btn-ghost btn-sm"
-        onclick="bulkClearAll()">Clear</button>
-      <div style="width:1px;height:20px;background:var(--border);"></div>
-      <select id="bulk-status-sel"
-        style="padding:4px 8px;background:var(--surface2);
-          border:1px solid var(--border);border-radius:6px;
-          color:var(--text);">
-        <option value="">-- Set Status --</option>
-        <option value="Active">Active</option>
-        <option value="Closed">Closed</option>
-        <option value="Cancelled">Cancelled</option>
-        <option value="Accident">Accident</option>
-      </select>
-      <button class="btn btn-primary btn-sm"
-        onclick="bulkUpdateStatus()">✅ Apply Status</button>
-      <button class="btn btn-danger btn-sm"
-        onclick="bulkDelete()">🗑️ Delete Selected</button>
-      <button class="btn btn-ghost btn-sm"
-        onclick="toggleBulkMode()">✕ Cancel</button>
-    </div>
-
-    <!-- Table -->
-    <div class="panel">
-      <div id="ob-table-wrap" class="table-wrap">
-        <div class="empty-state">
-          <div class="spinner lg"></div>
-        </div>
-      </div>
-    </div>`;
+  `;
 
   // Hide branch filter for non-privileged users
   if (!['Admin', 'Executive'].includes(G.user?.role)) {
@@ -160,6 +115,7 @@ window.loadOrderBook = async function() {
   if (G.bookings && G.bookings.length) {
     window.allOrders = G.bookings;
     filterOrders();
+    updateOrderSummaryBar();
   }
 
   subscribeOrders();
@@ -168,15 +124,15 @@ window.loadOrderBook = async function() {
 // ============================================================
 // ORDER SUBSCRIPTION
 // ============================================================
-
 window.subscribeOrders = function() {
-  if (allOrders.length > 0) {
+  if (window._orderSubActive) return;
+
+  // If we already have data, just render — but still set up live listener
+  if (allOrders && allOrders.length > 0) {
     filterOrders();
     updateOrderSummaryBar();
-    return;
   }
 
-  if (window._orderSubActive) return;
   window._orderSubActive = true;
 
   if (window._ordersUnsub) {
@@ -185,7 +141,7 @@ window.subscribeOrders = function() {
   }
 
   const isPriv = ['Admin', 'Executive'].includes(G.user?.role);
-  const query  = isPriv
+  const query = isPriv
     ? db.collection('bookings').limit(2000)
     : db.collection('bookings').limit(600);
 
@@ -194,17 +150,14 @@ window.subscribeOrders = function() {
 
     if (!isPriv) {
       orders = orders.filter(o =>
-        o['فرع الإصدار']    === G.user.branch ||
-        o.assigned_user === G.user.username   ||
+        o['فرع الإصدار'] === G.user.branch ||
+        o.assigned_user === G.user.username ||
         (!o['فرع الإصدار'] && !o.assigned_user)
       );
     }
 
-    window.allOrders = orders;
-    G.bookings       = orders;
-
     // Sort: orders with No. first, then by start date descending
-    allOrders.sort((a, b) => {
+    orders.sort((a, b) => {
       const aNo = a['No.'] || '';
       const bNo = b['No.'] || '';
       if (!aNo && bNo) return 1;
@@ -213,6 +166,9 @@ window.subscribeOrders = function() {
       const { start: bS } = getOrderDates(b);
       return (bS || 0) - (aS || 0);
     });
+
+    window.allOrders = orders;
+    G.bookings = orders;
 
     filterOrders();
     updateOrderSummaryBar();
@@ -227,20 +183,20 @@ window.subscribeOrders = function() {
 // ============================================================
 // FILTER ORDERS
 // ============================================================
-
 window.filterOrders = debounce(function() {
-  if (!allOrders || !allOrders.length) {
+  if (!window.allOrders || !window.allOrders.length) {
     window.allOrders = G.bookings || [];
   }
 
-  const search = (document.getElementById('ob-search')?.value || '').toLowerCase();
-  const status = document.getElementById('ob-status')?.value || 'all';
-  const branch = document.getElementById('ob-branch')?.value || 'all';
-  const from   = document.getElementById('ob-from')?.value   || '';
-  const to     = document.getElementById('ob-to')?.value     || '';
-  const today  = new Date();
+  const search  = (document.getElementById('ob-search')?.value || '').toLowerCase().trim();
+  const status  = document.getElementById('ob-status')?.value  || 'all';
+  const branch  = document.getElementById('ob-branch')?.value  || 'all';
+  const from    = document.getElementById('ob-from')?.value    || '';
+  const to      = document.getElementById('ob-to')?.value      || '';
+  const today   = getCairoNow(); // ✅ Cairo timezone
 
   let filtered = allOrders.filter(o => {
+    // Search
     if (search) {
       const hay = [
         getOrderClientName(o), getOrderNo(o),
@@ -251,14 +207,18 @@ window.filterOrders = debounce(function() {
       if (!hay.includes(search)) return false;
     }
 
+    // Status filter — delegate to getOrderStatus for consistency
     if (status !== 'all') {
-      const st = getOrderStatus(o);
+      const st  = getOrderStatus(o);
+      const { end } = getOrderDates(o);
+      const isOverdueOrder = end && today > end && !o.closed &&
+        (st === 'Active' || st === 'Overdue');
+
       if (status === 'overdue') {
-        const { end } = getOrderDates(o);
-        if (!(end && today > end && !o.closed &&
-             (st === 'Active' || st === 'Overdue'))) return false;
+        if (!isOverdueOrder) return false;
       } else if (status === 'Active') {
-        if (st !== 'Active') return false;
+        // Active but NOT overdue
+        if (st !== 'Active' || isOverdueOrder) return false;
       } else if (status === 'Future') {
         if (st !== 'Future') return false;
       } else {
@@ -266,18 +226,20 @@ window.filterOrders = debounce(function() {
       }
     }
 
+    // Branch
     if (branch !== 'all' && o['فرع الإصدار'] !== branch) return false;
 
+    // Date range
     if (from || to) {
       const { start } = getOrderDates(o);
       if (from && start && start < new Date(from)) return false;
-      if (to   && start && start > new Date(to))   return false;
+      if (to   && start && start > new Date(to + 'T23:59:59')) return false;
     }
 
     return true;
   });
 
-  // Sort filtered results
+  // Sort filtered
   filtered.sort((a, b) => {
     const aNo = a['No.'] || '';
     const bNo = b['No.'] || '';
@@ -298,27 +260,27 @@ window.filterOrders = debounce(function() {
 function _updateFilterPills(search, status, branch, from, to) {
   const pills = document.getElementById('ob-filter-pills');
   if (!pills) return;
-
   const active = [];
-  if (search)       active.push({ label: `Search: "${search}"`, key: 'search' });
+  if (search)         active.push({ label: `Search: "${search}"`, key: 'search' });
   if (status !== 'all') active.push({ label: `Status: ${status}`,  key: 'status' });
   if (branch !== 'all') active.push({ label: `Branch: ${BRANCH_MAP[branch] || branch}`, key: 'branch' });
-  if (from)         active.push({ label: `From: ${from}`, key: 'from' });
-  if (to)           active.push({ label: `To: ${to}`,     key: 'to'   });
+  if (from)           active.push({ label: `From: ${from}`,        key: 'from' });
+  if (to)             active.push({ label: `To: ${to}`,            key: 'to' });
 
   pills.innerHTML = active.map(p => `
-    <span style="padding:3px 9px;border-radius:99px;font-size:10px;
-      font-weight:700;background:rgba(59,130,246,0.15);color:var(--accent);
-      border:1px solid rgba(59,130,246,0.3);cursor:pointer;"
-      onclick="clearFilter('${p.key}')">
+    <span style="padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700;
+                 background:rgba(59,130,246,0.15);color:var(--accent);
+                 border:1px solid rgba(59,130,246,0.3);cursor:pointer;"
+          onclick="clearFilter('${p.key}')">
       ${p.label} ✕
-    </span>`).join('');
+    </span>
+  `).join('');
 }
 
 window.clearFilter = function(key) {
   const map = {
     search: 'ob-search', status: 'ob-status',
-    branch: 'ob-branch', from:   'ob-from',   to: 'ob-to'
+    branch: 'ob-branch', from: 'ob-from', to: 'ob-to'
   };
   const el = document.getElementById(map[key]);
   if (el) el.value = (key === 'status' || key === 'branch') ? 'all' : '';
@@ -347,32 +309,39 @@ window.setOrderFilter = function(status) {
 // ============================================================
 // SUMMARY BAR
 // ============================================================
-
 window.updateOrderSummaryBar = function() {
   const bar = document.getElementById('ob-summary-bar');
-  if (!bar || !allOrders.length) return;
+  if (!bar || !allOrders || !allOrders.length) return;
 
-  const today   = new Date();
-  const active  = allOrders.filter(o => getOrderStatus(o) === 'Active').length;
+  const today = getCairoNow(); // ✅ Cairo timezone
+
+  const active = allOrders.filter(o => {
+    const st = getOrderStatus(o);
+    const { end } = getOrderDates(o);
+    return st === 'Active' && !(end && today > end && !o.closed);
+  }).length;
+
   const overdue = allOrders.filter(o => {
     const { end } = getOrderDates(o);
     const st = getOrderStatus(o);
-    return end && today > end && !o.closed &&
-           (st === 'Active' || st === 'Overdue');
+    return end && today > end && !o.closed && (st === 'Active' || st === 'Overdue');
   }).length;
+
   const accident = allOrders.filter(o => getOrderStatus(o) === 'Accident').length;
-  const closed   = allOrders.filter(o => {
+
+  const closed = allOrders.filter(o => {
     const st = getOrderStatus(o);
     return st === 'Closed' || o.closed === true;
   }).length;
+
   const totalDebt = allOrders.reduce((sum, o) => {
     const st = getOrderStatus(o);
-    if (st === 'Closed') return sum;
+    if (st === 'Closed' || o.closed) return sum;
     const total = getOrderTotal(o);
     const paid  = getOrderPaid(o);
     const { end } = getOrderDates(o);
     const daily = parseAmount(o['سعر السيارة اليومي بالجنيه المصري']) ||
-                  (total / Math.max(1, parseFloat(o.rental_days || 1)));
+      (total / Math.max(1, parseFloat(o.rental_days || 1)));
     let debt = total - paid;
     if (end && today > end && !o.closed) {
       debt += Math.max(0, Math.ceil((today - end) / 86400000)) * daily;
@@ -381,90 +350,88 @@ window.updateOrderSummaryBar = function() {
   }, 0);
 
   const curStatus = document.getElementById('ob-status')?.value || 'all';
-  const card = key => `border:2px solid ${curStatus === key
-    ? 'var(--accent)' : 'transparent'};transition:border 0.15s;`;
+  const card = key => `border:2px solid ${curStatus === key ? 'var(--accent)' : 'transparent'};
+    transition:border 0.15s;cursor:pointer;padding:8px 14px;border-radius:10px;
+    background:var(--surface2);text-align:center;min-width:70px;`;
 
   bar.innerHTML = `
-    <div class="kpi-card" style="${card('all')}cursor:pointer;"
-      onclick="setOrderFilter('all')">
-      <div class="kpi-label">All</div>
-      <div class="kpi-value" style="font-size:18px;">${allOrders.length}</div>
+    <div style="${card('all')}" onclick="setOrderFilter('all')">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);">All</div>
+      <div style="font-size:17px;font-weight:900;">${allOrders.length}</div>
     </div>
-    <div class="kpi-card" style="${card('Active')}cursor:pointer;"
-      onclick="setOrderFilter('Active')">
-      <div class="kpi-label">Active</div>
-      <div class="kpi-value text-accent" style="font-size:18px;">${active}</div>
+    <div style="${card('Active')}" onclick="setOrderFilter('Active')">
+      <div style="font-size:10px;font-weight:700;color:var(--success);">Active</div>
+      <div style="font-size:17px;font-weight:900;color:var(--success);">${active}</div>
     </div>
-    <div class="kpi-card" style="${card('overdue')}cursor:pointer;"
-      onclick="setOrderFilter('overdue')">
-      <div class="kpi-label">Overdue</div>
-      <div class="kpi-value text-danger" style="font-size:18px;">${overdue}</div>
+    <div style="${card('overdue')}" onclick="setOrderFilter('overdue')">
+      <div style="font-size:10px;font-weight:700;color:var(--danger);">Overdue</div>
+      <div style="font-size:17px;font-weight:900;color:var(--danger);">${overdue}</div>
     </div>
-    <div class="kpi-card" style="${card('Accident')}cursor:pointer;"
-      onclick="setOrderFilter('Accident')">
-      <div class="kpi-label">Accident</div>
-      <div class="kpi-value text-warning" style="font-size:18px;">${accident}</div>
+    <div style="${card('Accident')}" onclick="setOrderFilter('Accident')">
+      <div style="font-size:10px;font-weight:700;color:var(--warning);">Accident</div>
+      <div style="font-size:17px;font-weight:900;color:var(--warning);">${accident}</div>
     </div>
-    <div class="kpi-card" style="${card('Closed')}cursor:pointer;"
-      onclick="setOrderFilter('Closed')">
-      <div class="kpi-label">Closed</div>
-      <div class="kpi-value" style="font-size:18px;color:var(--text3);">
-        ${closed}
-      </div>
+    <div style="${card('Closed')}" onclick="setOrderFilter('Closed')">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);">Closed</div>
+      <div style="font-size:17px;font-weight:900;">${closed}</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Total Debt</div>
-      <div class="kpi-value text-danger" style="font-size:16px;">
-        ${fmtMoney(totalDebt)}
-      </div>
-    </div>`;
+    <div style="padding:8px 14px;border-radius:10px;background:rgba(239,68,68,0.08);
+                border:2px solid transparent;min-width:100px;text-align:center;">
+      <div style="font-size:10px;font-weight:700;color:var(--danger);">Total Debt</div>
+      <div style="font-size:14px;font-weight:900;color:var(--danger);">${fmtMoney(totalDebt)}</div>
+    </div>
+  `;
 };
 
 // ============================================================
 // RENDER ORDERS TABLE
 // ============================================================
-
 window.renderOrdersTable = function(orders) {
   const wrap = document.getElementById('ob-table-wrap');
   if (!wrap) return;
 
   if (!orders.length) {
     wrap.innerHTML = `
-      <div class="empty-state">
-        <div class="es-icon">📋</div>
-        <p>No orders match your filters</p>
-      </div>`;
+      <div style="text-align:center;padding:60px 20px;color:var(--text3);">
+        <div style="font-size:40px;margin-bottom:12px;">📋</div>
+        <div style="font-size:14px;">No orders match your filters</div>
+      </div>
+    `;
     return;
   }
 
-  const today = new Date();
+  const today = getCairoNow(); // ✅ Cairo timezone
 
   wrap.innerHTML = `
-    <div style="font-size:11px;color:var(--text3);
-      margin-bottom:8px;padding:0 2px;">
-      Showing <strong style="color:var(--text);">${orders.length}</strong>
-      of <strong>${allOrders.length}</strong> orders
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">
+      Showing <strong>${orders.length}</strong> of <strong>${allOrders.length}</strong> orders
       ${orders.length < allOrders.length
         ? `<span style="color:var(--accent);margin-left:6px;cursor:pointer;"
-            onclick="clearOrderFilters()">Clear filters</span>` : ''}
+               onclick="clearOrderFilters()">Clear filters</span>`
+        : ''}
     </div>
-    <table class="data-table">
-      <thead>
-        <tr>
-          ${window.bulkMode ? '<th style="width:32px;"></th>' : ''}
-          <th>Order #</th><th>Client</th><th>Car</th>
-          <th>Period</th><th>Total</th><th>Paid</th>
-          <th>Debt</th><th>Status</th><th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${orders.map(o => _buildOrderRow(o, today)).join('')}
-      </tbody>
-    </table>
-    <div style="padding:9px 11px;font-size:11px;color:var(--text3);
-      border-top:1px solid var(--border);">
-      Showing ${orders.length} order${orders.length !== 1 ? 's' : ''}
-    </div>`;
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:var(--surface2);color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;">
+            ${window.bulkMode ? '<th style="padding:8px;width:32px;"></th>' : ''}
+            <th style="padding:8px;text-align:left;">Order #</th>
+            <th style="padding:8px;text-align:left;">Client</th>
+            <th style="padding:8px;text-align:left;">Car</th>
+            <th style="padding:8px;text-align:left;">Period</th>
+            <th style="padding:8px;text-align:right;">Total</th>
+            <th style="padding:8px;text-align:right;">Paid</th>
+            <th style="padding:8px;text-align:right;">Debt</th>
+            <th style="padding:8px;text-align:center;">Status</th>
+            <th style="padding:8px;text-align:center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${orders.map(o => _buildOrderRow(o, today)).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 
   wrap.style.display    = 'block';
   wrap.style.visibility = 'visible';
@@ -473,18 +440,20 @@ window.renderOrdersTable = function(orders) {
 
 function _buildOrderRow(o, today) {
   const { start, end } = getOrderDates(o);
-  const days      = start && end
+  const days = start && end
     ? Math.ceil((end - start) / 86400000)
     : parseInt(o.rental_days || 0);
+
   const total     = getOrderTotal(o);
   const paid      = getOrderPaid(o);
   const daily     = parseAmount(o['سعر السيارة اليومي بالجنيه المصري']) ||
-                    (total / Math.max(1, parseFloat(o.rental_days || 1)));
+    (total / Math.max(1, parseFloat(o.rental_days || 1)));
+
   const statusRaw = getOrderStatus(o);
-  const isAccident= statusRaw === 'Accident';
-  const isClosed  = statusRaw === 'Closed' || o.closed === true;
-  const isOverdue = !isClosed && end && today > end && !o.closed &&
-                    (statusRaw === 'Active' || statusRaw === 'Overdue');
+  const isAccident = statusRaw === 'Accident';
+  const isClosed   = statusRaw === 'Closed' || o.closed === true;
+  const isOverdue  = !isClosed && end && today > end && !o.closed &&
+    (statusRaw === 'Active' || statusRaw === 'Overdue');
 
   let lateDays = 0, latePenalty = 0;
   if ((isOverdue || isAccident) && end && !o.closed) {
@@ -492,114 +461,93 @@ function _buildOrderRow(o, today) {
     latePenalty = lateDays * daily;
   }
 
-  const totalDue  = total + latePenalty;
-  const debt      = isClosed ? 0 : Math.max(0, totalDue - paid);
-  const pct       = totalDue > 0
-    ? Math.min(100, Math.round(paid / totalDue * 100)) : 100;
-  const statusKey = isAccident ? 'accident' : isOverdue ? 'overdue' :
-                    isClosed   ? 'closed'   :
-                    (statusRaw || 'active').toLowerCase();
-  const statusLabel = isAccident ? 'ACCIDENT' : isOverdue ? 'OVERDUE' :
-                      isClosed   ? 'Closed'   : (statusRaw || 'Active');
+  const totalDue = total + latePenalty;
+  const debt     = isClosed ? 0 : Math.max(0, totalDue - paid);
+  const pct      = totalDue > 0 ? Math.min(100, Math.round(paid / totalDue * 100)) : 100;
 
-  const carCode    = getOrderCarCode(o);
-  const carInFleet = G.fleet.find(
-    c => String(c.ID || c.id) === String(carCode)
-  );
-  const carLabel   = carInFleet
-    ? getCarLabel(carInFleet, 'en') : (o['اسم السيارة'] || '-');
-  const clientId   = o['كود العميل'] || '';
+  const statusKey   = isAccident ? 'accident' : isOverdue ? 'overdue' :
+    isClosed ? 'closed' : (statusRaw || 'active').toLowerCase();
+  const statusLabel = isAccident ? 'ACCIDENT' : isOverdue ? 'OVERDUE' :
+    isClosed ? 'Closed' : (statusRaw || 'Active');
+
+  const statusColors = {
+    active: 'var(--success)', overdue: 'var(--danger)',
+    accident: 'var(--warning)', closed: 'var(--text3)',
+    cancelled: 'var(--text3)', future: 'var(--accent)'
+  };
+  const statusColor = statusColors[statusKey] || 'var(--text)';
+
+  const carCode   = getOrderCarCode(o);
+  const carInFleet= G.fleet.find(c => String(c.ID || c.id) === String(carCode));
+  const carLabel  = carInFleet ? getCarLabel(carInFleet, 'en') : (o['اسم السيارة'] || '-');
+  const clientId  = o['كود العميل'] || '';
+
+  const rowBg = isAccident ? 'rgba(249,115,22,0.04)' :
+    isOverdue ? 'rgba(239,68,68,0.04)' : 'transparent';
 
   return `
-    <tr style="cursor:pointer;${isClosed ? 'opacity:0.7;' : ''}"
-      onclick="openOrderDetail('${o.id}')">
+    <tr style="border-bottom:1px solid var(--border);cursor:pointer;background:${rowBg};"
+        onmouseover="this.style.background='var(--surface2)'"
+        onmouseout="this.style.background='${rowBg}'"
+        onclick="openOrderDetail('${o.id}')">
       ${window.bulkMode ? `
-        <td style="width:32px;padding:4px 8px;"
-          onclick="event.stopPropagation()">
-          <input type="checkbox" class="bulk-cb"
-            data-id="${o.id}"
+        <td style="padding:8px;" onclick="event.stopPropagation()">
+          <input type="checkbox" class="bulk-cb" data-id="${o.id}"
             ${window.bulkSelected.has(o.id) ? 'checked' : ''}
             onchange="toggleBulkSelect('${o.id}',this)"
             onclick="event.stopPropagation()"/>
-        </td>` : ''}
-      <td>
-        <span style="color:var(--accent);font-weight:700;">
-          #${getOrderNo(o)}
-        </span>
-      </td>
-      <td>
+        </td>
+      ` : ''}
+      <td style="padding:8px;font-weight:700;">#${getOrderNo(o)}</td>
+      <td style="padding:8px;">
         <div style="font-weight:600;">${getOrderClientName(o) || '-'}</div>
-        ${clientId
-          ? `<div style="font-size:10px;color:var(--text3);">ID: ${clientId}</div>`
-          : ''}
+        ${clientId ? `<div style="font-size:10px;color:var(--text3);">ID: ${clientId}</div>` : ''}
       </td>
-      <td style="font-size:11px;max-width:140px;white-space:nowrap;
-        overflow:hidden;text-overflow:ellipsis;">
-        ${carLabel}
-      </td>
-      <td style="font-size:10px;white-space:nowrap;">
-        ${start
-          ? start.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })
-          : '—'}
-        <span style="color:var(--text3);">→</span>
-        ${end
-          ? end.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })
-          : '—'}
-        <br>
-        <span style="font-size:9px;color:var(--text3);">
-          ${days}d
-          ${isOverdue
-            ? `<span style="color:var(--danger);">+${lateDays}d late</span>`
-            : ''}
-        </span>
-      </td>
-      <td style="white-space:nowrap;">${fmtMoney(total)}</td>
-      <td>
-        <div style="white-space:nowrap;">${fmtMoney(paid)}</div>
-        <div style="background:var(--surface3);border-radius:99px;
-          height:3px;width:55px;margin-top:3px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;border-radius:99px;
-            background:${pct >= 100
-              ? 'var(--success)' : pct > 50
-              ? 'var(--accent)'  : 'var(--warning)'};"></div>
+      <td style="padding:8px;font-size:11px;color:var(--text2);">${carLabel}</td>
+      <td style="padding:8px;font-size:11px;">
+        <div>
+          ${start ? start.toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) : '—'}
+          →
+          ${end   ? end.toLocaleDateString('en-GB',   { day:'2-digit', month:'short' }) : '—'}
+        </div>
+        <div style="color:var(--text3);">${days}d
+          ${isOverdue ? `<span style="color:var(--danger);"> +${lateDays}d late</span>` : ''}
         </div>
       </td>
-      <td style="white-space:nowrap;">
-        <span style="font-weight:700;
-          color:${debt > 0 ? 'var(--danger)' : 'var(--success)'};">
-          ${debt > 0 ? fmtMoney(debt) : '✅ Clear'}
+      <td style="padding:8px;text-align:right;">${fmtMoney(total)}</td>
+      <td style="padding:8px;text-align:right;">
+        ${fmtMoney(paid)}
+        <div style="height:3px;border-radius:2px;margin-top:3px;
+                    background:${pct >= 100 ? 'var(--success)' : pct > 50 ? 'var(--accent)' : 'var(--warning)'};
+                    width:${pct}%;min-width:4px;"></div>
+      </td>
+      <td style="padding:8px;text-align:right;">
+        <span style="font-weight:700;color:${debt > 0 ? 'var(--danger)' : 'var(--success)'};">
+          ${debt > 0 ? fmtMoney(debt) : '✅'}
         </span>
-        ${latePenalty > 0
-          ? `<div style="font-size:9px;color:var(--danger);">
-              +${fmtMoney(latePenalty)}
-            </div>` : ''}
+        ${latePenalty > 0 ? `<div style="font-size:9px;color:var(--danger);">+${fmtMoney(latePenalty)}</div>` : ''}
       </td>
-      <td>
-        <span class="pill pill-${statusKey}">${statusLabel}</span>
+      <td style="padding:8px;text-align:center;">
+        <span style="padding:3px 8px;border-radius:99px;font-size:10px;font-weight:700;
+                     background:${statusColor}22;color:${statusColor};">
+          ${statusLabel}
+        </span>
       </td>
-      <td onclick="event.stopPropagation()">
-        <div style="display:flex;gap:3px;">
-          <button class="btn btn-ghost btn-xs"
-            onclick="event.stopPropagation();openOrderDetail('${o.id}')">
-            👁
-          </button>
-          <button class="btn btn-warning btn-xs"
-            onclick="event.stopPropagation();openOrderEdit('${o.id}')">
-            ✏️
-          </button>
-          <button class="btn btn-primary btn-xs"
-            onclick="event.stopPropagation();quickAddPayment('${o.id}')">
-            💰
-          </button>
-        </div>
+      <td style="padding:8px;text-align:center;white-space:nowrap;">
+        <button class="btn btn-ghost btn-xs" title="View"
+          onclick="event.stopPropagation();openOrderDetail('${o.id}')">👁</button>
+        <button class="btn btn-warning btn-xs" title="Edit"
+          onclick="event.stopPropagation();openOrderEdit('${o.id}')">✏️</button>
+        <button class="btn btn-primary btn-xs" title="Add Payment"
+          onclick="event.stopPropagation();quickAddPayment('${o.id}')">💰</button>
       </td>
-    </tr>`;
+    </tr>
+  `;
 }
 
 window.refreshOrderBook = function() {
   const wrap = document.getElementById('ob-table-wrap');
-  if (wrap) wrap.innerHTML =
-    '<div class="empty-state"><div class="spinner lg"></div></div>';
+  if (wrap) wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);">🔄 Refreshing...</div>';
   window._orderSubActive = false;
   subscribeOrders();
 };
@@ -607,7 +555,6 @@ window.refreshOrderBook = function() {
 // ============================================================
 // ORDER DETAIL MODAL
 // ============================================================
-
 window.openOrderDetail = async function(orderId) {
   pushNav('Order #' + orderId, () => openOrderDetail(orderId));
 
@@ -621,17 +568,18 @@ window.openOrderDetail = async function(orderId) {
     } catch (e) { toast('Failed to load order', 'error'); return; }
   }
 
-  const today  = new Date();
+  const today    = getCairoNow(); // ✅ Cairo timezone
   const { start, end } = getOrderDates(o);
-  const total  = getOrderTotal(o);
-  const paid   = getOrderPaid(o);
-  const daily  = parseAmount(o['سعر السيارة اليومي بالجنيه المصري']) ||
-                 (total / Math.max(1, parseFloat(o.rental_days || 1)));
+  const total    = getOrderTotal(o);
+  const paid     = getOrderPaid(o);
+  const daily    = parseAmount(o['سعر السيارة اليومي بالجنيه المصري']) ||
+    (total / Math.max(1, parseFloat(o.rental_days || 1)));
+
   const statusRaw  = getOrderStatus(o);
   const isAccident = statusRaw === 'Accident';
   const isClosed   = statusRaw === 'Closed' || o.closed === true;
   const isOverdue  = !isClosed && end && today > end && !o.closed &&
-                     (statusRaw === 'Active' || statusRaw === 'Overdue');
+    (statusRaw === 'Active' || statusRaw === 'Overdue');
 
   let lateDays = 0, latePenalty = 0;
   if ((isOverdue || isAccident) && end && !o.closed) {
@@ -639,357 +587,268 @@ window.openOrderDetail = async function(orderId) {
     latePenalty = lateDays * daily;
   }
 
-  const totalDue     = total + latePenalty;
-  const debt         = isClosed ? 0 : Math.max(0, totalDue - paid);
-  const depositHeld  = parseAmount(o['الوديعة المحتجزة'] || o['deposit_held'] || 0);
-  const depositRet   = parseAmount(o['الوديعة المردودة'] || o['deposit_returned'] || 0);
+  const totalDue    = total + latePenalty;
+  const debt        = isClosed ? 0 : Math.max(0, totalDue - paid);
+  const depositHeld = parseAmount(o['الوديعة المحتجزة'] || o['deposit_held'] || 0);
+  const depositRet  = parseAmount(o['الوديعة المردودة'] || o['deposit_returned'] || 0);
 
-  const customer   = G.customers.find(
-    c => String(c['No.'] || c.col_A) === String(o['كود العميل'])
-  );
-  const carCode    = getOrderCarCode(o);
-  const carInFleet = G.fleet.find(
-    c => String(c.ID || c.id) === String(carCode)
-  );
-  const carLabel   = carInFleet
-    ? getCarLabel(carInFleet, 'en') : (o['اسم السيارة'] || '-');
+  const customer  = G.customers.find(c => String(c['No.'] || c.col_A) === String(o['كود العميل']));
+  const carCode   = getOrderCarCode(o);
+  const carInFleet= G.fleet.find(c => String(c.ID || c.id) === String(carCode));
+  const carLabel  = carInFleet ? getCarLabel(carInFleet, 'en') : (o['اسم السيارة'] || '-');
 
   const bannerBg = isAccident ? 'rgba(249,115,22,0.1)' :
-                   isOverdue  ? 'rgba(239,68,68,0.1)'  :
-                   isClosed   ? 'rgba(100,116,139,0.1)': 'rgba(34,197,94,0.1)';
+    isOverdue  ? 'rgba(239,68,68,0.1)' :
+    isClosed   ? 'rgba(100,116,139,0.1)' : 'rgba(34,197,94,0.1)';
 
   const html = `
-    <!-- Status banner -->
-    <div style="padding:10px 13px;border-radius:9px;margin-bottom:14px;
-      background:${bannerBg};display:flex;align-items:center;gap:11px;">
-      <span style="font-size:20px;">
+    <div style="background:${bannerBg};border-radius:10px;padding:12px 16px;
+                margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:24px;">
         ${isAccident ? '🚨' : isOverdue ? '⚠️' : isClosed ? '✅' : '🚗'}
       </span>
       <div>
-        <div style="font-weight:800;font-size:13px;">
+        <div style="font-size:15px;font-weight:800;">
           Order #${getOrderNo(o)}
-          ${isOverdue ? '— OVERDUE' : isAccident ? '— ACCIDENT' :
-            isClosed  ? '— CLOSED'  : '— ACTIVE'}
+          <span style="color:${isOverdue ? 'var(--danger)' : isAccident ? 'var(--warning)' : isClosed ? 'var(--text3)' : 'var(--success)'};">
+            ${isOverdue ? '— OVERDUE' : isAccident ? '— ACCIDENT' : isClosed ? '— CLOSED' : '— ACTIVE'}
+          </span>
         </div>
         ${lateDays > 0 ? `
           <div style="font-size:11px;color:var(--danger);">
-            ${lateDays} days ${isAccident ? 'since accident' : 'overdue'}
-            • Penalty: ${fmtMoney(latePenalty)}
-          </div>` : ''}
+            ${lateDays} days ${isAccident ? 'since accident' : 'overdue'} • Penalty: ${fmtMoney(latePenalty)}
+          </div>
+        ` : ''}
       </div>
     </div>
 
-    <!-- Info grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;
-      gap:11px;margin-bottom:14px;">
-
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
       <!-- Client -->
-      <div class="panel">
-        <div style="font-size:10px;font-weight:800;color:var(--accent);
-          text-transform:uppercase;margin-bottom:9px;">👤 Client</div>
-        <div style="font-size:13px;font-weight:700;
-          cursor:${customer ? 'pointer' : 'default'};
-          color:${customer ? 'var(--accent)' : 'var(--text)'};"
-          ${customer
-            ? `onclick="closeModal();setTimeout(()=>openClientProfile('${customer.id}'),100)"`
-            : ''}>
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;">👤 CLIENT</div>
+        <div style="font-weight:700;font-size:13px;
+                    cursor:${customer ? 'pointer' : 'default'};
+                    color:${customer ? 'var(--accent)' : 'var(--text)'};"
+             ${customer ? `onclick="closeModal();setTimeout(()=>openClientProfile('${customer.id}'),100)"` : ''}>
           ${o['اسم العميل'] || '-'}${customer ? ' 🔗' : ''}
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px;">
-          CRM ID: ${o['كود العميل'] || '-'}
-        </div>
+        <div style="font-size:11px;color:var(--text3);">CRM ID: ${o['كود العميل'] || '-'}</div>
         ${customer ? `
-          <div style="font-size:11px;color:var(--text2);margin-top:3px;">
-            📞 ${customer['رقم التليفون'] || '-'}
-          </div>
-          <div style="font-size:11px;color:var(--text2);">
+          <div style="font-size:11px;color:var(--text2);margin-top:4px;">
+            📞 ${customer['رقم التليفون'] || '-'}<br>
             🪪 ${customer['رقم جواز السفر'] || customer['الرقم القومي'] || '-'}
-          </div>` : ''}
+          </div>
+        ` : ''}
       </div>
 
-      <!-- Vehicle -->
-      <div class="panel">
-        <div style="font-size:10px;font-weight:800;color:var(--accent);
-          text-transform:uppercase;margin-bottom:9px;">🚗 Vehicle</div>
-        <div style="font-size:12px;font-weight:700;
-          cursor:${carInFleet ? 'pointer' : 'default'};
-          color:${carInFleet ? 'var(--accent)' : 'var(--text)'};"
-          ${carInFleet
-            ? `onclick="closeModal();setTimeout(()=>openCarDetailModal('${carInFleet.id||carCode}'),200)"`
-            : ''}>
+      <!-- Car -->
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;">🚗 CAR</div>
+        <div style="font-weight:700;font-size:13px;
+                    cursor:${carInFleet ? 'pointer' : 'default'};
+                    color:${carInFleet ? 'var(--accent)' : 'var(--text)'};"
+             ${carInFleet ? `onclick="closeModal();setTimeout(()=>openCarDetailModal('${carInFleet.id||carCode}'),200)"` : ''}>
           ${carLabel}${carInFleet ? ' 🔗' : ''}
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px;">
-          Code: ${carCode || '-'}
-        </div>
-        <div style="font-size:11px;color:var(--text2);">
-          📍 Pickup: ${o['مكان الاستلام'] || '-'}
-        </div>
-        <div style="font-size:11px;color:var(--text2);">
+        <div style="font-size:11px;color:var(--text3);">Code: ${carCode || '-'}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">
+          📍 Pickup: ${o['مكان الاستلام'] || '-'}<br>
           📍 Dropoff: ${o['مكان التسليم'] || '-'}
         </div>
       </div>
+    </div>
 
-      <!-- Period -->
-      <div class="panel">
-        <div style="font-size:10px;font-weight:800;color:var(--accent);
-          text-transform:uppercase;margin-bottom:9px;">📅 Period</div>
-        <div style="font-size:11px;">
-          <strong>Start:</strong> ${start ? fmtDate(start) : 'N/A'}
+    <!-- Period -->
+    <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;">📅 PERIOD</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;">
+        <div><span style="color:var(--text3);">Start:</span> <strong>${start ? fmtDate(start) : 'N/A'}</strong></div>
+        <div><span style="color:var(--text3);">End:</span> <strong>${end ? fmtDate(end) : 'N/A'}</strong></div>
+        <div><span style="color:var(--text3);">Duration:</span>
+          ${o['rental_days'] || (start && end ? Math.ceil((end-start)/86400000) : '-')} days
         </div>
-        <div style="font-size:11px;margin-top:3px;">
-          <strong>End:</strong> ${end ? fmtDate(end) : 'N/A'}
-        </div>
-        <div style="font-size:11px;margin-top:3px;color:var(--text3);">
-          Duration: ${o['rental_days'] ||
-            (start && end ? Math.ceil((end-start)/86400000) : '-')} days
-        </div>
-        <div style="font-size:11px;margin-top:3px;color:var(--text3);">
-          Branch: ${BRANCH_MAP[o['فرع الإصدار']] || o['فرع الإصدار'] || '-'}
+        <div><span style="color:var(--text3);">Branch:</span> ${BRANCH_MAP[o['فرع الإصدار']] || o['فرع الإصدار'] || '-'}</div>
+      </div>
+    </div>
+
+    <!-- Financials -->
+    <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:8px;">💰 FINANCIALS</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-size:11px;">
+        <div><div style="color:var(--text3);">Daily Rate</div><div style="font-weight:700;">${fmtMoney(daily)}</div></div>
+        <div><div style="color:var(--text3);">Base Total</div><div style="font-weight:700;">${fmtMoney(total)}</div></div>
+        ${latePenalty > 0 ? `
+        <div><div style="color:var(--danger);">+ Penalty</div><div style="font-weight:700;color:var(--danger);">${fmtMoney(latePenalty)}</div></div>
+        ` : ''}
+        <div><div style="color:var(--text3);">Total Due</div><div style="font-weight:700;">${fmtMoney(totalDue)}</div></div>
+        <div><div style="color:var(--text3);">Paid</div><div style="font-weight:700;color:var(--success);">${fmtMoney(paid)}</div></div>
+      </div>
+      <div style="margin-top:12px;padding:10px;border-radius:8px;
+                  background:${debt > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)'};
+                  border:1px solid ${debt > 0 ? 'var(--danger)' : 'var(--success)'}20;
+                  text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;">CURRENT DEBT</div>
+        <div style="font-size:18px;font-weight:900;
+                    color:${debt > 0 ? 'var(--danger)' : 'var(--success)'};">
+          ${debt > 0 ? fmtMoney(debt) : '✅ CLEAR'}
         </div>
       </div>
-
-      <!-- Financials -->
-      <div class="panel">
-        <div style="font-size:10px;font-weight:800;color:var(--accent);
-          text-transform:uppercase;margin-bottom:9px;">💰 Financials</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;
-          gap:5px;font-size:11px;">
-          <span style="color:var(--text3);">Daily Rate:</span>
-          <span style="font-weight:700;">${fmtMoney(daily)}</span>
-          <span style="color:var(--text3);">Base Total:</span>
-          <span style="font-weight:700;">${fmtMoney(total)}</span>
-          ${latePenalty > 0 ? `
-            <span style="color:var(--danger);">+ Penalty:</span>
-            <span style="font-weight:700;color:var(--danger);">
-              ${fmtMoney(latePenalty)}
-            </span>` : ''}
-          <span style="color:var(--text3);">Total Due:</span>
-          <span style="font-weight:800;">${fmtMoney(totalDue)}</span>
-          <span style="color:var(--text3);">Paid:</span>
-          <span style="font-weight:700;color:var(--success);">
-            ${fmtMoney(paid)}
-          </span>
-        </div>
-        <div style="margin-top:9px;padding:7px 11px;border-radius:8px;
-          background:${debt > 0
-            ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)'};
-          display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-weight:700;">CURRENT DEBT</span>
-          <span style="font-size:15px;font-weight:900;
-            color:${debt > 0 ? 'var(--danger)' : 'var(--success)'};">
-            ${debt > 0 ? fmtMoney(debt) : '✅ CLEAR'}
-          </span>
-        </div>
-      </div>
-
     </div>
 
     <!-- Deposit -->
-    <div style="background:var(--surface2);border:1px solid var(--accent);
-      border-radius:8px;padding:12px;margin-bottom:14px;">
-      <div style="font-size:11px;font-weight:800;color:var(--accent);
-        margin-bottom:8px;">🔒 DEPOSIT / SECURITY</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div>
-          <div style="font-size:10px;color:var(--text3);">Deposit Held</div>
-          <div style="font-size:14px;font-weight:700;color:var(--warning);">
-            ${fmtMoney(depositHeld)}
-          </div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--text3);">Deposit Returned</div>
-          <div style="font-size:14px;font-weight:700;
-            color:${depositRet > 0 ? 'var(--success)' : 'var(--text3)'};">
-            ${fmtMoney(depositRet)}
-          </div>
-        </div>
+    <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:8px;">🔒 DEPOSIT / SECURITY</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;">
+        <div><span style="color:var(--text3);">Deposit Held:</span> <strong>${fmtMoney(depositHeld)}</strong></div>
+        <div><span style="color:var(--text3);">Deposit Returned:</span> <strong>${fmtMoney(depositRet)}</strong></div>
       </div>
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-sm"
-          onclick="addDepositPayment('${o.id}','collect')">
-          💰 Collect Deposit
-        </button>
-        <button class="btn btn-ghost btn-sm"
-          onclick="addDepositPayment('${o.id}','return')">
-          ↩️ Return Deposit
-        </button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="addDepositPayment('${o.id}','collect')">💰 Collect Deposit</button>
+        <button class="btn btn-ghost btn-sm" onclick="addDepositPayment('${o.id}','return')">↩️ Return Deposit</button>
       </div>
     </div>
 
     <!-- Actions -->
-    <div style="display:flex;gap:7px;flex-wrap:wrap;">
-      <button class="btn btn-warning"
-        onclick="closeModal();openOrderEdit('${o.id}')">
-        ✏️ Edit Order
-      </button>
-      <button class="btn btn-primary"
-        onclick="closeModal();quickAddPayment('${o.id}')">
-        💰 Add Payment
-      </button>
-      ${!isClosed ? `
-        <button class="btn btn-success"
-          onclick="closeModal();requestCloseOrder('${o.id}')">
-          ✅ Close
-        </button>` : ''}
-      <button class="btn btn-ghost"
-        onclick="generateOrderContractDirect('${o.id}','en')">
-        📄 Contract
-      </button>
-      <button class="btn btn-ghost"
-        onclick="generateOrderContractDirect('${o.id}','ar')">
-        📋 AR Contract
-      </button>
-      <button class="btn btn-ghost"
-        onclick="generateOrderReceiptDirect('${o.id}')">
-        🧾 Receipt
-      </button>
-      <button class="btn btn-ghost"
-        onclick="viewOrderPayments('${o.id}','${o['No.'] || o.id}')">
-        💳 Payments
-      </button>
-      <button class="btn btn-ghost"
-        onclick="extendOrder('${o.id}')">
-        📅 Extend
-      </button>
-      <button class="btn btn-ghost"
-        onclick="switchOrderCar('${o.id}')">
-        🔄 Switch Car
-      </button>
-      <button class="btn btn-ghost"
-        onclick="openReminderForm('${o.id}')">
-        🔔 Reminder
-      </button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <button class="btn btn-warning"  onclick="closeModal();openOrderEdit('${o.id}')">✏️ Edit Order</button>
+      <button class="btn btn-primary"  onclick="closeModal();quickAddPayment('${o.id}')">💰 Add Payment</button>
+      ${!isClosed ? `<button class="btn btn-success" onclick="closeModal();requestCloseOrder('${o.id}')">✅ Close</button>` : ''}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="generateOrderContractDirect('${o.id}','en')">📄 Contract</button>
+      <button class="btn btn-ghost" onclick="generateOrderContractDirect('${o.id}','ar')">📋 AR Contract</button>
+      <button class="btn btn-ghost" onclick="generateOrderReceiptDirect('${o.id}')">🧾 Receipt</button>
+      <button class="btn btn-ghost" onclick="viewOrderPayments('${o.id}','${o['No.'] || o.id}')">💳 Payments</button>
+      <button class="btn btn-ghost" onclick="extendOrder('${o.id}')">📅 Extend</button>
+      <button class="btn btn-ghost" onclick="switchOrderCar('${o.id}')">🔄 Switch Car</button>
+      <button class="btn btn-ghost" onclick="openReminderForm('${o.id}')">🔔 Reminder</button>
       ${G.user?.role === 'Admin' ? `
-        <button class="btn btn-sm"
-          style="background:var(--danger);color:#fff;"
-          onclick="if(confirm('DELETE order #${o['No.']} permanently?'))
-            adminDeleteOrder('${o.id}')">
+        <button class="btn btn-sm" style="background:var(--danger);color:#fff;"
+          onclick="if(confirm('DELETE order #${o['No.']} permanently?')) adminDeleteOrder('${o.id}')">
           🗑️ Delete
-        </button>` : ''}
-    </div>`;
+        </button>
+      ` : ''}
+    </div>
+  `;
 
-  openModal(`Order #${o['No.'] || o.id} — ${o['اسم العميل'] || ''}`,
-    html, true);
-
+  openModal(`Order #${o['No.'] || o.id} — ${o['اسم العميل'] || ''}`, html, true);
   logAction('VIEW', 'Order Book', `Viewed order #${o['No.'] || o.id}`);
 };
 
 // ============================================================
 // ORDER EDIT MODAL
 // ============================================================
-
 window.openOrderEdit = async function(orderId) {
   const order = allOrders.find(o => o.id === orderId);
   if (!order) return;
-
-  const o       = order;
-  const isPriv  = ['Admin', 'Executive'].includes(G.user?.role);
+  const o      = order;
+  const isPriv = ['Admin', 'Executive'].includes(G.user?.role);
 
   const html = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;">
-      <div class="field">
-        <label>Order Status</label>
-        <select id="edit-status">
-          <option value="Active"    ${o['حالة الطلب'] === 'Active'    ? 'selected' : ''}>Active</option>
-          <option value="Closed"    ${o['حالة الطلب'] === 'Closed' || o.closed ? 'selected' : ''}>Closed</option>
-          <option value="Accident"  ${o['حالة الطلب'] === 'Accident'  ? 'selected' : ''}>Accident</option>
-          <option value="Cancelled" ${o['حالة الطلب'] === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+    <div style="display:grid;gap:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Order Status</label>
+        <select id="edit-status" style="width:100%;margin-top:4px;padding:8px;
+          background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+          <option value="Active"    ${(o['حالة الطلب']||'') === 'Active'    ? 'selected' : ''}>Active</option>
+          <option value="Closed"    ${(o['حالة الطلب']||'') === 'Closed'    ? 'selected' : ''}>Closed</option>
+          <option value="Accident"  ${(o['حالة الطلب']||'') === 'Accident'  ? 'selected' : ''}>Accident</option>
+          <option value="Cancelled" ${(o['حالة الطلب']||'') === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
         </select>
       </div>
-      <div class="field">
-        <label>Daily Rate (EGP)</label>
-        <input type="number" id="edit-daily"
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Daily Rate (EGP)</label>
+        <input type="number" id="edit-daily" style="width:100%;margin-top:4px;padding:8px;
+          background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);"
           value="${parseAmount(o['سعر السيارة اليومي بالجنيه المصري']) || ''}"
           ${!isPriv ? 'readonly title="Rate changes require admin approval"' : ''}/>
       </div>
-      <div class="field">
-        <label>Total Due (EGP)</label>
-        <input type="number" id="edit-total"
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Total Due (EGP)</label>
+        <input type="number" id="edit-total" style="width:100%;margin-top:4px;padding:8px;
+          background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);"
           value="${parseAmount(o['إجمالي المستحق (Total)']) || ''}"/>
       </div>
-      <div class="field">
-        <label>Paid EGP</label>
-        <input type="number" id="edit-paid"
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Paid EGP</label>
+        <input type="number" id="edit-paid" style="width:100%;margin-top:4px;padding:8px;
+          background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);"
           value="${parseAmount(o['المدفوع EGP']) || ''}"/>
       </div>
-      <div class="field">
-        <label>KM at Start</label>
-        <input type="number" id="edit-km-start"
-          value="${parseAmount(o['كيلومتر بداية']) || ''}"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">KM at Start</label>
+          <input type="number" id="edit-km-start" style="width:100%;margin-top:4px;padding:8px;
+            background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);"
+            value="${parseAmount(o['كيلومتر بداية']) || ''}"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">KM at End</label>
+          <input type="number" id="edit-km-end" style="width:100%;margin-top:4px;padding:8px;
+            background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);"
+            value="${parseAmount(o['كيلومتر نهاية']) || ''}"/>
+        </div>
       </div>
-      <div class="field">
-        <label>KM at End</label>
-        <input type="number" id="edit-km-end"
-          value="${parseAmount(o['كيلومتر نهاية']) || ''}"/>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Notes</label>
+        <input type="text" id="edit-notes" style="width:100%;margin-top:4px;padding:8px;
+          background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);"
+          value="${(o['ملاحظات'] || o.Notes || '').replace(/"/g, '&quot;')}"/>
       </div>
-      <div class="field">
-        <label>Notes</label>
-        <input type="text" id="edit-notes"
-          value="${o['ملاحظات'] || o.Notes || ''}"/>
-      </div>
-      <div class="field">
-        <label>Debt Clock</label>
-        <select id="edit-closed">
-          <option value="false" ${!o.closed ? 'selected' : ''}>
-            Open (debt clock running)
-          </option>
-          <option value="true"  ${o.closed  ? 'selected' : ''}>
-            Closed (stopped)
-          </option>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Debt Clock</label>
+        <select id="edit-closed" style="width:100%;margin-top:4px;padding:8px;
+          background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+          <option value="false" ${!o.closed ? 'selected' : ''}>Open (debt clock running)</option>
+          <option value="true"  ${o.closed  ? 'selected' : ''}>Closed (stopped)</option>
         </select>
       </div>
+      ${!isPriv ? `
+        <div style="font-size:11px;color:var(--warning);padding:8px;background:rgba(245,158,11,0.1);
+                    border-radius:6px;">
+          ⚠️ Rate changes exceeding threshold will require admin approval.
+        </div>
+      ` : ''}
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-success" style="flex:1;" onclick="saveOrderEdit('${orderId}')">💾 Save Changes</button>
+        <button class="btn btn-ghost"   style="flex:1;" onclick="closeModal()">Cancel</button>
+      </div>
     </div>
-    ${!isPriv ? `
-      <div style="margin-top:11px;padding:9px;border-radius:8px;
-        background:rgba(245,158,11,0.1);
-        border:1px solid rgba(245,158,11,0.2);
-        font-size:11px;color:var(--warning);">
-        ⚠️ Rate changes exceeding
-        ${G.settings.discountThreshold || 5}%
-        require Admin approval.
-      </div>` : ''}
-    <div style="display:flex;gap:7px;margin-top:14px;">
-      <button class="btn btn-success"
-        onclick="saveOrderEdit('${orderId}')">💾 Save Changes</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-    </div>`;
+  `;
 
   openModal(`Edit Order #${o['No.'] || o.id}`, html);
 };
 
 window.saveOrderEdit = async function(orderId) {
-  const order   = allOrders.find(o => o.id === orderId);
-  const isPriv  = ['Admin', 'Executive'].includes(G.user?.role);
-  const newStatus = document.getElementById('edit-status')?.value;
-  const newDaily  = parseFloat(document.getElementById('edit-daily')?.value) || 0;
-  const newTotal  = parseFloat(document.getElementById('edit-total')?.value) || 0;
-  const newPaid   = parseFloat(document.getElementById('edit-paid')?.value)  || 0;
-  const newClosed = document.getElementById('edit-closed')?.value === 'true';
-  const newNotes  = document.getElementById('edit-notes')?.value.trim();
-  const kmStart   = document.getElementById('edit-km-start')?.value;
-  const kmEnd     = document.getElementById('edit-km-end')?.value;
+  const order    = allOrders.find(o => o.id === orderId);
+  const isPriv   = ['Admin', 'Executive'].includes(G.user?.role);
+  const newStatus= document.getElementById('edit-status')?.value;
+  const newDaily = parseFloat(document.getElementById('edit-daily')?.value)  || 0;
+  const newTotal = parseFloat(document.getElementById('edit-total')?.value)  || 0;
+  const newPaid  = parseFloat(document.getElementById('edit-paid')?.value)   || 0;
+  const newClosed= document.getElementById('edit-closed')?.value === 'true';
+  const newNotes = document.getElementById('edit-notes')?.value.trim();
+  const kmStart  = document.getElementById('edit-km-start')?.value;
+  const kmEnd    = document.getElementById('edit-km-end')?.value;
 
   // Rate change approval check
   if (!isPriv && order) {
-    const origRate  = parseAmount(order['سعر السيارة اليومي بالجنيه المصري']);
-    const threshold = G.settings.discountThreshold || 5;
-    const discountPct = origRate > 0
-      ? ((origRate - newDaily) / origRate * 100) : 0;
-
+    const origRate   = parseAmount(order['سعر السيارة اليومي بالجنيه المصري']);
+    const threshold  = G.settings?.discountThreshold || 5;
+    const discountPct= origRate > 0 ? ((origRate - newDaily) / origRate * 100) : 0;
     if (discountPct > threshold) {
       await db.collection('approvals').add({
-        type:          'rate_change',
-        requested_by:  G.user.username,
-        branch:        G.user.branch,
-        subject:       `Rate change for Order #${order['No.']}`,
-        details:       `Original: ${fmtMoney(origRate)} → Requested: ${fmtMoney(newDaily)} (${discountPct.toFixed(1)}% discount)`,
-        linked_ref:    orderId,
-        current_value: String(origRate),
+        type          : 'rate_change',
+        requested_by  : G.user.username,
+        branch        : G.user.branch,
+        subject       : `Rate change for Order #${order['No.']}`,
+        details       : `Original: ${fmtMoney(origRate)} → Requested: ${fmtMoney(newDaily)} (${discountPct.toFixed(1)}% discount)`,
+        linked_ref    : orderId,
+        current_value : String(origRate),
         requested_value: String(newDaily),
-        reason:        newNotes || 'Rate change requested',
-        status:        'pending',
-        created_at:    Date.now()
+        reason        : newNotes || 'Rate change requested',
+        status        : 'pending',
+        created_at    : Date.now()
       });
       toast(`Rate change ${discountPct.toFixed(1)}% exceeds threshold. Approval submitted.`, 'warning', 6000);
       closeModal();
@@ -999,18 +858,18 @@ window.saveOrderEdit = async function(orderId) {
 
   try {
     const upd = {
-      'حالة الطلب':   newStatus,
-      'سعر السيارة اليومي بالجنيه المصري': fmtMoney(newDaily),
-      'إجمالي المستحق (Total)': fmtMoney(newTotal),
-      'المدفوع EGP':  String(newPaid),
-      'closed':        newClosed,
-      'ملاحظات':      newNotes,
-      '_sys_updated':  Date.now()
+      'حالة الطلب'                       : newStatus,
+      'سعر السيارة اليومي بالجنيه المصري': String(newDaily),
+      'إجمالي المستحق (Total)'            : String(newTotal),
+      'المدفوع EGP'                       : String(newPaid),
+      'closed'                            : newClosed,
+      'ملاحظات'                           : newNotes,
+      '_sys_updated'                      : Date.now()
     };
     if (kmStart) upd['كيلومتر بداية'] = kmStart;
     if (kmEnd)   upd['كيلومتر نهاية'] = kmEnd;
 
-    // If accident — update car status
+    // Accident → update car status
     if (newStatus === 'Accident' && order?.['كود السيارة']) {
       await db.collection('fleet')
         .doc(String(order['كود السيارة']))
@@ -1018,7 +877,7 @@ window.saveOrderEdit = async function(orderId) {
         .catch(() => {});
     }
 
-    // If closing — set car to available
+    // Closing → set car to available
     if (newClosed && order?.['كود السيارة']) {
       await db.collection('fleet')
         .doc(String(order['كود السيارة']))
@@ -1034,13 +893,10 @@ window.saveOrderEdit = async function(orderId) {
     const idx2 = G.bookings.findIndex(b => b.id === orderId);
     if (idx2 > -1) G.bookings[idx2] = { ...G.bookings[idx2], ...upd };
 
-    await logAction('EDIT', 'Order Book',
-      `Updated Order #${order?.['No.'] || orderId} → ${newStatus}`);
-
+    await logAction('EDIT', 'Order Book', `Updated Order #${order?.['No.'] || orderId} → ${newStatus}`);
     toast('Order updated!', 'success');
     closeModal();
     filterOrders();
-
   } catch (e) {
     toast('Update failed: ' + e.message, 'error');
   }
@@ -1049,7 +905,6 @@ window.saveOrderEdit = async function(orderId) {
 // ============================================================
 // QUICK ADD PAYMENT
 // ============================================================
-
 window.quickAddPayment = function(orderId) {
   const order = allOrders.find(o => o.id === orderId);
   if (!order) return;
@@ -1058,84 +913,94 @@ window.quickAddPayment = function(orderId) {
   const paid  = parseAmount(order['المدفوع EGP']);
   const debt  = Math.max(0, total - paid);
 
+  const today = getCairoNow();
+  const todayStr = today.toISOString().slice(0, 10);
+
   const html = `
-    <div style="margin-bottom:14px;padding:11px;border-radius:8px;
-      background:var(--surface2);border:1px solid var(--border);">
-      <div style="display:flex;justify-content:space-between;font-size:12px;">
+    <div style="display:grid;gap:4px;margin-bottom:12px;font-size:12px;
+                background:var(--surface2);border-radius:8px;padding:10px;">
+      <div style="display:flex;justify-content:space-between;">
         <span style="color:var(--text3);">Order:</span>
         <strong>#${order['No.'] || orderId}</strong>
       </div>
-      <div style="display:flex;justify-content:space-between;
-        font-size:12px;margin-top:3px;">
+      <div style="display:flex;justify-content:space-between;">
         <span style="color:var(--text3);">Client:</span>
         <strong>${order['اسم العميل'] || '-'}</strong>
       </div>
-      <div style="display:flex;justify-content:space-between;
-        font-size:12px;margin-top:3px;">
+      <div style="display:flex;justify-content:space-between;">
         <span style="color:var(--text3);">Outstanding:</span>
         <strong style="color:var(--danger);">${fmtMoney(debt)}</strong>
       </div>
     </div>
 
-    <div class="form-grid">
-      <div class="field">
-        <label>Amount EGP (Cash)</label>
-        <input type="number" id="qp-egp" value="0"
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Amount EGP (Cash)</label>
+        <input type="number" id="qp-egp" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="updateQPTotal()"/>
       </div>
-      <div class="field">
-        <label>Amount USD (Cash)</label>
-        <input type="number" id="qp-usd" value="0"
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Amount USD (Cash)</label>
+        <input type="number" id="qp-usd" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="updateQPTotal()"/>
       </div>
-      <div class="field">
-        <label>Amount EUR (Cash)</label>
-        <input type="number" id="qp-eur" value="0"
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Amount EUR (Cash)</label>
+        <input type="number" id="qp-eur" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="updateQPTotal()"/>
       </div>
-      <div class="field">
-        <label>Card / POS (EGP)</label>
-        <input type="number" id="qp-card" value="0"
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Card / POS (EGP)</label>
+        <input type="number" id="qp-card" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="updateQPTotal()"/>
       </div>
-      <div class="field">
-        <label>Online Transfer (EGP)</label>
-        <input type="number" id="qp-online" value="0"
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Online Transfer (EGP)</label>
+        <input type="number" id="qp-online" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="updateQPTotal()"/>
       </div>
-      <div class="field">
-        <label>Collected By</label>
-        <select id="qp-collected-by">
-          <option value="${G.user?.username || 'me'}">
-            Me (${G.user?.username || ''})
-          </option>
-          <option value="sabry">Sabry</option>
-          <option value="eslam">Eslam</option>
-          <option value="shams">Shams</option>
-          <option value="other">Other</option>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Collected By</label>
+        <select id="qp-collected-by"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);">
+          <option value="${G.user?.username || ''}">Me (${G.user?.username || ''})</option>
+          <option value="Sabry">Sabry</option>
+          <option value="Eslam">Eslam</option>
+          <option value="Shams">Shams</option>
+          <option value="Other">Other</option>
         </select>
       </div>
     </div>
 
-    <div style="margin-top:9px;padding:9px 13px;border-radius:8px;
-      background:var(--surface2);border:1px solid var(--border);
-      display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-weight:700;">Total This Payment</span>
-      <span id="qp-total"
-        style="font-size:15px;font-weight:900;color:var(--success);">
-        £0.00
-      </span>
+    <div style="background:rgba(34,197,94,0.08);border:1px solid var(--success)20;
+                border-radius:8px;padding:10px;text-align:center;margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);">Total This Payment</div>
+      <div id="qp-total" style="font-size:18px;font-weight:900;color:var(--success);">£0.00</div>
     </div>
 
-    <div class="form-grid" style="margin-top:11px;">
-      <div class="field">
-        <label>Date of Payment *</label>
-        <input type="date" id="qp-date"
-          value="${new Date().toISOString().slice(0, 10)}"/>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Date of Payment *</label>
+        <input type="date" id="qp-date" value="${todayStr}"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
       </div>
-      <div class="field">
-        <label>Reason / Category *</label>
-        <select id="qp-category">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Reason / Category *</label>
+        <select id="qp-category"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);">
           <option value="">-- Select --</option>
           <option value="Rental Payment">Rental Payment</option>
           <option value="Advance Payment">Advance Payment</option>
@@ -1152,19 +1017,19 @@ window.quickAddPayment = function(orderId) {
       </div>
     </div>
 
-    <div class="field" style="margin-top:7px;">
-      <label>Notes (optional)</label>
-      <input type="text" id="qp-notes"
-        placeholder="Additional notes..."/>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:700;color:var(--text3);">Notes (optional)</label>
+      <input type="text" id="qp-notes" placeholder="Additional notes..."
+        style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+               border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
     </div>
 
-    <div style="display:flex;gap:7px;margin-top:14px;">
-      <button class="btn btn-success btn-full"
-        onclick="saveQuickPayment('${orderId}',${total},${paid})">
-        💾 Save Payment
-      </button>
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-    </div>`;
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-success" style="flex:1;"
+        onclick="saveQuickPayment('${orderId}',${total},${paid})">💾 Save Payment</button>
+      <button class="btn btn-ghost" style="flex:1;" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
 
   openModal(`Add Payment — Order #${order['No.'] || orderId}`, html);
 };
@@ -1175,48 +1040,51 @@ window.updateQPTotal = function() {
   const eur    = parseFloat(document.getElementById('qp-eur')?.value)    || 0;
   const card   = parseFloat(document.getElementById('qp-card')?.value)   || 0;
   const online = parseFloat(document.getElementById('qp-online')?.value) || 0;
-  const el = document.getElementById('qp-total');
+  const el     = document.getElementById('qp-total');
   if (el) el.textContent = fmtMoney(
     egp + (usd * G.ratesUSD) + (eur * G.ratesEUR) + card + online
   );
 };
 
 window.saveQuickPayment = async function(orderId, totalDue, prevPaid) {
-  const egp        = parseFloat(document.getElementById('qp-egp')?.value)    || 0;
-  const usd        = parseFloat(document.getElementById('qp-usd')?.value)    || 0;
-  const eur        = parseFloat(document.getElementById('qp-eur')?.value)    || 0;
-  const card       = parseFloat(document.getElementById('qp-card')?.value)   || 0;
-  const online     = parseFloat(document.getElementById('qp-online')?.value) || 0;
-  const collectedBy= document.getElementById('qp-collected-by')?.value || G.user?.username || '';
-  const thisPayment= egp + (usd * G.ratesUSD) + (eur * G.ratesEUR) + card + online;
-  const payDate    = document.getElementById('qp-date')?.value;
-  const payCategory= document.getElementById('qp-category')?.value;
-  const payNotes   = document.getElementById('qp-notes')?.value || '';
+  const egp          = parseFloat(document.getElementById('qp-egp')?.value)    || 0;
+  const usd          = parseFloat(document.getElementById('qp-usd')?.value)    || 0;
+  const eur          = parseFloat(document.getElementById('qp-eur')?.value)    || 0;
+  const card         = parseFloat(document.getElementById('qp-card')?.value)   || 0;
+  const online       = parseFloat(document.getElementById('qp-online')?.value) || 0;
+  const collectedBy  = document.getElementById('qp-collected-by')?.value || G.user?.username || '';
+  const thisPayment  = egp + (usd * G.ratesUSD) + (eur * G.ratesEUR) + card + online;
+  const payDate      = document.getElementById('qp-date')?.value;
+  const payCategory  = document.getElementById('qp-category')?.value;
+  const payNotes     = document.getElementById('qp-notes')?.value || '';
 
   if (thisPayment <= 0) { toast('Payment must be greater than 0', 'error'); return; }
-  if (!payDate)         { toast('Date of payment is required', 'error');    return; }
+  if (!payDate)         { toast('Date of payment is required', 'error'); return; }
   if (!payCategory)     { toast('Reason / Category is required', 'error'); return; }
 
   const order = allOrders.find(o => o.id === orderId);
 
   try {
+    // ✅ FIX: new paid EGP = prev + cash EGP + card + online (no duplicate USD/EUR conversion)
+    const newPaidEGP = prevPaid + egp + card + online;
+
     const upd = {
-      'المدفوع EGP': String(prevPaid + egp),
+      'المدفوع EGP' : String(newPaidEGP),
       '_sys_updated': Date.now()
     };
-    if (usd > 0) upd['المدفوع USD'] =
-      String(parseAmount(order?.['المدفوع USD'] || '0') + usd);
-    if (eur > 0) upd['المدفوع EUR'] =
-      String(parseAmount(order?.['المدفوع EUR'] || '0') + eur);
 
-    const newTotal = prevPaid + thisPayment;
-    const { end }  = getOrderDates(order || {});
+    // ✅ FIX: No duplicate USD/EUR writes
+    if (usd > 0) upd['المدفوع USD'] = String(parseAmount(order?.['المدفوع USD'] || '0') + usd);
+    if (eur > 0) upd['المدفوع EUR'] = String(parseAmount(order?.['المدفوع EUR'] || '0') + eur);
+
+    const newTotalEquiv = prevPaid + thisPayment;
+    const { end } = getOrderDates(order || {});
 
     // Auto-close if fully paid and past end
-    if (newTotal >= totalDue && end && new Date() > end &&
+    if (newTotalEquiv >= totalDue && end && getCairoNow() > end &&
         getOrderStatus(order) !== 'Accident') {
       upd['closed']       = true;
-      upd['حالة الطلب'] = 'Closed';
+      upd['حالة الطلب']  = 'Closed';
       if (order?.['كود السيارة']) {
         await db.collection('fleet')
           .doc(String(order['كود السيارة']))
@@ -1232,6 +1100,7 @@ window.saveQuickPayment = async function(orderId, totalDue, prevPaid) {
     const car = G.fleet.find(c =>
       String(c.ID || c.id) === String(order?.['كود السيارة'] || '')
     ) || {};
+
     const methods = [];
     if (egp   > 0) methods.push('Cash EGP');
     if (card  > 0) methods.push('Card');
@@ -1239,47 +1108,48 @@ window.saveQuickPayment = async function(orderId, totalDue, prevPaid) {
     if (usd   > 0) methods.push('Cash USD');
     if (eur   > 0) methods.push('Cash EUR');
 
+    const orderBranch = order?.['فرع الإصدار'] || order?.branch || G.user?.branch || 'HRG';
+
     const paymentRecord = {
-      order_id:       orderId,
-      order_ref:      order?.['No.'] || orderId,
-      client_name:    getOrderClientName(order) || '',
-      car_label:      getCarLabel(car, 'en')    || order?.['اسم السيارة'] || '',
-      branch:         order?.['فرع الإصدار']   || G.user?.branch || '',
-      amount_egp:     egp + card + online,
-      amount_usd:     usd,
-      amount_eur:     eur,
-      payment_method: methods.join(' + ') || 'Cash',
-      collected_by:   collectedBy,
-      notes:          payNotes,
-      type:           'rental_payment',
-      category:       payCategory,
-      date:           payDate,
-      datetime:       new Date().toISOString(),
-      timestamp:      Date.now(),
-      _sys_created:   firebase.firestore.FieldValue.serverTimestamp()
+      order_id         : orderId,
+      order_ref        : order?.['No.'] || orderId,
+      client_name      : getOrderClientName(order) || '',
+      car_label        : getCarLabel(car, 'en') || order?.['اسم السيارة'] || '',
+      branch           : orderBranch,
+      amount_egp       : egp + card + online,
+      amount_usd       : usd,
+      amount_eur       : eur,
+      total_egp_equiv  : egp + card + online + (usd * G.ratesUSD) + (eur * G.ratesEUR),
+      payment_method   : methods.join(' + ') || 'Cash',
+      collected_by     : collectedBy,
+      notes            : payNotes,
+      type             : 'rental_payment',
+      category         : payCategory,
+      date             : payDate,
+      datetime         : new Date().toISOString(),
+      timestamp        : Date.now(),
+      _sys_created     : firebase.firestore.FieldValue.serverTimestamp()
     };
 
     const payRef = await db.collection('payment_log').add(paymentRecord);
-
     await logAction('EDIT', 'Order Book',
       `Payment on Order #${order?.['No.'] || orderId}: ${fmtMoney(thisPayment)}`);
 
-    // Update local caches
+    // ✅ FIX: Update local cache correctly (include card + online)
     const orderIdx = allOrders.findIndex(o => o.id === orderId);
     if (orderIdx >= 0) {
-      allOrders[orderIdx]['المدفوع EGP'] = String(prevPaid + egp);
+      allOrders[orderIdx]['المدفوع EGP'] = String(newPaidEGP);
+      if (usd > 0) allOrders[orderIdx]['المدفوع USD'] = upd['المدفوع USD'];
+      if (eur > 0) allOrders[orderIdx]['المدفوع EUR'] = upd['المدفوع EUR'];
+      Object.assign(allOrders[orderIdx], upd);
       const gIdx = G.bookings.findIndex(o => o.id === orderId);
       if (gIdx >= 0) Object.assign(G.bookings[gIdx], allOrders[orderIdx]);
     }
 
     if (typeof filterOrders === 'function') filterOrders();
-
     toast('✅ Payment saved! Generating receipt...', 'success');
     closeModal();
-    setTimeout(() => generateSinglePaymentReceipt(
-      paymentRecord, payRef.id, orderId
-    ), 400);
-
+    setTimeout(() => generateSinglePaymentReceipt(paymentRecord, payRef.id, orderId), 400);
   } catch (e) {
     toast('Payment failed: ' + e.message, 'error');
   }
@@ -1288,7 +1158,6 @@ window.saveQuickPayment = async function(orderId, totalDue, prevPaid) {
 // ============================================================
 // SINGLE PAYMENT RECEIPT
 // ============================================================
-
 window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId) {
   try {
     let order = allOrders.find(o => o.id === orderId);
@@ -1297,151 +1166,110 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
       if (snap.exists) order = { id: snap.id, ...snap.data() };
     }
 
-    const contractNo  = order?.['No.']         || orderId;
-    const clientName  = payment.client_name     || getOrderClientName(order) || '';
-    const carLabel    = payment.car_label       || '';
+    const contractNo  = order?.['No.'] || orderId;
+    const clientName  = payment.client_name || getOrderClientName(order) || '';
+    const carLabel    = payment.car_label || '';
     const { start, end } = getOrderDates(order || {});
     const verifyUrl   = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${encodeURIComponent(contractNo)}`;
     const logo        = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
     const dateStr     = new Date(payment.datetime || Date.now())
-      .toLocaleString('en-GB', {
-        day:'2-digit', month:'short', year:'numeric',
-        hour:'2-digit', minute:'2-digit'
-      });
+      .toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
     const parts = [];
     if (payment.amount_egp > 0) parts.push(`£${payment.amount_egp.toLocaleString()} EGP`);
     if (payment.amount_usd > 0) parts.push(`$${payment.amount_usd} USD`);
     if (payment.amount_eur > 0) parts.push(`€${payment.amount_eur} EUR`);
     const amountStr = parts.join(' + ');
-    const amountEGP = payment.amount_egp || 0;
 
     const totalOrder  = parseAmount(order?.['إجمالي المستحق (Total)'] || 0);
-    const totalPaid   = parseAmount(order?.['المدفوع EGP']            || 0);
+    const totalPaid   = parseAmount(order?.['المدفوع EGP'] || 0);
     const outstanding = Math.max(0, totalOrder - totalPaid);
 
     const rcRef = `RC-${(payment.branch || 'GEN').slice(0,3).toUpperCase()}-${
       new Date().toISOString().slice(2,10).replace(/-/g,'')}-${
       paymentId.slice(-4).toUpperCase()}`;
 
+    // ✅ FIX: Complete receipt HTML
     const singleRec = copyType => `
-      <div style="height:48%;border:2px solid #000;padding:15px;
-        display:flex;flex-direction:column;box-sizing:border-box;">
-        <div style="display:flex;justify-content:space-between;
-          align-items:center;border-bottom:2px solid #000;
-          padding-bottom:10px;margin-bottom:10px;">
-          <img src="${logo}" style="height:40px;object-fit:contain;">
-          <div style="text-align:center;flex:1;">
-            <div style="font-size:14pt;font-weight:bold;color:#04509D;
-              text-transform:uppercase;">PAYMENT RECEIPT</div>
-            <div style="font-size:9pt;color:#666;">${copyType}</div>
+      <div style="font-family:'Courier New',monospace;width:80mm;padding:10px;
+                  border:1px solid #ccc;border-radius:4px;margin-bottom:10px;font-size:8pt;">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px;">
+          <div>
+            <img src="${logo}" style="height:40px;" onerror="this.style.display='none'"/>
+            <div style="font-weight:800;font-size:9pt;">BROTHERS EGY</div>
+            <div style="font-size:7pt;color:#666;">${copyType}</div>
           </div>
-          <div style="text-align:right;">
+          <div style="text-align:center;">
             <img src="https://api.qrserver.com/v1/create-qr-code/?data=${
-              encodeURIComponent(verifyUrl)}&size=70x70"
-              style="height:55px;">
-            <div style="font-size:7pt;font-weight:bold;margin-top:2px;">
-              SCAN FOR FULL HISTORY
-            </div>
+              encodeURIComponent(verifyUrl)}&size=70x70" style="height:55px;">
+            <div style="font-size:6pt;color:#666;">SCAN FOR FULL HISTORY</div>
           </div>
         </div>
 
-        <div style="background:#f0f9ff;border:1px solid #bae6fd;
-          border-radius:6px;padding:8px 12px;margin-bottom:10px;
-          text-align:center;">
-          <div style="font-size:8pt;color:#0369a1;font-weight:bold;
-            text-transform:uppercase;">THIS PAYMENT ONLY</div>
-          <div style="font-size:28pt;font-weight:900;color:#04509D;
-            line-height:1.1;">£${amountEGP.toLocaleString()}</div>
-          ${parts.length > 1
-            ? `<div style="font-size:9pt;color:#0369a1;">${amountStr}</div>`
-            : ''}
-          <div style="font-size:8pt;color:#64748b;margin-top:3px;">
-            ${payment.payment_method || 'Cash'} · ${dateStr}
+        <div style="border-bottom:1px dashed #ccc;padding-bottom:8px;margin-bottom:8px;">
+          <div style="font-size:10pt;font-weight:800;text-transform:uppercase;">PAYMENT RECEIPT</div>
+          <div>Ref: <strong>${rcRef}</strong></div>
+          <div>Date: ${dateStr}</div>
+        </div>
+
+        <div style="border-bottom:1px dashed #ccc;padding-bottom:8px;margin-bottom:8px;">
+          <div>Contract: <strong>#${contractNo}</strong></div>
+          <div>Client: <strong>${clientName}</strong></div>
+          <div>Car: ${carLabel}</div>
+          <div>Period: ${start ? start.toLocaleDateString('en-GB') : '—'} → ${end ? end.toLocaleDateString('en-GB') : '—'}</div>
+        </div>
+
+        <div style="background:#f8fafc;border-radius:4px;padding:8px;margin-bottom:8px;">
+          <div style="font-size:7pt;color:#666;font-weight:700;">THIS PAYMENT ONLY</div>
+          <div style="font-size:14pt;font-weight:900;">${amountStr || fmtMoney(payment.total_egp_equiv || 0)}</div>
+          <div style="font-size:7pt;color:#666;">${payment.payment_method || 'Cash'}</div>
+          <div style="font-size:7pt;color:#666;">Category: ${payment.category || '—'}</div>
+          ${payment.notes ? `<div style="font-size:7pt;font-style:italic;">Note: ${payment.notes}</div>` : ''}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:7pt;
+                    background:#f8fafc;border-radius:4px;padding:6px;margin-bottom:8px;">
+          <div><div style="color:#666;">Contract Total</div><strong>£${totalOrder.toLocaleString()}</strong></div>
+          <div><div style="color:#666;">Total Paid</div><strong>£${totalPaid.toLocaleString()}</strong></div>
+          <div><div style="color:#666;">Outstanding</div>
+            <strong style="color:${outstanding > 0 ? '#dc2626' : '#16a34a'};">
+              ${outstanding > 0 ? '£' + outstanding.toLocaleString() : '✅ CLEAR'}
+            </strong>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;
-          gap:8px;font-size:8.5pt;border-bottom:1px dashed #ccc;
-          padding-bottom:8px;margin-bottom:8px;">
-          <div>
-            <div><strong>CONTRACT</strong> #${contractNo}</div>
-            <div><strong>CLIENT</strong> ${clientName}</div>
-            <div><strong>VEHICLE</strong> ${carLabel || '—'}</div>
-          </div>
-          <div>
-            <div><strong>PERIOD</strong>
-              ${start ? start.toLocaleDateString('en-GB') : ''} →
-              ${end   ? end.toLocaleDateString('en-GB')   : ''}
-            </div>
-            <div><strong>BRANCH</strong> ${payment.branch || '—'}</div>
-            <div><strong>RECEIPT</strong> ${rcRef}</div>
-          </div>
+        <div style="font-size:6pt;color:#999;text-align:center;">
+          Scan QR for full payment history & order status
         </div>
+      </div>
+    `;
 
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;
-          gap:6px;font-size:8pt;background:#f8fafc;
-          border-radius:4px;padding:6px;">
-          <div style="text-align:center;">
-            <div style="color:#666;">Contract Total</div>
-            <div style="font-weight:bold;">£${totalOrder.toLocaleString()}</div>
-          </div>
-          <div style="text-align:center;">
-            <div style="color:#666;">Total Paid</div>
-            <div style="font-weight:bold;color:#16a34a;">
-              £${totalPaid.toLocaleString()}
-            </div>
-          </div>
-          <div style="text-align:center;">
-            <div style="color:#666;">Outstanding</div>
-            <div style="font-weight:bold;
-              color:${outstanding > 0 ? '#dc2626' : '#16a34a'};">
-              ${outstanding > 0 ? '£' + outstanding.toLocaleString() : '✅ PAID'}
-            </div>
-          </div>
-        </div>
-
-        ${payment.notes ? `
-          <div style="font-size:8pt;color:#666;margin-top:6px;
-            font-style:italic;">Note: ${payment.notes}</div>` : ''}
-
-        <div style="margin-top:auto;display:flex;
-          justify-content:space-between;align-items:flex-end;
-          padding-top:8px;">
-          <div style="font-size:7pt;color:#94a3b8;">
-            Scan QR for full payment history &amp; order status
-          </div>
-          <div style="text-align:center;border-top:1px solid #000;
-            width:160px;padding-top:4px;font-size:8pt;font-weight:bold;">
-            AUTHORIZED SIGNATURE
-          </div>
-        </div>
-      </div>`;
-
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-      <style>
-        body{font-family:Arial,sans-serif;margin:0;padding:0;}
-        @page{size:A4;margin:10mm 15mm;}
-        @media print{
-          body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-          .no-print{display:none!important;}
-        }
-        .print-btn{position:fixed;top:10px;right:10px;
-          background:#04509D;color:white;border:none;
-          padding:10px 20px;border-radius:6px;cursor:pointer;
-          font-weight:bold;z-index:999;}
-      </style></head><body>
-      <button class="print-btn no-print"
-        onclick="window.print()">🖨️ Print / Save PDF</button>
-      <div style="width:210mm;min-height:296mm;padding:10mm 15mm;
-        box-sizing:border-box;display:flex;flex-direction:column;">
-        ${singleRec('CLIENT COPY')}
-        <div style="text-align:center;border-top:1px dashed #999;
-          color:#999;padding:6px 0;font-size:8pt;">
-          ✂ — — — — DETACH HERE — — — — ✂
-        </div>
-        ${singleRec('COMPANY COPY')}
-      </div></body></html>`;
+    // ✅ FIX: Complete HTML page
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Receipt ${rcRef}</title>
+  <style>
+    @media print { .no-print { display:none!important; } body { margin:0; } }
+    body { font-family: 'Courier New', monospace; background:#fff; padding:20px; }
+    .print-btn { padding:10px 20px;background:#3b82f6;color:#fff;border:none;
+                 border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:16px; }
+  </style>
+</head>
+<body>
+  <button class="print-btn no-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;">
+    ${singleRec('CUSTOMER COPY')}
+    <div style="color:#999;writing-mode:vertical-lr;font-size:8pt;display:flex;
+                align-items:center;justify-content:center;padding:0 4px;">
+      ✂ — — — — DETACH HERE — — — — ✂
+    </div>
+    ${singleRec('COMPANY COPY')}
+  </div>
+</body>
+</html>`;
 
     const win = window.open('', '_blank');
     if (win) {
@@ -1453,12 +1281,12 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
     // Save receipt record
     await db.collection('receipts').add({
       ...payment,
-      receipt_ref:    rcRef,
-      payment_id:     paymentId,
-      qr_ref:         contractNo,
-      verify_url:     verifyUrl,
-      receipt_type:   'single_payment',
-      _sys_created:   firebase.firestore.FieldValue.serverTimestamp()
+      receipt_ref : rcRef,
+      payment_id  : paymentId,
+      qr_ref      : contractNo,
+      verify_url  : verifyUrl,
+      receipt_type: 'single_payment',
+      _sys_created: firebase.firestore.FieldValue.serverTimestamp()
     }).catch(() => {});
 
   } catch (e) {
@@ -1470,18 +1298,13 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
 // ============================================================
 // CLOSE ORDER
 // ============================================================
-
 window.requestCloseOrder = async function(orderId) {
   const order  = allOrders.find(o => o.id === orderId);
   const isPriv = ['Admin', 'Executive'].includes(G.user?.role);
 
   if (isPriv) {
     try {
-      const upd = {
-        'حالة الطلب': 'Closed',
-        'closed':      true,
-        '_sys_updated': Date.now()
-      };
+      const upd = { 'حالة الطلب': 'Closed', 'closed': true, '_sys_updated': Date.now() };
       await db.collection('bookings').doc(orderId).update(upd);
 
       if (order?.['كود السيارة']) {
@@ -1491,32 +1314,29 @@ window.requestCloseOrder = async function(orderId) {
           .catch(() => {});
       }
 
-      const idx  = allOrders.findIndex(o => o.id === orderId);
-      if (idx > -1) allOrders[idx]  = { ...allOrders[idx],  ...upd };
+      const idx = allOrders.findIndex(o => o.id === orderId);
+      if (idx > -1) allOrders[idx] = { ...allOrders[idx], ...upd };
       const idx2 = G.bookings.findIndex(b => b.id === orderId);
       if (idx2 > -1) G.bookings[idx2] = { ...G.bookings[idx2], ...upd };
 
-      await logAction('EDIT', 'Order Book',
-        `Closed Order #${order?.['No.'] || orderId}`);
-
+      await logAction('EDIT', 'Order Book', `Closed Order #${order?.['No.'] || orderId}`);
       toast('Order closed!', 'success');
       closeModal();
       filterOrders();
-
     } catch (e) {
       toast('Close failed: ' + e.message, 'error');
     }
   } else {
     try {
       await db.collection('approvals').add({
-        type:         'cancellation',
-        requested_by:  G.user.username,
-        branch:        G.user.branch,
-        subject:      `Close Order #${order?.['No.'] || orderId}`,
-        details:      `Request to close order for ${order?.['اسم العميل'] || 'client'}`,
-        linked_ref:    orderId,
-        status:        'pending',
-        created_at:    Date.now()
+        type        : 'cancellation',
+        requested_by: G.user.username,
+        branch      : G.user.branch,
+        subject     : `Close Order #${order?.['No.'] || orderId}`,
+        details     : `Request to close order for ${order?.['اسم العميل'] || 'client'}`,
+        linked_ref  : orderId,
+        status      : 'pending',
+        created_at  : Date.now()
       });
       toast('Close request submitted for Admin approval', 'info');
     } catch (e) {
@@ -1528,24 +1348,25 @@ window.requestCloseOrder = async function(orderId) {
 // ============================================================
 // EXTEND ORDER
 // ============================================================
-
 window.extendOrder = function(orderId) {
-  const o = allOrders.find(b => b.id === orderId) ||
-            G.bookings.find(b => b.id === orderId);
+  const o = allOrders.find(b => b.id === orderId) || G.bookings.find(b => b.id === orderId);
   const currentEnd = o?.col_T || o?.['تاريخ الانتهاء'] || '';
 
   const html = `
-    <div class="field">
-      <label>New End Date / Time</label>
-      <input type="datetime-local" id="extend-date"
-        value="${currentEnd.replace(' ', 'T').slice(0, 16)}"/>
+    <div style="display:grid;gap:12px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">New End Date / Time</label>
+        <input type="datetime-local" id="extend-date"
+          value="${currentEnd.replace(' ', 'T').slice(0, 16)}"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="doExtendOrder('${orderId}')">✅ Extend</button>
+        <button class="btn btn-ghost"   style="flex:1;" onclick="closeModal()">Cancel</button>
+      </div>
     </div>
-    <div style="display:flex;gap:7px;margin-top:13px;">
-      <button class="btn btn-primary"
-        onclick="doExtendOrder('${orderId}')">✅ Extend</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-    </div>`;
-
+  `;
   openModal('📅 Extend Order', html);
 };
 
@@ -1554,15 +1375,23 @@ window.doExtendOrder = async function(orderId) {
   if (!newEnd) { toast('Select a date', 'error'); return; }
 
   try {
+    // ✅ FIX: Write BOTH col_T and تاريخ الانتهاء to cover whichever getOrderDates() reads
     await db.collection('bookings').doc(orderId).update({
-      col_T:         newEnd,
-      _sys_updated:  firebase.firestore.FieldValue.serverTimestamp()
+      col_T             : newEnd,
+      'تاريخ الانتهاء' : newEnd,
+      _sys_updated      : firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    const idx  = allOrders.findIndex(b => b.id === orderId);
-    if (idx >= 0) allOrders[idx].col_T = newEnd;
+    const idx = allOrders.findIndex(b => b.id === orderId);
+    if (idx >= 0) {
+      allOrders[idx].col_T              = newEnd;
+      allOrders[idx]['تاريخ الانتهاء'] = newEnd;
+    }
     const idx2 = G.bookings.findIndex(b => b.id === orderId);
-    if (idx2 >= 0) G.bookings[idx2].col_T = newEnd;
+    if (idx2 >= 0) {
+      G.bookings[idx2].col_T              = newEnd;
+      G.bookings[idx2]['تاريخ الانتهاء'] = newEnd;
+    }
 
     toast('✅ Order extended to: ' + newEnd, 'success');
     closeModal();
@@ -1575,63 +1404,55 @@ window.doExtendOrder = async function(orderId) {
 // ============================================================
 // SWITCH CAR
 // ============================================================
-
 window.switchOrderCar = function(orderId) {
   const cars = G.fleet.filter(c => c.is_active !== false && !c.archived);
 
   const html = `
-    <select id="car-switch-sel"
-      style="width:100%;margin-bottom:12px;padding:8px;
-        background:var(--surface2);border:1px solid var(--border);
-        border-radius:8px;color:var(--text);">
-      <option value="">-- Select replacement car --</option>
-      ${cars.map(c =>
-        `<option value="${c.id}">
-          ${getCarLabel(c, 'en')} | ${c.plate || ''}
-        </option>`
-      ).join('')}
-    </select>
-    <button class="btn btn-primary btn-full"
-      onclick="
+    <div style="display:grid;gap:12px;">
+      <select id="car-switch-sel"
+        style="width:100%;padding:8px;background:var(--surface2);
+               border:1px solid var(--border);border-radius:8px;color:var(--text);">
+        <option value="">-- Select replacement car --</option>
+        ${cars.map(c => `
+          <option value="${c.id}">${getCarLabel(c, 'en')} | ${c.plate || ''}</option>
+        `).join('')}
+      </select>
+      <button class="btn btn-primary btn-full" onclick="
         const sel = document.getElementById('car-switch-sel');
         const car = G.fleet.find(c => c.id === sel.value);
         if (!car) { toast('Select a car', 'error'); return; }
         closeModal();
-        setTimeout(() => doSwitchOrderCar(
-          '${orderId}', car.id, getCarLabel(car,'en')
-        ), 100);">
-      🔄 Confirm Switch
-    </button>`;
-
+        setTimeout(() => doSwitchOrderCar('${orderId}', car.id, getCarLabel(car,'en')), 100);">
+        🔄 Confirm Switch
+      </button>
+    </div>
+  `;
   openModal('🔄 Select Replacement Car', html);
 };
 
 window.doSwitchOrderCar = async function(orderId, newCarId, newCarLabel) {
-  const o = allOrders.find(b => b.id === orderId) ||
-            G.bookings.find(b => b.id === orderId);
+  const o = allOrders.find(b => b.id === orderId) || G.bookings.find(b => b.id === orderId);
   if (!o) return;
 
   const oldCarId     = o['كود السيارة'] || '';
   const depositHeld  = parseAmount(o.deposit_held || o['الوديعة المحتجزة'] || 0);
 
   const updates = {
-    'كود السيارة':     newCarId,
-    car_label:         newCarLabel,
-    car_switched_from: oldCarId,
-    car_switched_at:   new Date().toISOString(),
+    'كود السيارة'      : newCarId,
+    car_label          : newCarLabel,
+    car_switched_from  : oldCarId,
+    car_switched_at    : new Date().toISOString(),
     deposit_transfer_note:
-      `Deposit transferred from car ${oldCarId} to car ${newCarId}. ` +
-      `Amount: ${fmtMoney(depositHeld)}`,
+      `Deposit transferred from car ${oldCarId} to car ${newCarId}. Amount: ${fmtMoney(depositHeld)}`,
     _sys_updated: firebase.firestore.FieldValue.serverTimestamp()
   };
 
   try {
     await db.collection('bookings').doc(orderId).update(updates);
-    const idx  = allOrders.findIndex(b => b.id === orderId);
+    const idx = allOrders.findIndex(b => b.id === orderId);
     if (idx >= 0) Object.assign(allOrders[idx], updates);
     const idx2 = G.bookings.findIndex(b => b.id === orderId);
     if (idx2 >= 0) Object.assign(G.bookings[idx2], updates);
-
     toast('✅ Car switched to: ' + newCarLabel, 'success');
     openOrderDetail(orderId);
   } catch (e) {
@@ -1642,16 +1463,13 @@ window.doSwitchOrderCar = async function(orderId, newCarId, newCarLabel) {
 // ============================================================
 // VIEW ORDER PAYMENTS
 // ============================================================
-
 window.viewOrderPayments = async function(orderId, orderNo) {
   document.getElementById('global-modal')?.classList.remove('open');
 
   try {
     const [plSnap, rcSnap] = await Promise.all([
-      db.collection('payment_log')
-        .where('order_id', '==', orderId).get().catch(() => ({ docs: [] })),
-      db.collection('receipts')
-        .where('contract_no', '==', String(orderNo)).get().catch(() => ({ docs: [] }))
+      db.collection('payment_log').where('order_id', '==', orderId).get().catch(() => ({ docs: [] })),
+      db.collection('receipts').where('contract_no', '==', String(orderNo)).get().catch(() => ({ docs: [] }))
     ]);
 
     const payments = plSnap.docs
@@ -1663,142 +1481,131 @@ window.viewOrderPayments = async function(orderId, orderNo) {
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
     const html = `
-      <div style="margin-bottom:13px;">
-        <div style="font-size:11px;font-weight:800;color:var(--accent);
-          text-transform:uppercase;margin-bottom:8px;">
-          💳 Payment Log (${payments.length})
-        </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Payment Log</div>
         ${payments.length ? `
-          <table class="data-table">
-            <thead><tr>
-              <th>Date</th><th>Amount</th>
-              <th>Method</th><th>Note</th>
-            </tr></thead>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="background:var(--surface2);color:var(--text3);font-size:10px;font-weight:700;">
+                <th style="padding:6px;text-align:left;">Date</th>
+                <th style="padding:6px;text-align:right;">Amount</th>
+                <th style="padding:6px;text-align:left;">Method</th>
+                <th style="padding:6px;text-align:left;">Note</th>
+              </tr>
+            </thead>
             <tbody>
               ${payments.map(p => `
-                <tr>
-                  <td style="font-size:11px;">
-                    ${p.date || (p.timestamp
-                      ? new Date(p.timestamp).toLocaleDateString('en-GB') : '—')}
-                  </td>
-                  <td style="font-weight:700;color:var(--success);">
-                    ${fmtMoney(p.amount || p.amount_egp || 0)}
-                  </td>
-                  <td style="font-size:11px;">
-                    ${p.method || p.currency || p.payment_method || '—'}
-                  </td>
-                  <td style="font-size:10px;color:var(--text3);">
-                    ${p.note || p.notes || '—'}
-                  </td>
-                </tr>`).join('')}
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:6px;">${p.date || (p.timestamp ? new Date(p.timestamp).toLocaleDateString('en-GB') : '—')}</td>
+                  <td style="padding:6px;text-align:right;">${fmtMoney(p.amount || p.amount_egp || 0)}</td>
+                  <td style="padding:6px;">${p.method || p.currency || p.payment_method || '—'}</td>
+                  <td style="padding:6px;">${p.note || p.notes || '—'}</td>
+                </tr>
+              `).join('')}
             </tbody>
-          </table>` :
-          `<div style="color:var(--text3);font-size:12px;padding:10px;">
-            No payment log entries found.
-          </div>`}
+          </table>
+        ` : '<div style="color:var(--text3);font-size:12px;">No payment log entries found.</div>'}
       </div>
 
       <div>
-        <div style="font-size:11px;font-weight:800;color:var(--accent);
-          text-transform:uppercase;margin-bottom:8px;">
-          🧾 Receipts (${receipts.length})
-        </div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Receipts</div>
         ${receipts.length ? `
-          <table class="data-table">
-            <thead><tr>
-              <th>Ref</th><th>Date</th>
-              <th>Amount</th><th>Type</th><th></th>
-            </tr></thead>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="background:var(--surface2);color:var(--text3);font-size:10px;font-weight:700;">
+                <th style="padding:6px;text-align:left;">Ref</th>
+                <th style="padding:6px;text-align:left;">Date</th>
+                <th style="padding:6px;text-align:right;">Amount</th>
+                <th style="padding:6px;text-align:left;">Type</th>
+                <th style="padding:6px;"></th>
+              </tr>
+            </thead>
             <tbody>
               ${receipts.map(r => `
-                <tr>
-                  <td><span style="color:var(--accent);font-weight:700;
-                    font-size:11px;">
-                    ${r.receipt_ref || r.id}
-                  </span></td>
-                  <td style="font-size:11px;">${r.receipt_date || '—'}</td>
-                  <td style="font-weight:700;color:var(--success);">
-                    ${fmtMoney(r.total_egp_equiv || r.amount_egp || 0)}
-                  </td>
-                  <td style="font-size:11px;">${r.type || '—'}</td>
-                  <td style="white-space:nowrap;">
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:6px;">${r.receipt_ref || r.id}</td>
+                  <td style="padding:6px;">${r.receipt_date || '—'}</td>
+                  <td style="padding:6px;text-align:right;">${fmtMoney(r.total_egp_equiv || r.amount_egp || 0)}</td>
+                  <td style="padding:6px;">${r.type || '—'}</td>
+                  <td style="padding:6px;">
                     <button class="btn btn-ghost btn-xs"
                       onclick="closeModal();showPage('receipts');
-                        setTimeout(()=>reprintReceipt('${r.id}'),300);">
-                      🖨️
-                    </button>
+                               setTimeout(()=>reprintReceipt('${r.id}'),300);">🖨️</button>
                   </td>
-                </tr>`).join('')}
+                </tr>
+              `).join('')}
             </tbody>
-          </table>` :
-          `<div style="color:var(--text3);font-size:12px;padding:10px;">
-            No receipts found for this order.
-          </div>`}
-      </div>`;
+          </table>
+        ` : '<div style="color:var(--text3);font-size:12px;">No receipts found for this order.</div>'}
+      </div>
+    `;
 
     openModal(`💳 Payments — Order #${orderNo}`, html, true);
-
   } catch (e) {
-    openModal('💳 Payments',
-      `<p style="color:var(--danger);">Failed to load: ${e.message}</p>`);
+    openModal('💳 Payments', `<p style="color:var(--danger);">Failed to load: ${e.message}</p>`);
   }
 };
 
 // ============================================================
 // DEPOSIT PAYMENT
 // ============================================================
-
 window.addDepositPayment = function(orderId, type) {
   const label = type === 'collect' ? 'Collect Deposit' : 'Return Deposit';
   const color = type === 'collect' ? '#22c55e' : '#f59e0b';
 
   const html = `
-    <div style="font-size:11px;color:var(--text3);margin-bottom:14px;">
+    <div style="margin-bottom:12px;font-size:12px;color:var(--text2);">
       ${type === 'collect'
         ? 'Record deposit collected from customer.'
         : 'Record deposit returned to customer.'}
     </div>
-    <div class="form-grid" style="margin-bottom:10px;">
-      <div class="field">
-        <label>EGP (Cash)</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">EGP (Cash)</label>
         <input type="number" id="dep-egp" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="calcDepTotal()"/>
       </div>
-      <div class="field">
-        <label>USD (Cash)</label>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">USD (Cash)</label>
         <input type="number" id="dep-usd" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="calcDepTotal()"/>
       </div>
-      <div class="field">
-        <label>EUR (Cash)</label>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">EUR (Cash)</label>
         <input type="number" id="dep-eur" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="calcDepTotal()"/>
       </div>
-      <div class="field">
-        <label>Card (EGP)</label>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Card (EGP)</label>
         <input type="number" id="dep-card" value="0" min="0"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"
           oninput="calcDepTotal()"/>
       </div>
     </div>
-    <div style="background:var(--surface3);border-radius:8px;
-      padding:10px 12px;margin-bottom:12px;
-      display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:10px;color:var(--text2);">Total (approx EGP):</span>
-      <span id="dep-total-display"
-        style="font-size:16px;font-weight:800;color:${color};">£0.00</span>
+    <div style="text-align:center;padding:10px;background:rgba(0,0,0,0.05);
+                border-radius:8px;margin-bottom:12px;">
+      <div style="font-size:10px;color:var(--text3);">Total (approx EGP):</div>
+      <div id="dep-total-display" style="font-size:18px;font-weight:800;color:${color};">£0.00</div>
     </div>
-    <div class="field" style="margin-bottom:12px;">
-      <label>Notes (optional)</label>
-      <input type="text" id="dep-notes"
-        placeholder="e.g. Cheque #1234 / damaged deposit"/>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:700;color:var(--text3);">Notes (optional)</label>
+      <input type="text" id="dep-notes" placeholder="e.g. Cheque #1234 / damaged deposit"
+        style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+               border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
     </div>
     <button onclick="saveDepositPayment('${orderId}','${type}')"
-      style="width:100%;padding:11px;background:${color};color:#fff;
-        border:none;border-radius:8px;font-weight:800;
-        font-size:13px;cursor:pointer;">
+      style="width:100%;padding:11px;background:${color};color:#fff;border:none;
+             border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;">
       ${label}
-    </button>`;
-
+    </button>
+  `;
   openModal(label, html, false);
 };
 
@@ -1807,8 +1614,7 @@ window.calcDepTotal = function() {
   const usd  = parseFloat(document.getElementById('dep-usd')?.value)  || 0;
   const eur  = parseFloat(document.getElementById('dep-eur')?.value)  || 0;
   const card = parseFloat(document.getElementById('dep-card')?.value) || 0;
-  const total = egp + (usd * (G.ratesUSD || 55)) +
-                (eur * (G.ratesEUR || 60)) + card;
+  const total = egp + (usd * (G.ratesUSD || 55)) + (eur * (G.ratesEUR || 60)) + card;
   const el = document.getElementById('dep-total-display');
   if (el) el.textContent = fmtMoney(total);
 };
@@ -1819,8 +1625,7 @@ window.saveDepositPayment = async function(orderId, type) {
   const eur   = parseFloat(document.getElementById('dep-eur')?.value)  || 0;
   const card  = parseFloat(document.getElementById('dep-card')?.value) || 0;
   const notes = document.getElementById('dep-notes')?.value || '';
-  const totalEGP = egp + (usd * (G.ratesUSD || 55)) +
-                   (eur * (G.ratesEUR || 60)) + card;
+  const totalEGP = egp + (usd * (G.ratesUSD || 55)) + (eur * (G.ratesEUR || 60)) + card;
 
   if (totalEGP <= 0) { toast('Enter at least one amount', 'warning'); return; }
 
@@ -1831,23 +1636,25 @@ window.saveDepositPayment = async function(orderId, type) {
     const snap = await db.collection('bookings').doc(orderId).get();
     const cur  = snap.data() || {};
 
-    await db.collection('bookings').doc(orderId).update({
-      [field]:        (parseFloat(cur[field] || 0)) + totalEGP,
-      [`${field}_egp`]:(parseFloat(cur[`${field}_egp`] || 0)) + egp,
-      [`${field}_usd`]:(parseFloat(cur[`${field}_usd`] || 0)) + usd,
-      [`${field}_eur`]:(parseFloat(cur[`${field}_eur`] || 0)) + eur,
-      _sys_updated:   firebase.firestore.FieldValue.serverTimestamp()
-    });
+    const updateObj = {
+      [field]             : (parseFloat(cur[field] || 0)) + totalEGP,
+      [`${field}_egp`]    : (parseFloat(cur[`${field}_egp`] || 0)) + egp,
+      [`${field}_usd`]    : (parseFloat(cur[`${field}_usd`] || 0)) + usd,
+      [`${field}_eur`]    : (parseFloat(cur[`${field}_eur`] || 0)) + eur,
+      _sys_updated        : firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    await db.collection('bookings').doc(orderId).update(updateObj);
 
     await db.collection('payment_log').add({
-      order_id:     orderId,
-      type:         'deposit_' + type,
+      order_id    : orderId,
+      type        : 'deposit_' + type,
       egp, usd, eur, card,
       totalEGP,
       notes,
-      date:         dateStr,
+      date        : dateStr,
       collected_by: G.user?.username || '',
-      timestamp:    Date.now()
+      timestamp   : Date.now()
     });
 
     // Update local cache
@@ -1858,7 +1665,6 @@ window.saveDepositPayment = async function(orderId, type) {
 
     closeModal();
     toast(`✅ Deposit ${type === 'collect' ? 'collected' : 'returned'}: ${fmtMoney(totalEGP)}`, 'success');
-
   } catch (e) {
     toast('Failed: ' + e.message, 'error');
   }
@@ -1867,24 +1673,28 @@ window.saveDepositPayment = async function(orderId, type) {
 // ============================================================
 // REMINDER FORM
 // ============================================================
-
 window.openReminderForm = function(orderId) {
   const order = allOrders.find(o => o.id === orderId);
-  const now   = new Date();
+  const now   = getCairoNow();
   const pad   = n => String(n).padStart(2, '0');
   const defaultDt =
     `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}` +
     `T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
   const html = `
-    <div class="form-grid" style="margin-bottom:11px;">
-      <div class="field" style="grid-column:span 2;">
-        <label>Remind At *</label>
-        <input type="datetime-local" id="rem-dt" value="${defaultDt}"/>
+    <div style="display:grid;gap:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Remind At *</label>
+        <input type="datetime-local" id="rem-dt" value="${defaultDt}"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
       </div>
-      <div class="field" style="grid-column:span 2;">
-        <label>Category *</label>
-        <select id="rem-cat">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Category *</label>
+        <select id="rem-cat"
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);">
+          <option value="">-- Select --</option>
           <option value="Follow-up call">Follow-up call</option>
           <option value="Check car">Check car</option>
           <option value="Collect payment">Collect payment</option>
@@ -1892,38 +1702,39 @@ window.openReminderForm = function(orderId) {
           <option value="Custom">Custom</option>
         </select>
       </div>
-      <div class="field" style="grid-column:span 2;">
-        <label>Notes</label>
-        <input type="text" id="rem-note" placeholder="Optional notes..."/>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Notes</label>
+        <input type="text" id="rem-note" placeholder="Optional note..."
+          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="saveReminder('${orderId}')">🔔 Save Reminder</button>
+        <button class="btn btn-ghost"   style="flex:1;" onclick="closeModal()">Cancel</button>
       </div>
     </div>
-    <div style="display:flex;gap:7px;">
-      <button class="btn btn-primary btn-full"
-        onclick="saveReminder('${orderId}')">🔔 Save Reminder</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-    </div>`;
-
+  `;
   openModal(`Set Reminder — Order #${order?.['No.'] || orderId}`, html);
 };
 
 window.saveReminder = async function(orderId) {
-  const dt  = document.getElementById('rem-dt')?.value;
-  const cat = document.getElementById('rem-cat')?.value;
-  const note= document.getElementById('rem-note')?.value || '';
+  const dt   = document.getElementById('rem-dt')?.value;
+  const cat  = document.getElementById('rem-cat')?.value;
+  const note = document.getElementById('rem-note')?.value || '';
 
   if (!dt)  { toast('Please select a date and time', 'error'); return; }
-  if (!cat) { toast('Please select a category',      'error'); return; }
+  if (!cat) { toast('Please select a category', 'error'); return; }
 
   try {
     await db.collection('reminders').add({
-      order_id:   orderId,
-      remind_at:  new Date(dt).getTime(),
-      category:   cat,
+      order_id   : orderId,
+      remind_at  : new Date(dt).getTime(),
+      category   : cat,
       note,
-      created_by: G.user?.username || '',
-      dismissed:  false,
-      fired:      false,
-      created_at: Date.now()
+      created_by : G.user?.username || '',
+      dismissed  : false,
+      fired      : false,
+      created_at : Date.now()
     });
     toast('Reminder saved!', 'success');
     closeModal();
@@ -1935,22 +1746,22 @@ window.saveReminder = async function(orderId) {
 // ============================================================
 // BULK OPERATIONS
 // ============================================================
+window.bulkMode     = window.bulkMode     || false;
+window.bulkSelected = window.bulkSelected || new Set();
 
 window.toggleBulkMode = function() {
   window.bulkMode = !window.bulkMode;
   window.bulkSelected.clear();
-
   const btn     = document.getElementById('bulk-mode-btn');
   const toolbar = document.getElementById('bulk-toolbar');
   if (btn)     btn.style.background     = window.bulkMode ? 'var(--accent)' : '';
   if (toolbar) toolbar.style.display    = window.bulkMode ? 'flex' : 'none';
-
   filterOrders();
 };
 
 window.toggleBulkSelect = function(orderId, cb) {
   if (cb.checked) window.bulkSelected.add(orderId);
-  else            window.bulkSelected.delete(orderId);
+  else window.bulkSelected.delete(orderId);
   const countEl = document.getElementById('bulk-count');
   if (countEl) countEl.textContent = window.bulkSelected.size + ' selected';
 };
@@ -1973,23 +1784,21 @@ window.bulkClearAll = function() {
 
 window.bulkUpdateStatus = async function() {
   const status = document.getElementById('bulk-status-sel')?.value;
-  if (!status)                    { toast('Select a status first', 'error'); return; }
-  if (window.bulkSelected.size === 0) { toast('No orders selected',    'error'); return; }
-  if (!confirm(
-    `Update ${window.bulkSelected.size} orders to status: ${status}?`
-  )) return;
+  if (!status)                   { toast('Select a status first', 'error'); return; }
+  if (window.bulkSelected.size === 0) { toast('No orders selected', 'error'); return; }
+  if (!confirm(`Update ${window.bulkSelected.size} orders to status: ${status}?`)) return;
 
   const isClosed = status === 'Closed';
   try {
-    const ids      = [...window.bulkSelected];
-    const CHUNK    = 400;
+    const ids   = [...window.bulkSelected];
+    const CHUNK = 400;
     for (let i = 0; i < ids.length; i += CHUNK) {
       const batch = db.batch();
       ids.slice(i, i + CHUNK).forEach(id => {
         batch.update(db.collection('bookings').doc(id), {
           'حالة الطلب': status,
-          closed:        isClosed,
-          _sys_updated:  firebase.firestore.FieldValue.serverTimestamp()
+          closed: isClosed,
+          _sys_updated: firebase.firestore.FieldValue.serverTimestamp()
         });
       });
       await batch.commit();
@@ -2004,18 +1813,14 @@ window.bulkUpdateStatus = async function() {
 
 window.bulkDelete = async function() {
   if (window.bulkSelected.size === 0) { toast('No orders selected', 'error'); return; }
-  if (!confirm(
-    `Permanently delete ${window.bulkSelected.size} orders? This cannot be undone.`
-  )) return;
+  if (!confirm(`Permanently delete ${window.bulkSelected.size} orders? This cannot be undone.`)) return;
 
   const ids = [...window.bulkSelected];
   try {
     const CHUNK = 400;
     for (let i = 0; i < ids.length; i += CHUNK) {
       const batch = db.batch();
-      ids.slice(i, i + CHUNK).forEach(id =>
-        batch.delete(db.collection('bookings').doc(id))
-      );
+      ids.slice(i, i + CHUNK).forEach(id => batch.delete(db.collection('bookings').doc(id)));
       await batch.commit();
     }
     window.allOrders = allOrders.filter(o => !ids.includes(o.id));
@@ -2031,7 +1836,6 @@ window.bulkDelete = async function() {
 // ============================================================
 // ADMIN DELETE
 // ============================================================
-
 window.adminDeleteOrder = async function(orderId) {
   if (G.user?.role !== 'Admin') return;
   try {
@@ -2049,9 +1853,7 @@ window.adminDeleteOrder = async function(orderId) {
 
 // ============================================================
 // CONTRACT / RECEIPT GENERATION FROM ORDER
-// (Delegates to contracts.js and receipts.js)
 // ============================================================
-
 window.generateOrderContractDirect = async function(orderId, lang) {
   toast('⏳ Generating contract...', 'info');
   try {
@@ -2062,50 +1864,46 @@ window.generateOrderContractDirect = async function(orderId, lang) {
       o = { id: snap.id, ...snap.data() };
     }
 
-    const carCode  = String(o['كود السيارة'] || o.col_D || '').trim();
-    const car      = G.fleet.find(
-      c => String(c.ID || c.id) === carCode
-    ) || {};
-    const clientCode = String(o['كود العميل'] || o.col_B || '').trim();
-    const customer = G.customers.find(
-      c => String(c['No.'] || c.col_A || c.id) === clientCode
+    const carCode    = String(o['كود السيارة'] || o.col_D || '').trim();
+    const car        = G.fleet.find(c => String(c.ID || c.id) === carCode) || {};
+    const clientCode = String(o['كود العميل']  || o.col_B || '').trim();
+    const customer   = G.customers.find(c =>
+      String(c['No.'] || c.col_A || c.id) === clientCode
     ) || {};
 
-    const firstName = customer['الاسم الأول'] || customer.col_C || '';
-    const lastName  = customer['الاسم الأخير'] || customer.col_D || '';
-    const clientName= o['اسم العميل'] || (firstName + ' ' + lastName).trim() || '';
+    const firstName  = customer['الاسم الأول'] || customer.col_C || '';
+    const lastName   = customer['الاسم الأخير'] || customer.col_D || '';
+    const clientName = o['اسم العميل'] || (firstName + ' ' + lastName).trim() || '';
     const { start, end } = getOrderDates(o);
-    const days  = start && end ? Math.max(1, Math.ceil((end - start) / 86400000)) : 1;
-    const daily = parseAmount(o['سعر السيارة اليومي بالجنيه المصري'] || 0);
-    const plate = car.plate || formatPlate(car) || '';
-    const carLabel = car.car_label || getCarLabel(car, 'en') || carCode;
+    const days       = start && end ? Math.max(1, Math.ceil((end - start) / 86400000)) : 1;
+    const daily      = parseAmount(o['سعر السيارة اليومي بالجنيه المصري'] || 0);
+    const plate      = car.plate || formatPlate(car) || '';
+    const carLabel   = car.car_label || getCarLabel(car, 'en') || carCode;
     const contractNo = o['No.'] || o.id;
     const branch     = o['فرع الإصدار'] || o.branch || 'HRG';
 
     const params = new URLSearchParams({
       orderId, contractNo, branch,
-      rentalMode:   days > 28 ? 'Monthly' : 'Daily',
-      cl_fname:     firstName || clientName.split(' ')[0] || '',
-      cl_sname:     lastName  || clientName.split(' ').slice(1).join(' ') || '',
-      cl_pass:      customer['رقم جواز السفر'] || '',
-      cl_nation:    customer['رمز الدولة']      || '',
-      cl_phone:     customer['رقم التليفون']    || '',
-      cl_email:     customer['البريد الإلكتروني'] || '',
-      cl_lic:       customer['رقم رخصة القيادة']|| '',
+      rentalMode : days > 28 ? 'Monthly' : 'Daily',
+      cl_fname   : firstName || clientName.split(' ')[0] || '',
+      cl_sname   : lastName  || clientName.split(' ').slice(1).join(' ') || '',
+      cl_pass    : customer['رقم جواز السفر'] || '',
+      cl_nation  : customer['رمز الدولة']      || '',
+      cl_phone   : customer['رقم التليفون']    || '',
+      cl_email   : customer['البريد الإلكتروني'] || '',
+      cl_lic     : customer['رقم رخصة القيادة'] || '',
       carCode, carModel: carLabel, carPlate: plate,
-      carVin:   car.chassis || car['رقم الشاسيه'] || '',
-      carMotor: car['رقم الموتور'] || '',
-      pickup:   start ? start.toISOString().slice(0, 16) : '',
-      dropoff:  end   ? end.toISOString().slice(0, 16)   : '',
-      rateRent: String(daily),
-      contractNo,
-      branch
+      carVin     : car.chassis || car['رقم الشاسيه'] || '',
+      carMotor   : car['رقم الموتور'] || '',
+      pickup     : start ? start.toISOString().slice(0, 16) : '',
+      dropoff    : end   ? end.toISOString().slice(0, 16)   : '',
+      rateRent   : String(daily),
+      contractNo, branch
     });
 
     const file = lang === 'ar' ? 'contract-ar.html' : 'contract-en.html';
     window.open(file + '?' + params.toString(), '_blank');
-    toast(`✅ Contract generated`, 'success');
-
+    toast('✅ Contract generated', 'success');
   } catch (e) {
     toast('Contract error: ' + e.message, 'error');
   }
@@ -2121,28 +1919,24 @@ window.generateOrderReceiptDirect = async function(orderId) {
     }
 
     const clientCode = String(o['كود العميل'] || '').trim();
-    const customer   = G.customers.find(
-      c => String(c['No.'] || c.col_A || c.id) === clientCode
-    ) || {};
+    const customer   = G.customers.find(c => String(c['No.'] || c.col_A || c.id) === clientCode) || {};
     const carCode    = String(o['كود السيارة'] || '').trim();
-    const car        = G.fleet.find(
-      c => String(c.ID || c.id) === carCode
-    ) || {};
-
+    const car        = G.fleet.find(c => String(c.ID || c.id) === carCode) || {};
     const { start, end } = getOrderDates(o);
-    const clientName  = o['اسم العميل'] || '';
-    const passport    = customer['رقم جواز السفر'] || '';
-    const phone       = customer['رقم التليفون']   || '';
-    const paid        = getOrderPaid(o);
-    const total       = parseAmount(o['إجمالي المستحق (Total)'] || 0);
-    const contractNo  = o['No.'] || o.id;
-    const plate       = car.plate || formatPlate(car) || '';
-    const carLabel    = (car.car_label || getCarLabel(car, 'en') || carCode).slice(0, 40);
-    const branch      = o['فرع الإصدار'] || o.branch || 'HRG';
-    const dateStr     = new Date().toISOString().slice(0, 10);
-    const paidEGP     = parseAmount(o['المدفوع EGP'] || 0);
-    const paidUSD     = parseAmount(o['المدفوع USD'] || 0);
-    const paidEUR     = parseAmount(o['المدفوع EUR'] || 0);
+
+    const clientName = o['اسم العميل'] || '';
+    const passport   = customer['رقم جواز السفر'] || '';
+    const phone      = customer['رقم التليفون']   || '';
+    const paid       = getOrderPaid(o);
+    const total      = parseAmount(o['إجمالي المستحق (Total)'] || 0);
+    const contractNo = o['No.'] || o.id;
+    const plate      = car.plate || formatPlate(car) || '';
+    const carLabel   = (car.car_label || getCarLabel(car, 'en') || carCode).slice(0, 40);
+    const branch     = o['فرع الإصدار'] || o.branch || 'HRG';
+    const dateStr    = new Date().toISOString().slice(0, 10);
+    const paidEGP    = parseAmount(o['المدفوع EGP'] || 0);
+    const paidUSD    = parseAmount(o['المدفوع USD'] || 0);
+    const paidEUR    = parseAmount(o['المدفوع EUR'] || 0);
 
     const parts = [];
     if (paidEGP > 0) parts.push(`${paidEGP.toLocaleString()} Cash (EGP)`);
@@ -2152,7 +1946,7 @@ window.generateOrderReceiptDirect = async function(orderId) {
 
     const branchCode = branch.toUpperCase().slice(0, 3);
     const now        = new Date();
-    const rcRef = `RC-${branchCode}-${
+    const rcRef      = `RC-${branchCode}-${
       String(now.getMonth()+1).padStart(2,'0')}${
       String(now.getDate()).padStart(2,'0')}-${
       String(Date.now()).slice(-4)}`;
@@ -2161,110 +1955,85 @@ window.generateOrderReceiptDirect = async function(orderId) {
     const verifyUrl  = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${contractNo}`;
 
     const singleRec = copyType => `
-      <div style="height:48%;border:2px solid #000;padding:15px;
-        display:flex;flex-direction:column;box-sizing:border-box;">
-        <div style="display:flex;justify-content:space-between;
-          align-items:center;border-bottom:2px solid #000;
-          padding-bottom:10px;margin-bottom:10px;">
-          <img src="${logo}" style="height:40px;object-fit:contain;">
-          <div style="text-align:center;flex:1;">
-            <div style="font-size:14pt;font-weight:bold;color:#04509D;
-              text-transform:uppercase;">OFFICIAL RECEIPT</div>
-            <div style="font-size:9pt;">${copyType}</div>
+      <div style="font-family:'Courier New',monospace;width:80mm;padding:10px;
+                  border:1px solid #ccc;border-radius:4px;margin-bottom:10px;font-size:8pt;">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px;">
+          <div>
+            <img src="${logo}" style="height:40px;" onerror="this.style.display='none'"/>
+            <div style="font-weight:800;">BROTHERS EGY</div>
+            <div style="font-size:7pt;color:#666;">${copyType}</div>
           </div>
-          <div style="text-align:right;">
+          <div style="text-align:center;">
             <img src="https://api.qrserver.com/v1/create-qr-code/?data=${
-              encodeURIComponent(verifyUrl)}&size=60x60"
-              style="height:50px;">
-            <div style="font-size:7pt;font-weight:bold;">DATE: ${dateStr}</div>
+              encodeURIComponent(verifyUrl)}&size=60x60" style="height:50px;">
+            <div style="font-size:6pt;">DATE: ${dateStr}</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;
-          gap:10px;font-size:8.5pt;border-bottom:1px dashed #ccc;
-          padding-bottom:8px;margin-bottom:8px;">
-          <div>
-            <div><strong>RECEIVED FROM</strong> ${clientName}</div>
-            <div><strong>PASSPORT/ID</strong> ${passport || '—'}</div>
-            <div><strong>PHONE</strong> ${phone || '—'}</div>
-          </div>
-          <div>
-            <div><strong>CONTRACT NO</strong> ${contractNo}</div>
-            <div><strong>VEHICLE</strong> ${carLabel} | ${plate}</div>
-            <div><strong>PERIOD</strong>
-              ${start ? start.toLocaleDateString('en-GB') : ''} →
-              ${end   ? end.toLocaleDateString('en-GB')   : ''}
-            </div>
-          </div>
-        </div>
-        <div style="border:1px solid #ccc;background:#fbfbfb;
-          padding:10px;margin-bottom:6px;">
-          <div style="display:flex;justify-content:space-between;
-            align-items:center;">
-            <strong style="font-size:10pt;">AMOUNT RECEIVED</strong>
-            <span style="font-size:20pt;font-weight:bold;">
-              £${paid.toLocaleString()}.00
-            </span>
-          </div>
-          <div style="font-size:8pt;margin-top:4px;color:#555;">
-            ${paymentStr}
-          </div>
-        </div>
-        ${(total - paid) > 0
-          ? `<div style="font-size:8pt;color:#c0392b;font-weight:bold;">
-              ⚠ OUTSTANDING BALANCE: £${(total-paid).toLocaleString()}.00
-            </div>`
-          : `<div style="font-size:8pt;color:#27ae60;font-weight:bold;">
-              ✅ FULLY PAID
-            </div>`}
-        <div style="margin-top:auto;display:flex;justify-content:flex-end;">
-          <div style="text-align:center;border-top:1px solid #000;
-            width:200px;padding-top:5px;font-size:9pt;font-weight:bold;">
-            AUTHORIZED SIGNATURE
-          </div>
-        </div>
-      </div>`;
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-      <style>
-        body{font-family:Arial,sans-serif;margin:0;padding:0;}
-        @page{size:A4;margin:10mm 15mm;}
-        @media print{
-          body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-          .no-print{display:none!important;}
-        }
-        .print-btn{position:fixed;top:10px;right:10px;
-          background:#04509D;color:white;border:none;
-          padding:10px 20px;border-radius:6px;cursor:pointer;
-          font-weight:bold;z-index:999;}
-      </style></head><body>
-      <button class="print-btn no-print"
-        onclick="window.print()">🖨️ Print / Save PDF</button>
-      <div style="width:210mm;min-height:296mm;padding:10mm 15mm;
-        box-sizing:border-box;display:flex;flex-direction:column;">
-        ${singleRec('CLIENT COPY')}
-        <div style="text-align:center;border-top:1px dashed #999;
-          color:#999;padding:8px 0;font-size:8pt;">
-          - - - - - DETACH HERE - - - - -
+        <div style="padding:10px;margin-bottom:6px;border:1px solid #000;border-radius:4px;">
+          <div style="font-size:7pt;font-weight:700;text-transform:uppercase;">AMOUNT RECEIVED</div>
+          <div style="font-size:16pt;font-weight:900;">£${paid.toLocaleString()}.00</div>
+          <div style="font-size:7pt;">${paymentStr}</div>
         </div>
-        ${singleRec('COMPANY COPY')}
-      </div></body></html>`;
+
+        <div style="font-size:7pt;margin-bottom:6px;">
+          <div>Contract: <strong>#${contractNo}</strong></div>
+          <div>Client: <strong>${clientName}</strong></div>
+          <div>Car: ${carLabel} | ${plate}</div>
+          <div>Period: ${start ? start.toLocaleDateString('en-GB') : '—'} → ${end ? end.toLocaleDateString('en-GB') : '—'}</div>
+        </div>
+
+        ${(total - paid) > 0
+          ? `<div style="color:#dc2626;font-weight:700;font-size:8pt;">
+               ⚠ OUTSTANDING BALANCE: £${(total-paid).toLocaleString()}.00
+             </div>`
+          : `<div style="color:#16a34a;font-weight:700;font-size:8pt;">✅ FULLY PAID</div>`
+        }
+      </div>
+    `;
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Receipt ${rcRef}</title>
+  <style>
+    @media print { .print-btn { display:none!important; } body { margin:0; } }
+    body { font-family: 'Courier New', monospace; background:#fff; padding:20px; }
+    .print-btn { padding:10px 20px;background:#3b82f6;color:#fff;border:none;
+                 border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:16px; }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;">
+    ${singleRec('CUSTOMER COPY')}
+    <div style="color:#999;writing-mode:vertical-lr;display:flex;align-items:center;
+                justify-content:center;padding:0 4px;font-size:8pt;">
+      - - - - - DETACH HERE - - - - -
+    </div>
+    ${singleRec('COMPANY COPY')}
+  </div>
+</body>
+</html>`;
 
     await db.collection('receipts').add({
-      order_id:    orderId,
-      contract_no: contractNo,
-      receipt_ref: rcRef,
-      client_name: clientName,
-      car_label:   carLabel + '| ' + plate,
+      order_id      : orderId,
+      contract_no   : contractNo,
+      receipt_ref   : rcRef,
+      client_name   : clientName,
+      car_label     : carLabel + '| ' + plate,
       branch, branch_code: branchCode,
-      receipt_date: dateStr,
-      type:         'Rental Payment',
-      amount_egp:   paidEGP,
-      amount_usd:   paidUSD,
+      receipt_date  : dateStr,
+      type          : 'Rental Payment',
+      amount_egp    : paidEGP,
+      amount_usd    : paidUSD,
       total_egp_equiv: paid,
       payment_details: paymentStr,
-      collected_by: G.user?.username || '',
-      timestamp:    Date.now(),
-      _sys_created: firebase.firestore.FieldValue.serverTimestamp()
+      collected_by  : G.user?.username || '',
+      timestamp     : Date.now(),
+      _sys_created  : firebase.firestore.FieldValue.serverTimestamp()
     }).catch(() => {});
 
     const win = window.open('', '_blank');
@@ -2273,7 +2042,6 @@ window.generateOrderReceiptDirect = async function(orderId) {
       win.document.close();
       setTimeout(() => win.print(), 600);
     }
-
   } catch (e) {
     toast('Receipt error: ' + e.message, 'error');
   }
@@ -2282,40 +2050,30 @@ window.generateOrderReceiptDirect = async function(orderId) {
 // ============================================================
 // PHOTO UPLOAD
 // ============================================================
-
 window.uploadOrderPhoto = async function(event, orderId, type) {
   const file = event.target.files?.[0];
   if (!file) return;
-  if (file.size > 10 * 1024 * 1024) {
-    toast('Max 10MB per photo', 'error');
-    return;
-  }
+  if (file.size > 10 * 1024 * 1024) { toast('Max 10MB per photo', 'error'); return; }
 
   toast('Uploading...', 'info', 2000);
-
   try {
     const compressed = await compressImage(file, 800, 0.75);
     const filename   = `img_${Date.now()}.jpg`;
     const ref        = storage.ref(`orders/${orderId}/${type}/${filename}`);
     await ref.put(compressed);
-    const url = await ref.getDownloadURL();
+    const url        = await ref.getDownloadURL();
 
     const order      = allOrders.find(o => o.id === orderId) ||
-                       (await db.collection('bookings').doc(orderId).get()).data();
+      (await db.collection('bookings').doc(orderId).get()).data();
     const mediaField = type === 'pickup' ? 'pickup_media' : 'dropoff_media';
     const existing   = order?.[mediaField] || [];
 
     await db.collection('bookings').doc(orderId).update({
-      [mediaField]: [...existing, {
-        url, timestamp: Date.now(),
-        uploaded_by: G.user.username, type
-      }],
-      '_sys_updated': Date.now()
+      [mediaField]    : [...existing, { url, timestamp: Date.now(), uploaded_by: G.user.username, type }],
+      '_sys_updated'  : Date.now()
     });
 
-    await logAction('ADD', 'Order Book',
-      `Photo uploaded for Order #${order?.['No.'] || orderId} — ${type}`);
-
+    await logAction('ADD', 'Order Book', `Photo uploaded for Order #${order?.['No.'] || orderId} — ${type}`);
     toast('Photo uploaded!', 'success');
     openOrderDetail(orderId);
   } catch (e) {
@@ -2325,15 +2083,81 @@ window.uploadOrderPhoto = async function(event, orderId, type) {
 
 window.openPhotoLightbox = function(url) {
   openModal('Photo', `
+    <img src="${url}" style="max-width:100%;max-height:70vh;border-radius:8px;object-fit:contain;"/>
+  `);
+};
+
+// ============================================================
+// VIEW / REPRINT RECEIPT (does NOT create a new record)
+// ============================================================
+window.viewOrReprintReceipt = async function(orderId, orderNo) {
+  try {
+    // Look for most recent receipt for this order
+    const snap = await db.collection('receipts')
+      .where('order_id', '==', orderId)
+      .orderBy('timestamp', 'desc')
+      .limit(1)
+      .get()
+      .catch(() => null);
+
+    if (snap && !snap.empty) {
+      const r = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      // Reprint existing receipt
+      reprintFromRecord(r);
+    } else {
+      // No receipt exists yet — generate one (saves a new record)
+      generateOrderReceiptDirect(orderId);
+    }
+  } catch (e) {
+    // Fallback: generate fresh
+    generateOrderReceiptDirect(orderId);
+  }
+};
+
+window.reprintFromRecord = function(r) {
+  const verifyUrl = r.verify_url ||
+    `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${r.contract_no || r.qr_ref || ''}`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Receipt ${r.receipt_ref || ''}</title>
+  <style>
+    @media print { .print-btn { display:none!important; } body { margin:0; } }
+    body { font-family: 'Courier New', monospace; background:#fff; padding:20px; }
+    .print-btn { padding:10px 20px;background:#3b82f6;color:#fff;border:none;
+                 border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:16px; }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+  <div style="font-family:'Courier New',monospace;width:80mm;padding:10px;
+              border:1px solid #ccc;border-radius:4px;font-size:8pt;">
+    <div style="border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px;">
+      <div style="font-weight:800;font-size:11pt;">BROTHERS EGY</div>
+      <div style="font-size:7pt;color:#666;">REPRINT — ${r.receipt_ref || r.id}</div>
+    </div>
+    <div style="margin-bottom:8px;">
+      <div>Contract: <strong>#${r.contract_no || r.qr_ref || '—'}</strong></div>
+      <div>Client: <strong>${r.client_name || '—'}</strong></div>
+      <div>Car: ${r.car_label || '—'}</div>
+      <div>Date: ${r.receipt_date || '—'}</div>
+    </div>
+    <div style="padding:10px;border:1px solid #000;border-radius:4px;margin-bottom:8px;">
+      <div style="font-size:7pt;font-weight:700;">AMOUNT</div>
+      <div style="font-size:14pt;font-weight:900;">£${(r.total_egp_equiv || r.amount_egp || 0).toLocaleString()}</div>
+      <div style="font-size:7pt;">${r.payment_details || r.payment_method || '—'}</div>
+    </div>
     <div style="text-align:center;">
-      <img src="${url}" style="max-width:100%;max-height:70vh;
-        border-radius:8px;object-fit:contain;"/>
-      <div style="margin-top:11px;display:flex;gap:7px;
-        justify-content:center;">
-        <a href="${url}" target="_blank"
-          class="btn btn-ghost btn-sm">🔗 Full Size</a>
-        <a href="${url}" download
-          class="btn btn-primary btn-sm">⬇️ Download</a>
-      </div>
-    </div>`);
+      <img src="https://api.qrserver.com/v1/create-qr-code/?data=${
+        encodeURIComponent(verifyUrl)}&size=80x80" style="height:60px;"/>
+      <div style="font-size:6pt;color:#999;">Scan to verify</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (win) { win.document.write(html); win.document.close(); }
 };
