@@ -263,78 +263,106 @@ window.onDashPeriodChange = function() {
 // ============================================================
 
 window.loadDashKPIs = async function() {
-  if (window._kpiLoading) return;
-  window._kpiLoading=true;
   try {
-    const isPriv=['Admin','Executive'].includes(G.user?.role);
-    const period=getPeriodFilter();
-    const cairoToday=getCairoNow();
-    const todayStart=new Date(getCairoDateStr());
-    const CUTOFF=new Date('2026-01-01');
+    const today    = getCairoNow();
+    const bookings = G.bookings || [];
+    const fleet    = G.fleet    || [];
 
-    if (!G.activeBookings) G.activeBookings=G.bookings||[];
-    let bookings=G.activeBookings;
-    if (!isPriv) bookings=bookings.filter(function(o){
-      return o['فرع الإصدار']===G.user.branch||o.assigned_user===G.user.username||(!o['فرع الإصدار']&&!o.assigned_user);
+    // ── Active orders: booking covers today ──────────────────
+    const activeOrders = bookings.filter(b => {
+      if (b.closed) return false;
+      const st = String(b['حالة الطلب'] || b.status || '').toLowerCase();
+      if (st === 'closed' || st === 'cancelled') return false;
+      if (st === 'accident') return true; // accident cars count as active
+      const { start, end } = getOrderDates(b);
+      if (!start || !end) return false;
+      return start <= today && today <= end;
     });
 
-    // Active = bookings running TODAY (= rented cars)
-    const today = getCairoNow();
-	const activeOrders = G.bookings.filter(b => {
-	  if (b.closed) return false;
-	  const st = String(b['حالة الطلب'] || '').toLowerCase();
-	  if (st === 'closed' || st === 'cancelled') return false;
-	  const { start, end } = getOrderDates(b);
-	  if (!start || !end) return false;
-	  return start <= today && today <= end;
-	}).length;
-    _setKPI('kpi-active',active);
+    // ── Unpaid overdue: ended, not closed, zero payment ──────
+    const unpaidOverdue = bookings.filter(b => {
+      if (b.closed) return false;
+      const st = String(b['حالة الطلب'] || b.status || '').toLowerCase();
+      if (st === 'closed' || st === 'cancelled') return false;
+      const { end } = getOrderDates(b);
+      if (!end || today <= end) return false;
+      const paid = getOrderPaid(b);
+      return paid <= 0;
+    });
 
-    // Overdue = end past AND zero payment (true bad debt)
-    const overdue=G.bookings.filter(function(o){
-      if (o.closed===true||o.closed==='true') return false;
-      const st=getOrderStatus(o);
-      if (st==='Closed'||st==='Cancelled'||st==='Settled') return false;
-      const d=getOrderDates(o);
-      if (!d.end||d.end<CUTOFF||d.end>=todayStart) return false;
-      return getOrderPaid(o)<=0;
-    }).length;
-    _setKPI('kpi-overdue',overdue);
+    // ── Settled pending close: fully paid but not closed ─────
+    const settledPending = bookings.filter(b => {
+      if (b.closed) return false;
+      const st = String(b['حالة الطلب'] || b.status || '').toLowerCase();
+      if (st === 'closed' || st === 'cancelled') return false;
+      const total = getOrderTotal(b);
+      const paid  = getOrderPaid(b);
+      return total > 0 && paid >= total;
+    });
 
-    // Settled = end past AND some payment collected (not formally closed)
-    const settled=G.bookings.filter(function(o){
-      if (o.closed===true||o.closed==='true') return false;
-      const st=getOrderStatus(o);
-      if (st==='Closed'||st==='Cancelled') return false;
-      const d=getOrderDates(o);
-      if (!d.end||d.end<CUTOFF||d.end>=todayStart) return false;
-      const paid=getOrderPaid(o), total=getOrderTotal(o);
-      return paid>0&&paid<total;  // partial payment — needs follow-up
-    }).length;
-    _setKPI('kpi-settled',settled);
+    // ── Available cars ────────────────────────────────────────
+    const availableCars = fleet.filter(c =>
+      getCarStatusCategory(c) === 'available'
+    ).length;
 
-    // Available = truly free today
-    _setKPI('kpi-avail',G.fleet.filter(function(c){return getCarStatusCategory(c)==='available';}).length);
+    // ── Period filter for revenue ─────────────────────────────
+    const periodSel = document.getElementById('dash-period')?.value || 'month';
+    let periodStart = null;
+    let periodEnd   = null;
 
-    // Tasks
-    try {
-      if (window._cachedTaskCount===undefined||Date.now()-window._taskCacheTime>60000){
-        const snap=await db.collection('tasks').where('assigned_to','==',G.user.username).where('status','in',['pending','inprogress']).get();
-        window._cachedTaskCount=snap.size; window._taskCacheTime=Date.now();
+    if (periodSel === 'month') {
+      periodStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      periodEnd   = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+    } else if (periodSel !== 'all') {
+      // e.g. "2026-04" format
+      const parts = periodSel.split('-');
+      if (parts.length === 2) {
+        const y = parseInt(parts[0]);
+        const m = parseInt(parts[1]) - 1;
+        periodStart = new Date(y, m, 1);
+        periodEnd   = new Date(y, m + 1, 0, 23, 59, 59);
       }
-      _setKPI('kpi-tasks',window._cachedTaskCount);
-    } catch(e){_setKPI('kpi-tasks',0);}
+    }
 
-    // Revenue
-    await _loadDashRevenue(period,isPriv);
+    // ── Revenue: sum paid from orders in period ───────────────
+    const revenueOrders = periodSel === 'all'
+      ? bookings
+      : bookings.filter(b => {
+          const { start } = getOrderDates(b);
+          if (!start) return false;
+          if (periodStart && start < periodStart) return false;
+          if (periodEnd   && start > periodEnd)   return false;
+          return true;
+        });
 
-    const subEl=document.getElementById('kpi-revenue-sub');
-    const lblEl=document.getElementById('kpi-revenue-label');
-    if (subEl) subEl.textContent=period.label==='All Time'?'All time':period.label;
-    if (lblEl) lblEl.textContent=period.label==='All Time'?'Total Revenue':'Income Collected';
+    const monthRevenue = revenueOrders.reduce((s, b) => s + getOrderPaid(b), 0);
 
-  } catch(e){console.warn('KPI error:',e.message);}
-  finally{window._kpiLoading=false;}
+    // ── Pending tasks ─────────────────────────────────────────
+    let pendingTasks = 0;
+    try {
+      const taskSnap = await db.collection('tasks')
+        .where('assigned_to', '==', G.user?.username || '')
+        .where('status', '==', 'pending')
+        .get();
+      pendingTasks = taskSnap.size;
+    } catch (_) { pendingTasks = 0; }
+
+    // ── Update KPI cards ──────────────────────────────────────
+    function setKPI(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
+    setKPI('kpi-active-orders',    activeOrders.length);
+    setKPI('kpi-unpaid-overdue',   unpaidOverdue.length);
+    setKPI('kpi-settled-pending',  settledPending.length);
+    setKPI('kpi-available-cars',   availableCars);
+    setKPI('kpi-monthly-revenue',  fmtMoney(monthRevenue));
+    setKPI('kpi-pending-tasks',    pendingTasks);
+
+  } catch (e) {
+    console.error('KPI error:', e.message);
+  }
 };
 
 async function _loadDashRevenue(period,isPriv){

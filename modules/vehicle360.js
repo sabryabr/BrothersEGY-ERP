@@ -1,4 +1,40 @@
 // ============================================================
+// modules/vehicle360.js
+// Payment status helpers (duplicated here since fleet.js
+// functions are not accessible cross-module)
+// ============================================================
+
+const PAYMENT_STATUS_COLORS_V360 = {
+  paid   : '#22c55e',
+  partial: '#f59e0b',
+  unpaid : '#ef4444',
+  overdue: '#dc2626',
+  clear  : '#22c55e'
+};
+
+function _getPaymentStatus(order) {
+  const total = parseAmount(order['إجمالي المستحق (Total)'] || 0);
+  const paid  = parseAmount(order['المدفوع EGP']           || 0);
+  if (total <= 0)    return 'clear';
+  if (paid  <= 0)    return 'unpaid';
+  if (paid  >= total) return 'paid';
+  const { end } = getOrderDates(order);
+  const today   = getCairoNow();
+  if (end && today > end && !order.closed) return 'overdue';
+  return 'partial';
+}
+
+function _getPaymentStatusLabel(order) {
+  return {
+    paid   : '✅ Paid',
+    partial: '⚡ Partial',
+    unpaid : '❌ Unpaid',
+    overdue: '🔴 Overdue Debt',
+    clear  : '✅ Clear'
+  }[_getPaymentStatus(order)] || '—';
+}
+
+// ============================================================
 // VEHICLE 360 — Full replacement for V360 section in fleet.js
 // ============================================================
 

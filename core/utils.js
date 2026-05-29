@@ -301,31 +301,32 @@ window.formatPlate = function(car) {
 
   // Direct plate field
   if (car.plate && String(car.plate).trim() &&
-      String(car.plate).trim() !== '-') return String(car.plate).trim();
+      String(car.plate).trim() !== '-')
+    return String(car.plate).trim();
 
-  // ── Try _c columns first (most reliable from your sheet structure) ──
-  // Letters come from _c23, _c24, _c25 (or احرف اللوحة field)
-  // Numbers come from _c26, _c27, _c28 (or رقم اللوحة field)
-  const c23 = String(car._c23 || '').trim();
-  const c24 = String(car._c24 || '').trim();
-  const c25 = String(car._c25 || '').trim();
-  const c26 = String(car._c26 || '').trim();
-  const c27 = String(car._c27 || '').trim();
-  const c28 = String(car._c28 || '').trim();
+  // ── Build from actual field mapping (confirmed from data) ──
+  // Letters: احرف اللوحة (first letter) + _c23 (second) + _c24 (third)
+  // Numbers: رقم اللوحة (first number) + _c26 + _c27 + _c28
 
-  const letters = [c23, c24, c25].filter(Boolean).join(' ');
-  const numbers = [c26, c27, c28].filter(Boolean).join(' ');
+  const letter1 = String(car['احرف اللوحة'] || '').trim(); // ب
+  const letter2 = String(car._c23           || '').trim(); // س
+  const letter3 = String(car._c24           || '').trim(); // ه
+
+  const num1    = String(car['رقم اللوحة']  || '').trim(); // 3
+  const num2    = String(car._c26           || '').trim(); // 6
+  const num3    = String(car._c27           || '').trim(); // 2
+  const num4    = String(car._c28           || '').trim(); // 4
+
+  const letters = [letter1, letter2, letter3].filter(Boolean).join(' ');
+  const numbers = [num1, num2, num3, num4].filter(Boolean).join(' ');
 
   if (letters || numbers) {
     return [letters, numbers].filter(Boolean).join(' ');
   }
 
-  // ── Fallback: احرف اللوحة + رقم اللوحة ──
-  const lettersField = String(car['احرف اللوحة'] || car['حرف'] || car['حرف_1'] || '').trim();
-  const numbersField = String(car['رقم اللوحة']  || '').trim();
-  if (lettersField || numbersField) {
-    return [lettersField, numbersField].filter(Boolean).join(' ');
-  }
+  // Fallback for older cars using حرف / حرف_1
+  const fallback = String(car['حرف'] || car['حرف_1'] || '').trim();
+  if (fallback) return fallback;
 
   return '';
 };
