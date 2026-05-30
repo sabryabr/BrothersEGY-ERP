@@ -5,169 +5,73 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Brothers EGY — Receipt Verification</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
+    * { box-sizing:border-box; margin:0; padding:0; }
     body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      font-family:'Segoe UI',Arial,sans-serif;
+      background:#0f172a; color:#e2e8f0;
+      min-height:100vh; display:flex;
+      align-items:center; justify-content:center; padding:20px;
     }
-
     .card {
-      background: #1e293b;
-      border-radius: 16px;
-      padding: 32px;
-      max-width: 480px;
-      width: 100%;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+      background:#1e293b; border-radius:16px; padding:32px;
+      max-width:480px; width:100%;
+      box-shadow:0 25px 50px rgba(0,0,0,0.5);
     }
-
-    .logo {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .logo img {
-      height: 50px;
-      object-fit: contain;
-    }
-
-    .logo h1 {
-      font-size: 20px;
-      font-weight: 800;
-      margin-top: 8px;
-      color: #f8fafc;
-    }
-
-    .logo p {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-top: 4px;
-    }
-
+    .logo { text-align:center; margin-bottom:24px; }
+    .logo img { height:50px; object-fit:contain; }
+    .logo h1 { font-size:20px; font-weight:800; margin-top:8px; color:#f8fafc; }
+    .logo p  { font-size:12px; color:#94a3b8; margin-top:4px; }
     .status-badge {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 18px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      font-weight: 700;
-      font-size: 14px;
+      display:flex; align-items:center; gap:10px;
+      padding:14px 18px; border-radius:10px;
+      margin-bottom:20px; font-weight:700; font-size:14px;
     }
-
-    .status-valid {
-      background: rgba(34,197,94,0.15);
-      border: 1px solid rgba(34,197,94,0.4);
-      color: #4ade80;
-    }
-
-    .status-invalid {
-      background: rgba(239,68,68,0.15);
-      border: 1px solid rgba(239,68,68,0.4);
-      color: #f87171;
-    }
-
-    .status-loading {
-      background: rgba(59,130,246,0.15);
-      border: 1px solid rgba(59,130,246,0.4);
-      color: #60a5fa;
-    }
-
-    .icon { font-size: 22px; }
-
+    .status-valid   { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.4); color:#4ade80; }
+    .status-invalid { background:rgba(239,68,68,0.15);  border:1px solid rgba(239,68,68,0.4);  color:#f87171; }
+    .status-loading { background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); color:#60a5fa; }
+    .icon { font-size:22px; }
     .section {
-      background: #0f172a;
-      border-radius: 10px;
-      padding: 14px 16px;
-      margin-bottom: 12px;
+      background:#0f172a; border-radius:10px;
+      padding:14px 16px; margin-bottom:12px;
     }
-
     .section-title {
-      font-size: 10px;
-      font-weight: 700;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 10px;
+      font-size:10px; font-weight:700; color:#64748b;
+      text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;
     }
-
     .row {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      font-size: 12px;
-      margin-bottom: 6px;
-      gap: 8px;
+      display:flex; justify-content:space-between;
+      align-items:flex-start; font-size:12px; margin-bottom:6px; gap:8px;
     }
-
-    .row:last-child { margin-bottom: 0; }
-
-    .row .label { color: #64748b; flex-shrink: 0; }
-    .row .value { font-weight: 600; text-align: right; word-break: break-word; }
-
-    .value-green  { color: #4ade80; }
-    .value-red    { color: #f87171; }
-    .value-yellow { color: #fbbf24; }
-    .value-blue   { color: #60a5fa; }
-
+    .row:last-child { margin-bottom:0; }
+    .row .label { color:#64748b; flex-shrink:0; }
+    .row .value { font-weight:600; text-align:right; word-break:break-word; }
+    .value-green  { color:#4ade80; }
+    .value-red    { color:#f87171; }
+    .value-yellow { color:#fbbf24; }
+    .value-blue   { color:#60a5fa; }
     .payment-row {
-      border-bottom: 1px solid #1e293b;
-      padding-bottom: 8px;
-      margin-bottom: 8px;
-      font-size: 11px;
+      border-bottom:1px solid #1e293b;
+      padding-bottom:8px; margin-bottom:8px; font-size:11px;
     }
-
-    .payment-row:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-      margin-bottom: 0;
-    }
-
+    .payment-row:last-child { border-bottom:none; padding-bottom:0; margin-bottom:0; }
     .footer {
-      text-align: center;
-      font-size: 10px;
-      color: #475569;
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid #1e293b;
+      text-align:center; font-size:10px; color:#475569;
+      margin-top:20px; padding-top:16px; border-top:1px solid #1e293b;
     }
-
     .ref-box {
-      background: #0f172a;
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-family: 'Courier New', monospace;
-      font-size: 13px;
-      font-weight: 700;
-      text-align: center;
-      color: #60a5fa;
-      margin-bottom: 20px;
-      letter-spacing: 1px;
+      background:#0f172a; border-radius:8px; padding:10px 14px;
+      font-family:'Courier New',monospace; font-size:13px;
+      font-weight:700; text-align:center; color:#60a5fa;
+      margin-bottom:20px; letter-spacing:1px;
     }
-
     .spinner {
-      width: 20px;
-      height: 20px;
-      border: 2px solid #334155;
-      border-top-color: #60a5fa;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      width:20px; height:20px;
+      border:2px solid #334155; border-top-color:#60a5fa;
+      border-radius:50%; animation:spin 0.8s linear infinite;
     }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .not-found {
-      text-align: center;
-      padding: 20px;
-    }
-
-    .not-found .big-icon { font-size: 48px; margin-bottom: 12px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .not-found { text-align:center; padding:20px; }
+    .not-found .big-icon { font-size:48px; margin-bottom:12px; }
   </style>
 </head>
 <body>
@@ -193,54 +97,80 @@
   </div>
 </div>
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-
 <script>
-// ── Firebase config — same as your app.js ──────────────────────────────────
 const firebaseConfig = {
-  "apiKey": "AIzaSyDNY5lqsr_EoWQxhK7WN4WCJP2_V7IcwFc",
-  "authDomain": "brothers-egy-portal.firebaseapp.com",
-  "projectId": "brothers-egy-portal",
-  "storageBucket": "brothers-egy-portal.firebasestorage.app",
-  "messagingSenderId": "673531280760",
-  "appId": "1:673531280760:web:f0d5484c0e8eabc1dd9c8d",
-  "measurementId": "G-YV2SHPQYT9"
+  apiKey           : "AIzaSyDNY5lqsr_EoWQxhK7WN4WCJP2_V7IcwFc",
+  authDomain       : "brothers-egy-portal.firebaseapp.com",
+  projectId        : "brothers-egy-portal",
+  storageBucket    : "brothers-egy-portal.firebasestorage.app",
+  messagingSenderId: "673531280760",
+  appId            : "1:673531280760:web:f0d5484c0e8eabc1dd9c8d",
+  measurementId    : "G-YV2SHPQYT9"
 };
-
-// ── Replace the config above with your actual Firebase config ──────────────
-// You can copy it from your app.js firebaseConfig object
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────
 function fmtMoney(n) {
-  const num = parseFloat(String(n).replace(/[^0-9.-]/g, '')) || 0;
-  return '£' + num.toLocaleString('en-EG', {
-    minimumFractionDigits: 0, maximumFractionDigits: 0
+  const num = parseFloat(String(n).replace(/[^0-9.-]/g,'')) || 0;
+  return '£' + num.toLocaleString('en-EG',{
+    minimumFractionDigits:0, maximumFractionDigits:0
   });
 }
 
-function fmtDate(d) {
-  if (!d) return '—';
-  const dt = d instanceof Date ? d : new Date(d);
-  if (isNaN(dt.getTime())) return '—';
-  return dt.toLocaleDateString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric'
+function fmtDate(val) {
+  if (!val) return '—';
+  const d = val instanceof Date ? val : new Date(val);
+  if (isNaN(d.getTime())) return String(val).slice(0,10) || '—';
+  return d.toLocaleDateString('en-GB',{
+    day:'2-digit', month:'short', year:'numeric'
+  });
+}
+
+function fmtDateTime(val) {
+  if (!val) return '—';
+  const d = val instanceof Date ? val : new Date(val);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-GB',{
+    day:'2-digit', month:'short', year:'numeric',
+    hour:'2-digit', minute:'2-digit',
+    timeZone:'Africa/Cairo'
   });
 }
 
 function parseAmt(v) {
   if (!v) return 0;
-  return parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0;
+  return parseFloat(String(v).replace(/[^0-9.-]/g,'')) || 0;
 }
 
-// ── Get ref from URL ───────────────────────────────────────────────────────
-const params    = new URLSearchParams(window.location.search);
-const rawRef    = params.get('ref') || '';
-const ref       = decodeURIComponent(rawRef).trim();
+// ✅ Matches getOrderDates() field priority in utils.js
+function getOrderStartEnd(order) {
+  const startRaw = order['تاريخ بداية الإيجار'] ||
+                   order['بداية التعاقد']        ||
+                   order['col_L'] || order['L']  ||
+                   order['start_date']            || '';
+  const endRaw   = order['تاريخ نهاية الإيجار'] ||
+                   order['نهاية التعاقد']         ||
+                   order['col_T'] || order['T']   ||
+                   order['end_date']              || '';
+  return { startRaw, endRaw };
+}
+
+function row(label, value, cls) {
+  return `
+    <div class="row">
+      <span class="label">${label}</span>
+      <span class="value ${cls||''}">${value}</span>
+    </div>`;
+}
+
+// ── URL params ────────────────────────────────────────────────────────────
+const params   = new URLSearchParams(window.location.search);
+const rawRef   = params.get('ref') || '';
+const ref      = decodeURIComponent(rawRef).trim();
 
 const statusEl  = document.getElementById('status-area');
 const refArea   = document.getElementById('ref-area');
@@ -251,25 +181,15 @@ function setStatus(type, icon, text) {
   statusEl.innerHTML = `<span class="icon">${icon}</span><span>${text}</span>`;
 }
 
-function row(label, value, cls = '') {
-  return `
-    <div class="row">
-      <span class="label">${label}</span>
-      <span class="value ${cls}">${value}</span>
-    </div>
-  `;
-}
-
-// ── Main verify function ───────────────────────────────────────────────────
+// ── Main verify ───────────────────────────────────────────────────────────
 async function verify() {
   if (!ref) {
-    setStatus('invalid', '❌', 'No reference provided');
+    setStatus('invalid','❌','No reference provided');
     contentEl.innerHTML = `
       <div class="not-found">
         <div class="big-icon">🔍</div>
         <p>No reference code was provided in this link.</p>
-      </div>
-    `;
+      </div>`;
     return;
   }
 
@@ -282,235 +202,190 @@ async function verify() {
     let receipts = [];
     let payments = [];
 
-    // ── STEP 1: Try receipt_ref first (RC-HRG-0529-XXXX) ──────────────
-    const byReceiptRef = await db.collection('receipts')
-      .where('receipt_ref', '==', ref)
-      .limit(5)
-      .get()
-      .catch(() => null);
-
-    if (byReceiptRef && !byReceiptRef.empty) {
-      receipts = byReceiptRef.docs.map(d => ({ id: d.id, ...d.data() }));
+    // STEP 1: receipt_ref (RC-HRG-0530-XXXX)
+    const byRcRef = await db.collection('receipts')
+      .where('receipt_ref','==',ref).limit(5).get().catch(()=>null);
+    if (byRcRef && !byRcRef.empty) {
+      receipts = byRcRef.docs.map(d=>({id:d.id,...d.data()}));
       orderId  = receipts[0].order_id || null;
     }
 
-    // ── STEP 2: Try payment_log by receipt ref ─────────────────────────
-    if (receipts.length === 0) {
+    // STEP 2: payment_log receipt_ref
+    if (!orderId) {
       const byPayRef = await db.collection('payment_log')
-        .where('receipt_ref', '==', ref)
-        .limit(5)
-        .get()
-        .catch(() => null);
-
+        .where('receipt_ref','==',ref).limit(1).get().catch(()=>null);
       if (byPayRef && !byPayRef.empty) {
-        const payDocs = byPayRef.docs.map(d => ({ id: d.id, ...d.data() }));
-        orderId = payDocs[0].order_id || null;
+        orderId = byPayRef.docs[0].data().order_id || null;
       }
     }
 
-    // ── STEP 3: Try order by No. field ─────────────────────────────────
+    // STEP 3: order No. field
     if (!orderId) {
       const byNo = await db.collection('bookings')
-        .where('No.', '==', ref)
-        .limit(1)
-        .get()
-        .catch(() => null);
-
+        .where('No.','==',ref).limit(1).get().catch(()=>null);
       if (byNo && !byNo.empty) {
-        order   = { id: byNo.docs[0].id, ...byNo.docs[0].data() };
+        order   = { id:byNo.docs[0].id, ...byNo.docs[0].data() };
         orderId = order.id;
       }
     }
 
-    // ── STEP 4: Try order by Firestore doc ID ──────────────────────────
+    // STEP 4: Firestore doc ID
     if (!orderId && ref.length > 10) {
       const byId = await db.collection('bookings')
-        .doc(ref)
-        .get()
-        .catch(() => null);
-
+        .doc(ref).get().catch(()=>null);
       if (byId && byId.exists) {
-        order   = { id: byId.id, ...byId.data() };
+        order   = { id:byId.id, ...byId.data() };
         orderId = byId.id;
       }
     }
 
-    // ── STEP 5: Load order if we have orderId but no order yet ─────────
+    // STEP 5: Load order by orderId
     if (orderId && !order) {
-      const orderSnap = await db.collection('bookings')
-        .doc(orderId)
-        .get()
-        .catch(() => null);
-
-      if (orderSnap && orderSnap.exists) {
-        order = { id: orderSnap.id, ...orderSnap.data() };
-      }
+      const snap = await db.collection('bookings')
+        .doc(orderId).get().catch(()=>null);
+      if (snap && snap.exists) order = { id:snap.id, ...snap.data() };
     }
 
-    // ── STEP 6: Load all receipts for this order if not loaded yet ──────
+    // STEP 6: Load receipts for this order
     if (orderId && receipts.length === 0) {
       const rcSnap = await db.collection('receipts')
-        .where('order_id', '==', orderId)
-        .get()
-        .catch(() => null);
-
+        .where('order_id','==',orderId).get().catch(()=>null);
       if (rcSnap && !rcSnap.empty) {
-        receipts = rcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        receipts = rcSnap.docs.map(d=>({id:d.id,...d.data()}));
       }
-
-      // Also try by contract_no
+      // Fallback: contract_no
       if (receipts.length === 0 && order) {
         const contractNo = order['No.'] || '';
         if (contractNo) {
           const rcByNo = await db.collection('receipts')
-            .where('contract_no', '==', String(contractNo))
-            .get()
-            .catch(() => null);
+            .where('contract_no','==',String(contractNo))
+            .get().catch(()=>null);
           if (rcByNo && !rcByNo.empty) {
-            receipts = rcByNo.docs.map(d => ({ id: d.id, ...d.data() }));
+            receipts = rcByNo.docs.map(d=>({id:d.id,...d.data()}));
           }
         }
       }
     }
 
-    // ── STEP 7: Load payment log ───────────────────────────────────────
+    // STEP 7: Payment log
     if (orderId) {
       const pmSnap = await db.collection('payment_log')
-        .where('order_id', '==', orderId)
-        .get()
-        .catch(() => null);
-
+        .where('order_id','==',orderId).get().catch(()=>null);
       if (pmSnap && !pmSnap.empty) {
         payments = pmSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          .map(d=>({id:d.id,...d.data()}))
+          .sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
       }
     }
 
-    // Sort receipts newest first
-    receipts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    receipts.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
 
-    // ── STEP 8: Nothing found ──────────────────────────────────────────
+    // STEP 8: Nothing found
     if (!order && receipts.length === 0) {
-      setStatus('invalid', '❌', 'Not Found');
+      setStatus('invalid','❌','Not Found');
       contentEl.innerHTML = `
         <div class="not-found">
           <div class="big-icon">🔍</div>
           <p style="color:#94a3b8;font-size:13px;">
-            No record found for reference <strong>${ref}</strong>.<br><br>
+            No record found for <strong>${ref}</strong>.<br><br>
             This QR code may be invalid or the record may have been removed.
           </p>
-        </div>
-      `;
+        </div>`;
       return;
     }
 
-    // ── STEP 9: Render ─────────────────────────────────────────────────
+    // STEP 9: Render
     let html = '';
 
-    // If we found a specific receipt ref, highlight it
+    // ── Matched receipt highlight ─────────────────────────────
     const matchedReceipt = receipts.find(r => r.receipt_ref === ref);
     if (matchedReceipt) {
       html += `
         <div class="section">
           <div class="section-title">🧾 This Receipt</div>
-          ${row('Receipt Ref', `<strong>${matchedReceipt.receipt_ref || matchedReceipt.id}</strong>`, 'value-blue')}
-          ${row('Date',    matchedReceipt.receipt_date || '—')}
-          ${row('Client',  matchedReceipt.client_name  || '—')}
-          ${row('Car',     matchedReceipt.car_label    || '—')}
-          ${row('Branch',  matchedReceipt.branch       || '—')}
+          ${row('Receipt Ref', `<strong>${matchedReceipt.receipt_ref||matchedReceipt.id}</strong>`, 'value-blue')}
+          ${row('Issued',      fmtDateTime(matchedReceipt.issued_at ||
+                                matchedReceipt.datetime ||
+                                matchedReceipt.receipt_date || ''))}
+          ${row('Client',      matchedReceipt.client_name  || '—')}
+          ${row('Car',         matchedReceipt.car_label    || '—')}
+          ${row('Branch',      matchedReceipt.branch       || '—')}
           ${row('Amount',
-            fmtMoney(matchedReceipt.total_egp_equiv || matchedReceipt.amount_egp || 0),
-            'value-green'
-          )}
+            fmtMoney(matchedReceipt.total_egp_equiv ||
+                     matchedReceipt.amount_egp || 0),
+            'value-green')}
           ${matchedReceipt.payment_details
-            ? row('Method', matchedReceipt.payment_details)
-            : ''}
+            ? row('Method', matchedReceipt.payment_details) : ''}
           ${matchedReceipt.category
-            ? row('Category', matchedReceipt.category)
-            : ''}
-        </div>
-      `;
+            ? row('Category', matchedReceipt.category) : ''}
+          ${matchedReceipt.notes
+            ? row('Note', `<em>${matchedReceipt.notes}</em>`) : ''}
+        </div>`;
     }
 
-    // Order summary
+    // ── Order summary ─────────────────────────────────────────
     if (order) {
-      const total    = parseAmt(order['إجمالي المستحق (Total)'] || 0);
-      const paid     = parseAmt(order['المدفوع EGP'] || 0);
-      const debt     = Math.max(0, total - paid);
-      const status   = String(order['حالة الطلب'] || order.status || 'Active');
+      const total  = parseAmt(order['إجمالي المستحق (Total)'] || 0);
+      const paid   = parseAmt(order['المدفوع EGP'] || 0);
+      const debt   = Math.max(0, total - paid);
+      const status = String(order['حالة الطلب'] || order.status || 'Active');
       const isClosed = order.closed === true || status === 'Closed';
 
-      const startRaw = order['تاريخ البداية']  || order['بداية الإيجار'] ||
-                       order.col_S             || order.start_date || '';
-      const endRaw   = order['تاريخ الانتهاء'] || order['نهاية الإيجار'] ||
-                       order.col_T             || order.end_date   || '';
+      // ✅ Fixed: use correct field names matching utils.js getOrderDates()
+      const { startRaw, endRaw } = getOrderStartEnd(order);
 
-      const statusColor = isClosed    ? 'value-green'
-        : status === 'Accident'       ? 'value-yellow'
-        : debt > 0                    ? 'value-red'
+      const statusColor = isClosed        ? 'value-green'
+        : status === 'Accident'           ? 'value-yellow'
+        : debt > 0                        ? 'value-red'
         : 'value-green';
 
-      // Only set the top status badge if we didn't already set it via receipt
       if (!matchedReceipt) {
-        const verifiedIcon = isClosed ? '✅'
+        const icon = isClosed ? '✅'
           : status === 'Accident' ? '⚠️'
           : debt > 0 ? '⚠️' : '✅';
-
-        const verifiedText = isClosed             ? 'Verified — Order Closed'
-          : status === 'Accident'                 ? 'Verified — Accident Order'
-          : debt > 0                              ? 'Verified — Outstanding Balance'
+        const text = isClosed               ? 'Verified — Order Closed'
+          : status === 'Accident'           ? 'Verified — Accident Order'
+          : debt > 0                        ? 'Verified — Outstanding Balance'
           : 'Verified — Fully Paid';
-
-        setStatus(
-          isClosed || debt === 0 ? 'valid' : 'invalid',
-          verifiedIcon,
-          verifiedText
-        );
+        setStatus(isClosed || debt === 0 ? 'valid' : 'invalid', icon, text);
       } else {
-        setStatus('valid', '✅', 'Receipt Verified');
+        setStatus('valid','✅','Receipt Verified');
       }
 
       html += `
         <div class="section">
           <div class="section-title">📋 Order Summary</div>
-          ${row('Contract #', `<strong>#${order['No.'] || order.id}</strong>`, 'value-blue')}
+          ${row('Contract #', `<strong>#${order['No.']||order.id}</strong>`, 'value-blue')}
           ${row('Client',  order['اسم العميل']  || '—')}
           ${row('Car',     order['اسم السيارة'] || order.car_label || '—')}
-          ${row('Branch',  order['فرع الإصدار'] || order.branch    || '—')}
+          ${row('Branch',  order['فرع الإصدار'] || order.branch || '—')}
           ${row('Start',   fmtDate(startRaw))}
           ${row('End',     fmtDate(endRaw))}
           ${row('Status',  status, statusColor)}
         </div>
-
         <div class="section">
           <div class="section-title">💰 Financial Summary</div>
           ${row('Contract Total', fmtMoney(total))}
           ${row('Total Paid',     fmtMoney(paid), 'value-green')}
           ${row('Outstanding',
             debt > 0 ? fmtMoney(debt) : '✅ CLEAR',
-            debt > 0 ? 'value-red' : 'value-green'
-          )}
-        </div>
-      `;
+            debt > 0 ? 'value-red' : 'value-green')}
+        </div>`;
     } else {
-      setStatus('valid', '✅', 'Receipt Verified');
+      setStatus('valid','✅','Receipt Verified');
     }
 
-    // Payment history
+    // ── Payment history ───────────────────────────────────────
     if (payments.length > 0) {
       html += `
         <div class="section">
-          <div class="section-title">
-            💳 Payment History (${payments.length})
-          </div>
+          <div class="section-title">💳 Payment History (${payments.length})</div>
           ${payments.map(p => `
             <div class="payment-row">
               <div class="row">
                 <span class="label">
                   ${p.date || (p.timestamp
-                    ? new Date(p.timestamp).toLocaleDateString('en-GB')
-                    : '—')}
+                    ? new Date(p.timestamp).toLocaleDateString('en-GB') : '—')}
                 </span>
                 <span class="value value-green">
                   ${fmtMoney(p.amount_egp || p.amount || 0)}
@@ -522,13 +397,11 @@ async function verify() {
                 ${p.collected_by ? ' · By: ' + p.collected_by : ''}
                 ${p.notes        ? ' · ' + p.notes         : ''}
               </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
+            </div>`).join('')}
+        </div>`;
     }
 
-    // All receipts for this order
+    // ── All receipts ──────────────────────────────────────────
     if (receipts.length > 0) {
       html += `
         <div class="section">
@@ -538,7 +411,8 @@ async function verify() {
           ${receipts.map(r => `
             <div class="payment-row">
               <div class="row">
-                <span class="label" style="font-family:'Courier New',monospace;font-size:10px;">
+                <span class="label"
+                  style="font-family:'Courier New',monospace;font-size:10px;">
                   ${r.receipt_ref || r.id}
                 </span>
                 <span class="value value-green">
@@ -548,27 +422,24 @@ async function verify() {
               <div style="font-size:10px;color:#64748b;">
                 ${r.receipt_date || '—'}
                 ${r.payment_details ? ' · ' + r.payment_details : ''}
-                ${r.collected_by   ? ' · By: ' + r.collected_by   : ''}
+                ${r.collected_by   ? ' · By: ' + r.collected_by : ''}
               </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
+            </div>`).join('')}
+        </div>`;
     }
 
     contentEl.innerHTML = html;
 
-  } catch (e) {
+  } catch(e) {
     console.error('Verify error:', e);
-    setStatus('invalid', '❌', 'Verification Error');
+    setStatus('invalid','❌','Verification Error');
     contentEl.innerHTML = `
       <div class="not-found">
         <div class="big-icon">⚠️</div>
         <p style="color:#94a3b8;font-size:13px;">
           An error occurred: ${e.message}
         </p>
-      </div>
-    `;
+      </div>`;
   }
 }
 
