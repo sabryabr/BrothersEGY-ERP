@@ -26,9 +26,9 @@
       padding:14px 18px; border-radius:10px;
       margin-bottom:20px; font-weight:700; font-size:14px;
     }
-    .status-valid   { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.4); color:#4ade80; }
-    .status-invalid { background:rgba(239,68,68,0.15);  border:1px solid rgba(239,68,68,0.4);  color:#f87171; }
-    .status-loading { background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); color:#60a5fa; }
+    .status-valid   { background:rgba(34,197,94,0.15);  border:1px solid rgba(34,197,94,0.4);  color:#4ade80; }
+    .status-invalid { background:rgba(239,68,68,0.15);   border:1px solid rgba(239,68,68,0.4);   color:#f87171; }
+    .status-loading { background:rgba(59,130,246,0.15);  border:1px solid rgba(59,130,246,0.4);  color:#60a5fa; }
     .icon { font-size:22px; }
     .section {
       background:#0f172a; border-radius:10px;
@@ -40,7 +40,8 @@
     }
     .row {
       display:flex; justify-content:space-between;
-      align-items:flex-start; font-size:12px; margin-bottom:6px; gap:8px;
+      align-items:flex-start; font-size:12px;
+      margin-bottom:6px; gap:8px;
     }
     .row:last-child { margin-bottom:0; }
     .row .label { color:#64748b; flex-shrink:0; }
@@ -72,6 +73,11 @@
     @keyframes spin { to { transform:rotate(360deg); } }
     .not-found { text-align:center; padding:20px; }
     .not-found .big-icon { font-size:48px; margin-bottom:12px; }
+    .receipt-highlight {
+      border:1px solid rgba(59,130,246,0.4);
+      border-radius:10px; padding:14px 16px; margin-bottom:12px;
+      background:rgba(59,130,246,0.06);
+    }
   </style>
 </head>
 <body>
@@ -113,37 +119,39 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
 function fmtMoney(n) {
-  const num = parseFloat(String(n).replace(/[^0-9.-]/g,'')) || 0;
-  return '£' + num.toLocaleString('en-EG',{
-    minimumFractionDigits:0, maximumFractionDigits:0
+  const num = parseFloat(String(n).replace(/[^0-9.-]/g, '')) || 0;
+  return '£' + num.toLocaleString('en-EG', {
+    minimumFractionDigits: 0, maximumFractionDigits: 0
   });
 }
 
 function fmtDate(val) {
   if (!val) return '—';
   const d = val instanceof Date ? val : new Date(val);
-  if (isNaN(d.getTime())) return String(val).slice(0,10) || '—';
-  return d.toLocaleDateString('en-GB',{
-    day:'2-digit', month:'short', year:'numeric'
+  if (isNaN(d.getTime())) return String(val).slice(0, 10) || '—';
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
   });
 }
 
 function fmtDateTime(val) {
   if (!val) return '—';
+  // Already a formatted string (from getCairoTimestamp)?
+  if (typeof val === 'string' && val.includes(':') && val.length > 12) return val;
   const d = val instanceof Date ? val : new Date(val);
-  if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB',{
-    day:'2-digit', month:'short', year:'numeric',
-    hour:'2-digit', minute:'2-digit',
-    timeZone:'Africa/Cairo'
+  if (isNaN(d.getTime())) return String(val) || '—';
+  return d.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'Africa/Cairo'
   });
 }
 
 function parseAmt(v) {
   if (!v) return 0;
-  return parseFloat(String(v).replace(/[^0-9.-]/g,'')) || 0;
+  return parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0;
 }
 
 // ✅ Matches getOrderDates() field priority in utils.js
@@ -163,14 +171,14 @@ function row(label, value, cls) {
   return `
     <div class="row">
       <span class="label">${label}</span>
-      <span class="value ${cls||''}">${value}</span>
+      <span class="value ${cls || ''}">${value}</span>
     </div>`;
 }
 
-// ── URL params ────────────────────────────────────────────────────────────
-const params   = new URLSearchParams(window.location.search);
-const rawRef   = params.get('ref') || '';
-const ref      = decodeURIComponent(rawRef).trim();
+// ── URL params ─────────────────────────────────────────────────────────────
+const params  = new URLSearchParams(window.location.search);
+const rawRef  = params.get('ref') || '';
+const ref     = decodeURIComponent(rawRef).trim();
 
 const statusEl  = document.getElementById('status-area');
 const refArea   = document.getElementById('ref-area');
@@ -181,10 +189,10 @@ function setStatus(type, icon, text) {
   statusEl.innerHTML = `<span class="icon">${icon}</span><span>${text}</span>`;
 }
 
-// ── Main verify ───────────────────────────────────────────────────────────
+// ── Main verify ────────────────────────────────────────────────────────────
 async function verify() {
   if (!ref) {
-    setStatus('invalid','❌','No reference provided');
+    setStatus('invalid', '❌', 'No reference provided');
     contentEl.innerHTML = `
       <div class="not-found">
         <div class="big-icon">🔍</div>
@@ -202,87 +210,93 @@ async function verify() {
     let receipts = [];
     let payments = [];
 
-    // STEP 1: receipt_ref (RC-HRG-0530-XXXX)
-    const byRcRef = await db.collection('receipts')
-      .where('receipt_ref','==',ref).limit(5).get().catch(()=>null);
-    if (byRcRef && !byRcRef.empty) {
-      receipts = byRcRef.docs.map(d=>({id:d.id,...d.data()}));
+    // ── STEP 1A: Try receipt doc by direct ID (fastest — rcRef IS the doc ID now)
+    const byDocId = await db.collection('receipts').doc(ref).get().catch(() => null);
+    if (byDocId && byDocId.exists) {
+      receipts = [{ id: byDocId.id, ...byDocId.data() }];
       orderId  = receipts[0].order_id || null;
     }
 
-    // STEP 2: payment_log receipt_ref
+    // ── STEP 1B: Try receipt_ref field (older records)
+    if (receipts.length === 0) {
+      const byRcRef = await db.collection('receipts')
+        .where('receipt_ref', '==', ref).limit(5).get().catch(() => null);
+      if (byRcRef && !byRcRef.empty) {
+        receipts = byRcRef.docs.map(d => ({ id: d.id, ...d.data() }));
+        orderId  = receipts[0].order_id || null;
+      }
+    }
+
+    // ── STEP 2: Try payment_log receipt_ref
     if (!orderId) {
       const byPayRef = await db.collection('payment_log')
-        .where('receipt_ref','==',ref).limit(1).get().catch(()=>null);
+        .where('receipt_ref', '==', ref).limit(1).get().catch(() => null);
       if (byPayRef && !byPayRef.empty) {
         orderId = byPayRef.docs[0].data().order_id || null;
       }
     }
 
-    // STEP 3: order No. field
+    // ── STEP 3: Try order No. field
     if (!orderId) {
       const byNo = await db.collection('bookings')
-        .where('No.','==',ref).limit(1).get().catch(()=>null);
+        .where('No.', '==', ref).limit(1).get().catch(() => null);
       if (byNo && !byNo.empty) {
-        order   = { id:byNo.docs[0].id, ...byNo.docs[0].data() };
+        order   = { id: byNo.docs[0].id, ...byNo.docs[0].data() };
         orderId = order.id;
       }
     }
 
-    // STEP 4: Firestore doc ID
+    // ── STEP 4: Try order Firestore doc ID
     if (!orderId && ref.length > 10) {
-      const byId = await db.collection('bookings')
-        .doc(ref).get().catch(()=>null);
+      const byId = await db.collection('bookings').doc(ref).get().catch(() => null);
       if (byId && byId.exists) {
-        order   = { id:byId.id, ...byId.data() };
+        order   = { id: byId.id, ...byId.data() };
         orderId = byId.id;
       }
     }
 
-    // STEP 5: Load order by orderId
+    // ── STEP 5: Load order if we have orderId but no order yet
     if (orderId && !order) {
-      const snap = await db.collection('bookings')
-        .doc(orderId).get().catch(()=>null);
-      if (snap && snap.exists) order = { id:snap.id, ...snap.data() };
+      const snap = await db.collection('bookings').doc(orderId).get().catch(() => null);
+      if (snap && snap.exists) order = { id: snap.id, ...snap.data() };
     }
 
-    // STEP 6: Load receipts for this order
+    // ── STEP 6: Load all receipts for this order if not loaded yet
     if (orderId && receipts.length === 0) {
       const rcSnap = await db.collection('receipts')
-        .where('order_id','==',orderId).get().catch(()=>null);
+        .where('order_id', '==', orderId).get().catch(() => null);
       if (rcSnap && !rcSnap.empty) {
-        receipts = rcSnap.docs.map(d=>({id:d.id,...d.data()}));
+        receipts = rcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       }
       // Fallback: contract_no
       if (receipts.length === 0 && order) {
         const contractNo = order['No.'] || '';
         if (contractNo) {
           const rcByNo = await db.collection('receipts')
-            .where('contract_no','==',String(contractNo))
-            .get().catch(()=>null);
+            .where('contract_no', '==', String(contractNo)).get().catch(() => null);
           if (rcByNo && !rcByNo.empty) {
-            receipts = rcByNo.docs.map(d=>({id:d.id,...d.data()}));
+            receipts = rcByNo.docs.map(d => ({ id: d.id, ...d.data() }));
           }
         }
       }
     }
 
-    // STEP 7: Payment log
+    // ── STEP 7: Payment log
     if (orderId) {
       const pmSnap = await db.collection('payment_log')
-        .where('order_id','==',orderId).get().catch(()=>null);
+        .where('order_id', '==', orderId).get().catch(() => null);
       if (pmSnap && !pmSnap.empty) {
         payments = pmSnap.docs
-          .map(d=>({id:d.id,...d.data()}))
-          .sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       }
     }
 
-    receipts.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+    receipts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-    // STEP 8: Nothing found
+    // ── STEP 8: Nothing found
     if (!order && receipts.length === 0) {
-      setStatus('invalid','❌','Not Found');
+      setStatus('invalid', '❌', 'Not Found');
       contentEl.innerHTML = `
         <div class="not-found">
           <div class="big-icon">🔍</div>
@@ -294,51 +308,56 @@ async function verify() {
       return;
     }
 
-    // STEP 9: Render
+    // ── STEP 9: Render ─────────────────────────────────────────────────────
     let html = '';
 
-    // ── Matched receipt highlight ─────────────────────────────
-    const matchedReceipt = receipts.find(r => r.receipt_ref === ref);
+    // ── Matched receipt (the one scanned) ─────────────────────────────────
+    const matchedReceipt = receipts.find(r =>
+      r.receipt_ref === ref || r.id === ref || r.qr_ref === ref
+    );
+
     if (matchedReceipt) {
+      const issuedDisplay = matchedReceipt.issued_at ||
+        fmtDateTime(matchedReceipt.datetime || matchedReceipt.receipt_date || '');
+
       html += `
-        <div class="section">
+        <div class="receipt-highlight">
           <div class="section-title">🧾 This Receipt</div>
-          ${row('Receipt Ref', `<strong>${matchedReceipt.receipt_ref||matchedReceipt.id}</strong>`, 'value-blue')}
-          ${row('Issued',      fmtDateTime(matchedReceipt.issued_at ||
-                                matchedReceipt.datetime ||
-                                matchedReceipt.receipt_date || ''))}
-          ${row('Client',      matchedReceipt.client_name  || '—')}
-          ${row('Car',         matchedReceipt.car_label    || '—')}
-          ${row('Branch',      matchedReceipt.branch       || '—')}
+          ${row('Receipt Ref', `<strong>${matchedReceipt.receipt_ref || matchedReceipt.id}</strong>`, 'value-blue')}
+          ${row('Issued', issuedDisplay)}
+          ${row('Client', matchedReceipt.client_name || '—')}
+          ${row('Car',    matchedReceipt.car_label   || '—')}
+          ${row('Branch', matchedReceipt.branch      || '—')}
           ${row('Amount',
-            fmtMoney(matchedReceipt.total_egp_equiv ||
-                     matchedReceipt.amount_egp || 0),
+            fmtMoney(matchedReceipt.total_egp_equiv || matchedReceipt.amount_egp || 0),
             'value-green')}
-          ${matchedReceipt.payment_details
-            ? row('Method', matchedReceipt.payment_details) : ''}
+          ${matchedReceipt.payment_method || matchedReceipt.payment_details
+            ? row('Method', matchedReceipt.payment_method ||
+                             matchedReceipt.payment_details) : ''}
           ${matchedReceipt.category
             ? row('Category', matchedReceipt.category) : ''}
           ${matchedReceipt.notes
             ? row('Note', `<em>${matchedReceipt.notes}</em>`) : ''}
         </div>`;
+
+      setStatus('valid', '✅', 'Receipt Verified');
     }
 
-    // ── Order summary ─────────────────────────────────────────
+    // ── Order summary ──────────────────────────────────────────────────────
     if (order) {
-      const total  = parseAmt(order['إجمالي المستحق (Total)'] || 0);
-      const paid   = parseAmt(order['المدفوع EGP'] || 0);
-      const debt   = Math.max(0, total - paid);
-      const status = String(order['حالة الطلب'] || order.status || 'Active');
+      const total    = parseAmt(order['إجمالي المستحق (Total)'] || 0);
+      const paid     = parseAmt(order['المدفوع EGP']            || 0);
+      const debt     = Math.max(0, total - paid);
+      const status   = String(order['حالة الطلب'] || order.status || 'Active');
       const isClosed = order.closed === true || status === 'Closed';
-
-      // ✅ Fixed: use correct field names matching utils.js getOrderDates()
       const { startRaw, endRaw } = getOrderStartEnd(order);
 
-      const statusColor = isClosed        ? 'value-green'
-        : status === 'Accident'           ? 'value-yellow'
-        : debt > 0                        ? 'value-red'
+      const statusColor = isClosed         ? 'value-green'
+        : status === 'Accident'            ? 'value-yellow'
+        : debt > 0                         ? 'value-red'
         : 'value-green';
 
+      // Set top status badge only if no matched receipt already set it
       if (!matchedReceipt) {
         const icon = isClosed ? '✅'
           : status === 'Accident' ? '⚠️'
@@ -348,17 +367,15 @@ async function verify() {
           : debt > 0                        ? 'Verified — Outstanding Balance'
           : 'Verified — Fully Paid';
         setStatus(isClosed || debt === 0 ? 'valid' : 'invalid', icon, text);
-      } else {
-        setStatus('valid','✅','Receipt Verified');
       }
 
       html += `
         <div class="section">
           <div class="section-title">📋 Order Summary</div>
-          ${row('Contract #', `<strong>#${order['No.']||order.id}</strong>`, 'value-blue')}
+          ${row('Contract #', `<strong>#${order['No.'] || order.id}</strong>`, 'value-blue')}
           ${row('Client',  order['اسم العميل']  || '—')}
           ${row('Car',     order['اسم السيارة'] || order.car_label || '—')}
-          ${row('Branch',  order['فرع الإصدار'] || order.branch || '—')}
+          ${row('Branch',  order['فرع الإصدار'] || order.branch    || '—')}
           ${row('Start',   fmtDate(startRaw))}
           ${row('End',     fmtDate(endRaw))}
           ${row('Status',  status, statusColor)}
@@ -371,15 +388,17 @@ async function verify() {
             debt > 0 ? fmtMoney(debt) : '✅ CLEAR',
             debt > 0 ? 'value-red' : 'value-green')}
         </div>`;
-    } else {
-      setStatus('valid','✅','Receipt Verified');
+    } else if (!matchedReceipt) {
+      setStatus('valid', '✅', 'Receipt Verified');
     }
 
-    // ── Payment history ───────────────────────────────────────
+    // ── Payment history ────────────────────────────────────────────────────
     if (payments.length > 0) {
       html += `
         <div class="section">
-          <div class="section-title">💳 Payment History (${payments.length})</div>
+          <div class="section-title">
+            💳 Payment History (${payments.length})
+          </div>
           ${payments.map(p => `
             <div class="payment-row">
               <div class="row">
@@ -401,38 +420,54 @@ async function verify() {
         </div>`;
     }
 
-    // ── All receipts ──────────────────────────────────────────
+    // ── All receipts for this order ────────────────────────────────────────
     if (receipts.length > 0) {
-      html += `
-        <div class="section">
-          <div class="section-title">
-            🧾 All Receipts for This Order (${receipts.length})
-          </div>
-          ${receipts.map(r => `
-            <div class="payment-row">
-              <div class="row">
-                <span class="label"
-                  style="font-family:'Courier New',monospace;font-size:10px;">
-                  ${r.receipt_ref || r.id}
-                </span>
-                <span class="value value-green">
-                  ${fmtMoney(r.total_egp_equiv || r.amount_egp || 0)}
-                </span>
-              </div>
-              <div style="font-size:10px;color:#64748b;">
-                ${r.receipt_date || '—'}
-                ${r.payment_details ? ' · ' + r.payment_details : ''}
-                ${r.collected_by   ? ' · By: ' + r.collected_by : ''}
-              </div>
-            </div>`).join('')}
-        </div>`;
+      // Don't repeat if the only receipt is the matched one already shown
+      const otherReceipts = receipts.filter(r =>
+        r.receipt_ref !== ref && r.id !== ref && r.qr_ref !== ref
+      );
+
+      if (otherReceipts.length > 0 || (receipts.length > 1)) {
+        html += `
+          <div class="section">
+            <div class="section-title">
+              🧾 All Receipts for This Order (${receipts.length})
+            </div>
+            ${receipts.map(r => {
+              const rRef      = r.receipt_ref || r.id;
+              const isMatched = rRef === ref || r.id === ref;
+              const issuedStr = r.issued_at || r.receipt_date || '—';
+              return `
+                <div class="payment-row"
+                  style="${isMatched
+                    ? 'background:rgba(59,130,246,0.08);border-radius:6px;padding:4px;'
+                    : ''}">
+                  <div class="row">
+                    <span class="label"
+                      style="font-family:'Courier New',monospace;font-size:10px;
+                             ${isMatched ? 'color:#60a5fa;font-weight:700;' : ''}">
+                      ${rRef}${isMatched ? ' ← this' : ''}
+                    </span>
+                    <span class="value value-green">
+                      ${fmtMoney(r.total_egp_equiv || r.amount_egp || 0)}
+                    </span>
+                  </div>
+                  <div style="font-size:10px;color:#64748b;">
+                    ${issuedStr}
+                    ${r.payment_details ? ' · ' + r.payment_details : ''}
+                    ${r.collected_by    ? ' · By: ' + r.collected_by : ''}
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>`;
+      }
     }
 
     contentEl.innerHTML = html;
 
-  } catch(e) {
+  } catch (e) {
     console.error('Verify error:', e);
-    setStatus('invalid','❌','Verification Error');
+    setStatus('invalid', '❌', 'Verification Error');
     contentEl.innerHTML = `
       <div class="not-found">
         <div class="big-icon">⚠️</div>

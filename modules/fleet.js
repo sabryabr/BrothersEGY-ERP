@@ -1,8 +1,9 @@
 // ============================================================
-// modules/fleet.js
+// modules/fleet.js v4.1
+// Fleet Radar, Gantt chart, Vehicle 360, Car detail/edit
 // ============================================================
 
-// Order status colors (top half of bar) — keep this local
+// Order status colors (top half of bar)
 const ORDER_STATUS_COLORS = {
   active   : '#3b82f6',
   overdue  : '#ef4444',
@@ -11,8 +12,7 @@ const ORDER_STATUS_COLORS = {
   closed   : '#475569',
   cancelled: '#94a3b8'
 };
-
-// ✅ REMOVED local PAYMENT_STATUS_COLORS — now uses window.PAYMENT_STATUS_COLORS from utils.js
+// PAYMENT_STATUS_COLORS lives in window.PAYMENT_STATUS_COLORS (utils.js)
 
 // ============================================================
 // ENTRY POINTS
@@ -34,19 +34,17 @@ window.loadFleetRadar = async function() {
   const el = document.getElementById('page-fleet-radar');
   if (!el) return;
 
-  // ── Collapsible header state ───────────────────────────────
-  const hKey       = 'fleet_radar_header_collapsed';
-  const collapsed  = localStorage.getItem(hKey) === 'true';
+  const hKey      = 'fleet_radar_header_collapsed';
+  const collapsed = localStorage.getItem(hKey) === 'true';
 
   el.innerHTML = `
     <div style="position:relative;">
 
-      <!-- ══ COLLAPSIBLE HEADER ══════════════════════════════ -->
+      <!-- COLLAPSIBLE HEADER -->
       <div id="fleet-radar-header"
         style="background:var(--surface2);border:1px solid var(--border);
                border-radius:var(--radius);margin-bottom:8px;overflow:hidden;">
 
-        <!-- Always-visible title row -->
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;
                     padding:10px 14px;cursor:pointer;"
              onclick="toggleFleetRadarHeader()">
@@ -64,16 +62,15 @@ window.loadFleetRadar = async function() {
               onclick="loadFleetRadar()">🔄 Refresh</button>
             <button class="btn btn-primary btn-sm"
               onclick="ganttScrollToToday()">📅 Today</button>
-            <!-- Timeline range buttons -->
             <div style="display:flex;align-items:center;gap:4px;">
               <span style="font-size:10px;color:var(--text3);font-weight:700;
                            text-transform:uppercase;letter-spacing:0.08em;">
                 Timeline:
               </span>
               ${[
-                { label:'1M', days:30 },
-                { label:'2M', days:60 },
-                { label:'3M', days:90 },
+                { label:'1M', days:30  },
+                { label:'2M', days:60  },
+                { label:'3M', days:90  },
                 { label:'6M', days:180 },
                 { label:'1Y', days:365 }
               ].map(t => `
@@ -91,7 +88,6 @@ window.loadFleetRadar = async function() {
                   ${t.label}
                 </button>`).join('')}
             </div>
-            <!-- Toggle arrow -->
             <button id="fleet-radar-toggle-btn"
               onclick="toggleFleetRadarHeader()"
               style="background:var(--surface);border:1px solid var(--border);
@@ -102,45 +98,41 @@ window.loadFleetRadar = async function() {
           </div>
         </div>
 
-        <!-- Collapsible body: filters + legend + summary -->
+        <!-- Collapsible body -->
         <div id="fleet-radar-collapsible"
           style="overflow:hidden;transition:max-height 0.3s ease;
                  max-height:${collapsed ? '0px' : '500px'};">
           <div style="padding:0 14px 12px;">
 
-            <!-- Filter bars -->
             <div id="fleet-filter-bar-gantt"></div>
             <div id="fleet-location-filter-bar"
               style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;
                      padding:6px 0 4px;border-bottom:1px solid var(--border);
                      margin-bottom:6px;"></div>
 
-            <!-- Legend — split bar explanation -->
+            <!-- Legend -->
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;
                         padding:8px 10px;background:var(--surface);
                         border:1px solid var(--border);border-radius:var(--radius);">
-
               <div style="font-size:9px;font-weight:800;color:var(--text3);
                           text-transform:uppercase;align-self:center;
                           letter-spacing:0.06em;white-space:nowrap;">
                 ORDER (top):
               </div>
               ${Object.entries({
-                'Active'      : '#3b82f6',
-                'Overdue'     : '#ef4444',
-                'Accident'    : '#f97316',
-                'Future'      : '#8b5cf6',
-                'Closed'      : '#475569'
+                'Active'  : '#3b82f6',
+                'Overdue' : '#ef4444',
+                'Accident': '#f97316',
+                'Future'  : '#8b5cf6',
+                'Closed'  : '#475569'
               }).map(([label, color]) => `
                 <div style="display:flex;align-items:center;gap:4px;font-size:10px;">
                   <div style="width:20px;height:7px;background:${color};
                               border-radius:2px;"></div>
                   ${label}
                 </div>`).join('')}
-
               <div style="width:1px;background:var(--border);margin:0 4px;
                           align-self:stretch;"></div>
-
               <div style="font-size:9px;font-weight:800;color:var(--text3);
                           text-transform:uppercase;align-self:center;
                           letter-spacing:0.06em;white-space:nowrap;">
@@ -157,16 +149,13 @@ window.loadFleetRadar = async function() {
                               border-radius:2px;"></div>
                   ${label}
                 </div>`).join('')}
-
               <div style="width:1px;background:var(--border);margin:0 4px;
                           align-self:stretch;"></div>
-              <!-- Future dashed -->
               <div style="display:flex;align-items:center;gap:4px;font-size:10px;">
                 <div style="width:20px;height:7px;border:2px dashed #8b5cf6;
                             border-radius:2px;"></div>
                 Future
               </div>
-              <!-- Overdue tail -->
               <div style="display:flex;align-items:center;gap:4px;font-size:10px;">
                 <div style="width:20px;height:7px;border-radius:2px;
                   background:repeating-linear-gradient(45deg,
@@ -201,14 +190,12 @@ window.loadFleetRadar = async function() {
         </div>
       </div>
 
-      <!-- ══ GANTT CONTAINER ════════════════════════════════ -->
+      <!-- GANTT CONTAINER -->
       <div id="gantt-wrap"
         style="overflow:hidden;max-height:calc(100vh - 200px);
                border:1px solid var(--border);border-radius:var(--radius);
                background:var(--surface);cursor:grab;user-select:none;">
-        <div class="empty-state">
-          <div class="spinner lg"></div>
-        </div>
+        <div class="empty-state"><div class="spinner lg"></div></div>
       </div>
     </div>
 
@@ -230,7 +217,6 @@ window.loadFleetRadar = async function() {
   setTimeout(() => ganttScrollToToday(), 500);
 };
 
-// ── Toggle collapsible header ──────────────────────────────────────────────
 window.toggleFleetRadarHeader = function() {
   const hKey = 'fleet_radar_header_collapsed';
   const body = document.getElementById('fleet-radar-collapsible');
@@ -327,7 +313,6 @@ window.buildFleetFilterBar = function(containerId, cbName) {
           onfocus="this.style.borderColor='var(--accent)'"
           onblur="this.style.borderColor='var(--border)'"/>
       </div>
-
       <button class="btn btn-ghost btn-xs"
         onclick="resetFleetFilters('${cbName}')">✕ Reset</button>
     </div>
@@ -335,8 +320,11 @@ window.buildFleetFilterBar = function(containerId, cbName) {
 };
 
 window.toggleFleetFilter = function(group, key, cbName) {
-  if (group === 'status')       FLEET_FILTER.status[key]   = !FLEET_FILTER.status[key];
-  else if (group === 'branch') { FLEET_FILTER.branches[key] = !FLEET_FILTER.branches[key]; _updateAllBranchPill(); }
+  if (group === 'status') FLEET_FILTER.status[key] = !FLEET_FILTER.status[key];
+  else if (group === 'branch') {
+    FLEET_FILTER.branches[key] = !FLEET_FILTER.branches[key];
+    _updateAllBranchPill();
+  }
   saveFleetFilterState();
   refreshFleetFilterPills();
   if (cbName && window[cbName]) window[cbName]();
@@ -363,7 +351,7 @@ window.onFleetSearch = function(val, cbName) {
 };
 
 window.resetFleetFilters = function(cbName) {
-  FLEET_FILTER.status = { active: true, archived: false, accident: true, maintenance: true };
+  FLEET_FILTER.status = { active:true, archived:false, accident:true, maintenance:true };
   FLEET_FILTER.search = '';
   const isPriv = ['Admin', 'Executive'].includes(G.user?.role);
   Object.keys(FLEET_FILTER.branches).forEach(b => {
@@ -397,7 +385,7 @@ window.refreshFleetFilterPills = function() {
 
 function _updateAllBranchPill() {
   const allOn = Object.values(FLEET_FILTER.branches).every(v => v);
-  const el = document.getElementById('fpill-all-branch');
+  const el    = document.getElementById('fpill-all-branch');
   if (el) el.className = `fpill ${allOn ? 'all-on' : 'off'}`;
 }
 
@@ -408,12 +396,12 @@ window.buildLocationFilterBar = function() {
   const bar = document.getElementById('fleet-location-filter-bar');
   if (!bar) return;
   const locs = [
-    { v:'all',         l:'All' },
-    { v:'HRG',         l:'HRG' },
-    { v:'ALX',         l:'ALX' },
-    { v:'CAI',         l:'CAI' },
-    { v:'Workshop',    l:'🔧 Workshop' },
-    { v:'With Client', l:'🚗 With Client' }
+    { v:'all',         l:'All'             },
+    { v:'HRG',         l:'HRG'             },
+    { v:'ALX',         l:'ALX'             },
+    { v:'CAI',         l:'CAI'             },
+    { v:'Workshop',    l:'🔧 Workshop'      },
+    { v:'With Client', l:'🚗 With Client'   }
   ];
   const cur = window.GANTT_LOCATION_FILTER || 'all';
   bar.innerHTML =
@@ -494,32 +482,36 @@ window.renderGantt = async function() {
       }
     });
 
-    const today      = getCairoNow(); today.setHours(0,0,0,0);
+    // ✅ Don't mutate getCairoNow result — create separate date objects
+    const todayRaw   = getCairoNow();
+    const today      = new Date(todayRaw);
+    today.setHours(0, 0, 0, 0);
+
     const totalDays  = window.ganttDays || 90;
     const pastDays   = Math.floor(totalDays * 0.4);
     const ganttStart = new Date(today);
     ganttStart.setDate(ganttStart.getDate() - pastDays);
 
-    const DAY_PX    = window.GANTT_PX_PER_DAY || 14;
-    const CAR_COL   = 240;
-    const ASSIGN_COL= 230;
-    const ROW_H     = 42;  // ✅ taller to fit split bar
-    const HEADER_H  = 46;
-    const totalPx   = totalDays * DAY_PX;
+    const DAY_PX     = window.GANTT_PX_PER_DAY || 14;
+    const CAR_COL    = 240;
+    const ASSIGN_COL = 230;
+    const ROW_H      = 42;
+    const HEADER_H   = 46;
+    const totalPx    = totalDays * DAY_PX;
 
-    const cars      = _filterCarsForGantt();
-    const locFilter = window.GANTT_LOCATION_FILTER || 'all';
-    const activeCars= locFilter === 'all' ? cars : cars.filter(c => {
+    const cars       = _filterCarsForGantt();
+    const locFilter  = window.GANTT_LOCATION_FILTER || 'all';
+    const activeCars = locFilter === 'all' ? cars : cars.filter(c => {
       const loc = (c.current_location || '').toLowerCase();
       if (locFilter === 'Workshop')    return loc.includes('workshop');
       if (locFilter === 'With Client') return loc.includes('with client');
-      return loc.startsWith(locFilter.toLowerCase() + '-') || loc === locFilter.toLowerCase();
+      return loc.startsWith(locFilter.toLowerCase() + '-') ||
+             loc === locFilter.toLowerCase();
     });
 
     const { headerMonthHTML, headerDayHTML } = _buildGanttHeader(
       ganttStart, totalDays, today, DAY_PX, HEADER_H
     );
-
     const rowsHTML = _buildGanttRows(
       activeCars, ordersByCar, today, ganttStart,
       totalDays, totalPx, DAY_PX, CAR_COL, ASSIGN_COL, ROW_H
@@ -532,13 +524,11 @@ window.renderGantt = async function() {
         <!-- Sticky header -->
         <div style="display:flex;position:sticky;top:0;z-index:20;
                     background:var(--surface3);border-bottom:2px solid var(--border2);">
-          <div style="position:sticky;left:0;z-index:22;
-				background:var(--surface3);
-				width:${CAR_COL}px;min-width:${CAR_COL}px;height:${HEADER_H}px;
-				display:flex;align-items:center;padding:0 12px;
-				border-right:2px solid var(--border2);
-				box-shadow:4px 0 8px rgba(0,0,0,0.5);
-				isolation:isolate;">
+          <div style="position:sticky;left:0;z-index:22;background:var(--surface3);
+                      width:${CAR_COL}px;min-width:${CAR_COL}px;height:${HEADER_H}px;
+                      display:flex;align-items:center;padding:0 12px;
+                      border-right:2px solid var(--border2);
+                      box-shadow:4px 0 8px rgba(0,0,0,0.5);isolation:isolate;">
             <span style="font-size:10px;font-weight:800;color:var(--text3);
                          text-transform:uppercase;letter-spacing:0.1em;">
               Vehicle (${activeCars.length}) — Click for details
@@ -548,16 +538,15 @@ window.renderGantt = async function() {
                       height:${HEADER_H}px;flex-shrink:0;overflow:hidden;">
             ${headerMonthHTML}${headerDayHTML}
           </div>
-          <div style="position:sticky;right:0;z-index:22;
-				background:var(--surface3);
-				width:${ASSIGN_COL}px;min-width:${ASSIGN_COL}px;height:${HEADER_H}px;
-				display:flex;flex-direction:column;justify-content:center;
-				padding:0 10px;
-				border-left:2px solid var(--border2);
-				box-shadow:-4px 0 8px rgba(0,0,0,0.5);
-				isolation:isolate;">
+          <div style="position:sticky;right:0;z-index:22;background:var(--surface3);
+                      width:${ASSIGN_COL}px;min-width:${ASSIGN_COL}px;height:${HEADER_H}px;
+                      display:flex;flex-direction:column;justify-content:center;
+                      padding:0 10px;border-left:2px solid var(--border2);
+                      box-shadow:-4px 0 8px rgba(0,0,0,0.5);isolation:isolate;">
             <span style="font-size:9px;font-weight:800;color:var(--text3);
-                         text-transform:uppercase;letter-spacing:0.1em;">Assignment</span>
+                         text-transform:uppercase;letter-spacing:0.1em;">
+              Assignment
+            </span>
             <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;">
               ${_buildBranchAvailBadges()}
             </div>
@@ -578,7 +567,7 @@ window.renderGantt = async function() {
       if (!el) return;
       el.style.overflowX = 'auto';
       el.style.overflowY = 'auto';
-      el.scrollLeft = 182 * DAY_PX - el.clientWidth / 2;
+      el.scrollLeft      = 182 * DAY_PX - el.clientWidth / 2;
       _initGanttTouchDrag(el);
     }, 200);
 
@@ -600,10 +589,11 @@ function _filterCarsForGantt() {
     const cat = getCarStatusCategory(car);
     if (cat === 'archived') return false;
 
-    const isAccident    = cat === 'accident';
-    const isMaint       = cat === 'maintenance';
-    const isActive      = !isAccident && !isMaint;
-    const statusPass    =
+    const isAccident = cat === 'accident';
+    const isMaint    = cat === 'maintenance';
+    const isActive   = !isAccident && !isMaint;
+
+    const statusPass =
       (isAccident && FLEET_FILTER.status.accident)    ||
       (isMaint    && FLEET_FILTER.status.maintenance) ||
       (isActive   && FLEET_FILTER.status.active);
@@ -656,7 +646,7 @@ function _buildGanttHeader(ganttStart, totalDays, today, DAY_PX, HEADER_H) {
 
     if (d.getMonth() !== prevMonth) {
       prevMonth = d.getMonth();
-      const mLabel = d.toLocaleString('en-GB', { month: 'short', year: '2-digit' });
+      const mLabel = d.toLocaleString('en-GB', { month:'short', year:'2-digit' });
       headerMonthHTML += `
         <div style="position:absolute;left:${i * DAY_PX}px;top:0;
                     height:20px;padding:2px 5px;font-size:10px;font-weight:800;
@@ -666,7 +656,7 @@ function _buildGanttHeader(ganttStart, totalDays, today, DAY_PX, HEADER_H) {
         </div>`;
     }
 
-    if ([1,7,14,21,28].includes(d.getDate())) {
+    if ([1, 7, 14, 21, 28].includes(d.getDate())) {
       headerDayHTML += `
         <div style="position:absolute;left:${i * DAY_PX}px;top:20px;
                     height:26px;padding:4px 2px;font-size:9px;
@@ -686,6 +676,7 @@ function _buildGanttHeader(ganttStart, totalDays, today, DAY_PX, HEADER_H) {
                     pointer-events:none;"></div>`;
     }
   }
+
   return { headerMonthHTML, headerDayHTML };
 }
 
@@ -708,14 +699,12 @@ function _buildGanttRows(
       String(parseInt(car.id  || 0) || '').trim()
     ].filter(x => x && x !== '0'));
 
-    const carIdStr = String(car.ID || car.id || '').trim();
-
-    // ✅ Fixed plate using _c columns
+    const carIdStr     = String(car.ID || car.id || '').trim();
     const plateDisplay = formatPlate(car);
     const carLabel     = getCarLabel(car, 'en');
     const shortLabel   = (car.car_label || carLabel).split('|')[0].trim().slice(0, 28);
-
     const catStatus    = getCarStatusCategory(car);
+
     const statusColors = {
       available  : '#22c55e',
       rented     : '#3b82f6',
@@ -725,10 +714,9 @@ function _buildGanttRows(
     };
     const dotColor    = statusColors[catStatus] || 'var(--text3)';
     const statusLabel = catStatus.charAt(0).toUpperCase() + catStatus.slice(1);
-    const rowBg    = ci % 2 === 0 ? 'var(--surface)' : 'var(--surface2)';
-	const stickyBg = ci % 2 === 0 ? 'var(--surface)' : 'var(--surface2)';
+    const rowBg       = ci % 2 === 0 ? 'var(--surface)' : 'var(--surface2)';
+    const stickyBg    = ci % 2 === 0 ? 'var(--surface)' : 'var(--surface2)';
 
-    // Collect orders for this car
     let carOrders = [];
     possibleIds.forEach(pid => {
       if (ordersByCar[pid]) carOrders = carOrders.concat(ordersByCar[pid]);
@@ -739,15 +727,13 @@ function _buildGanttRows(
       return (as || new Date(0)) - (bs || new Date(0));
     });
 
-    // Proposals
     const carProposals = (G.proposals || []).filter(p => {
       const pCarId = String(p.car_id || '').trim();
       return pCarId && possibleIds.has(pCarId) &&
-        p.pickup_date && p.dropoff_date &&
-        p.status !== 'Cancelled' && p.status !== 'Converted';
+             p.pickup_date && p.dropoff_date &&
+             p.status !== 'Cancelled' && p.status !== 'Converted';
     });
 
-    // Chain orders into rows to avoid overlap
     const rows = [];
     carOrders.forEach(order => {
       const { start, end } = getOrderDates(order);
@@ -769,16 +755,14 @@ function _buildGanttRows(
     const rowHeight = Math.max(ROW_H, numRows * ROW_H);
 
     rowsHTML += `
-      <div style="display:flex;background:${rowBg};border-bottom:1px solid var(--border);">
+      <div style="display:flex;background:${rowBg};
+                  border-bottom:1px solid var(--border);">
         <!-- Sticky car label -->
-        <div style="position:sticky;left:0;z-index:15;
-				background:${stickyBg};
-				width:${CAR_COL}px;min-width:${CAR_COL}px;height:${rowHeight}px;
-				padding:0 10px;
-				border-right:2px solid var(--border2);
-				box-shadow:4px 0 8px rgba(0,0,0,0.5);
-				isolation:isolate;
-				display:flex;align-items:center;cursor:pointer;"
+        <div style="position:sticky;left:0;z-index:15;background:${stickyBg};
+                    width:${CAR_COL}px;min-width:${CAR_COL}px;height:${rowHeight}px;
+                    padding:0 10px;border-right:2px solid var(--border2);
+                    box-shadow:4px 0 8px rgba(0,0,0,0.5);isolation:isolate;
+                    display:flex;align-items:center;cursor:pointer;"
              onclick="openCarDetailModal('${carIdStr}')"
              onmouseover="this.style.background='var(--glass2)'"
              onmouseout="this.style.background='${stickyBg}'">
@@ -792,19 +776,21 @@ function _buildGanttRows(
                 ${shortLabel}
               </div>
             </div>
-            <!-- ✅ Plate shown under car name -->
             <div style="font-size:10px;color:var(--text3);white-space:nowrap;
                         overflow:hidden;text-overflow:ellipsis;
                         max-width:${CAR_COL - 12}px;font-weight:600;">
               ${plateDisplay || '—'}
             </div>
-            <div style="display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap;">
-              <span class="pill pill-${catStatus}" style="font-size:8px;padding:1px 5px;">
+            <div style="display:flex;align-items:center;gap:4px;
+                        margin-top:2px;flex-wrap:wrap;">
+              <span class="pill pill-${catStatus}"
+                style="font-size:8px;padding:1px 5px;">
                 ${statusLabel}
               </span>
               ${car.current_location ? `
                 <span style="font-size:8px;color:var(--text3);">
-                  📍${car.current_location.replace(/-Office$/,'').replace(/-Airport$/,'✈️')}
+                  📍${car.current_location
+                    .replace(/-Office$/, '').replace(/-Airport$/, '✈️')}
                 </span>` : ''}
             </div>
           </div>
@@ -818,8 +804,7 @@ function _buildGanttRows(
             DAY_PX, ROW_H, todayPxBase
           )}
         </div>
-      </div>
-    `;
+      </div>`;
   });
 
   return rowsHTML;
@@ -833,7 +818,8 @@ function _buildGanttRowBars(
 ) {
   if (rows.length === 0) {
     return `
-      <div style="position:relative;width:${totalPx}px;height:${ROW_H}px;flex-shrink:0;">
+      <div style="position:relative;width:${totalPx}px;
+                  height:${ROW_H}px;flex-shrink:0;">
         <div style="position:absolute;left:${todayPxBase}px;top:0;bottom:0;
                     width:2px;background:rgba(59,130,246,0.5);
                     z-index:2;pointer-events:none;"></div>
@@ -842,13 +828,11 @@ function _buildGanttRowBars(
 
   return rows.map((row, ri) => {
     let barsHTML = _buildMonthStripes(ganttStart, totalDays, today, DAY_PX, ROW_H);
-
     barsHTML += `
       <div style="position:absolute;left:${todayPxBase}px;top:0;bottom:0;
                   width:2px;background:rgba(59,130,246,0.5);
                   z-index:4;pointer-events:none;"></div>`;
 
-    // Weekend stripes
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(ganttStart);
       d.setDate(d.getDate() + i);
@@ -860,12 +844,10 @@ function _buildGanttRowBars(
       }
     }
 
-    // Proposal bars (first row only)
     if (ri === 0) {
       barsHTML += _buildProposalBars(carProposals, ganttStart, totalPx, DAY_PX, ROW_H);
     }
 
-    // Order bars
     row.orders.forEach(order => {
       barsHTML += _buildOrderBar(
         order, today, ganttStart, totalPx, DAY_PX, ROW_H, todayPxBase
@@ -884,13 +866,12 @@ function _buildGanttRowBars(
         </div>
         ${aHTML ? `
           <div style="position:sticky;right:0;width:230px;min-width:230px;
-				height:${ROW_H}px;padding:4px 10px;
-				background:var(--surface2);
-				border-left:2px solid var(--border2);
-				box-shadow:-4px 0 8px rgba(0,0,0,0.5);
-				display:flex;flex-direction:column;
-				justify-content:center;z-index:5;
-				isolation:isolate;">
+                      height:${ROW_H}px;padding:4px 10px;
+                      background:var(--surface2);
+                      border-left:2px solid var(--border2);
+                      box-shadow:-4px 0 8px rgba(0,0,0,0.5);
+                      display:flex;flex-direction:column;
+                      justify-content:center;z-index:5;isolation:isolate;">
             ${aHTML}
           </div>` : ''}
       </div>`;
@@ -906,12 +887,18 @@ function _buildMonthStripes(ganttStart, totalDays, today, DAY_PX, ROW_H) {
     const mLeft = Math.max(0, Math.floor((mS - ganttStart) / 86400000)) * DAY_PX;
     const mRight= Math.min(totalDays, Math.ceil((mE - ganttStart) / 86400000) + 1) * DAY_PX;
     const mW    = Math.max(0, mRight - mLeft);
-    const isCurM= md.getMonth() === today.getMonth() && md.getFullYear() === today.getFullYear();
+    const isCurM= md.getMonth() === today.getMonth() &&
+                  md.getFullYear() === today.getFullYear();
     const isEven= md.getMonth() % 2 === 0;
     html += `
       <div style="position:absolute;left:${mLeft}px;top:0;width:${mW}px;height:100%;
-                  background:${isCurM ? 'rgba(99,102,241,0.05)' : isEven ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.025)'};
-                  border-left:1px solid ${isCurM ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'};
+                  background:${isCurM
+                    ? 'rgba(99,102,241,0.05)'
+                    : isEven
+                    ? 'rgba(255,255,255,0.01)'
+                    : 'rgba(255,255,255,0.025)'};
+                  border-left:1px solid ${isCurM
+                    ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'};
                   pointer-events:none;z-index:1;"></div>`;
     md.setMonth(md.getMonth() + 1);
   }
@@ -921,8 +908,8 @@ function _buildMonthStripes(ganttStart, totalDays, today, DAY_PX, ROW_H) {
 function _buildProposalBars(carProposals, ganttStart, totalPx, DAY_PX, ROW_H) {
   let html = '';
   carProposals.forEach(p => {
-    const pStart = parseDBDate(p.pickup_date);
-    const pEnd   = parseDBDate(p.dropoff_date);
+    const pStart   = parseDBDate(p.pickup_date);
+    const pEnd     = parseDBDate(p.dropoff_date);
     if (!pStart || !pEnd) return;
     const pStartPx = Math.max(-DAY_PX, Math.floor((pStart - ganttStart) / 86400000) * DAY_PX);
     const pEndPx   = Math.min(totalPx + DAY_PX, Math.floor((pEnd - ganttStart) / 86400000) * DAY_PX);
@@ -937,7 +924,7 @@ function _buildProposalBars(carProposals, ganttStart, totalPx, DAY_PX, ROW_H) {
                   background:${bg};border-radius:3px;
                   border:1px dashed rgba(255,255,255,0.4);"
            onclick="previewProposal('${p.id}')"
-           title="Proposal: ${(p.client_name||'').replace(/'/g,'')} | ${p.status}">
+           title="Proposal: ${(p.client_name || '').replace(/'/g, '')} | ${p.status}">
         <div style="padding:1px 4px;font-size:8px;color:#fff;
                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
           📋 ${p.client_name || 'Proposal'}
@@ -947,7 +934,7 @@ function _buildProposalBars(carProposals, ganttStart, totalPx, DAY_PX, ROW_H) {
   return html;
 }
 
-// ── Build a single order bar with SPLIT top/bottom design ─────────────────
+// ── Build order bar — SPLIT top (order status) / bottom (payment status) ──
 function _buildOrderBar(
   order, today, ganttStart, totalPx, DAY_PX, ROW_H, todayPxBase
 ) {
@@ -961,20 +948,22 @@ function _buildOrderBar(
     (statusRaw === 'Active' || statusRaw === 'Overdue');
   const isFuture   = start > today && !isClosed && !isAccident;
 
-  const total    = getOrderTotal(order);
-  const paid     = getOrderPaid(order);
-  const daily    = parseAmount(order['سعر السيارة اليومي بالجنيه المصري']) ||
+  const total      = getOrderTotal(order);
+  const paid       = getOrderPaid(order);
+  const daily      = parseAmount(order['سعر السيارة اليومي بالجنيه المصري']) ||
     (total / Math.max(1, parseFloat(order.rental_days || 1)));
-  const lateDays = (isOverdue || isAccident) && end
+  const lateDays   = (isOverdue || isAccident) && end
     ? Math.max(0, Math.ceil((today - end) / 86400000)) : 0;
-  const latePenalty = lateDays * daily;
-  const debt     = isClosed ? 0 : Math.max(0, total + latePenalty - paid);
+  const latePenalty= lateDays * daily;
+  const debt       = isClosed ? 0 : Math.max(0, total + latePenalty - paid);
 
   const startDay  = Math.floor((start - ganttStart) / 86400000);
   const startPx   = Math.max(-DAY_PX, startDay * DAY_PX);
   const baseEndDate = end || new Date(start.getTime() + 86400000);
-  const baseEndPx   = Math.min(totalPx + DAY_PX,
-    Math.floor((baseEndDate - ganttStart) / 86400000) * DAY_PX);
+  const baseEndPx   = Math.min(
+    totalPx + DAY_PX,
+    Math.floor((baseEndDate - ganttStart) / 86400000) * DAY_PX
+  );
   const tailEndPx   = Math.min(totalPx, todayPxBase + DAY_PX);
   const barW  = Math.max(4, baseEndPx - Math.max(0, startPx));
   const tailW = (isOverdue || isAccident) && !isClosed
@@ -985,23 +974,20 @@ function _buildOrderBar(
   const clampedStartPx = Math.max(0, startPx);
   const barTop = 3;
   const barH   = ROW_H - 6;
-  const topH   = Math.floor(barH * 0.55); // order status top half
-  const botH   = barH - topH;              // payment status bottom half
+  const topH   = Math.floor(barH * 0.55);
+  const botH   = barH - topH;
 
-  // ── Order status color ──────────────────────────────────────
-  const orderKey = isAccident ? 'accident'
-    : isOverdue  ? 'overdue'
-    : isClosed   ? 'closed'
-    : isFuture   ? 'future'
+  const orderKey   = isAccident ? 'accident'
+    : isOverdue ? 'overdue'
+    : isClosed  ? 'closed'
+    : isFuture  ? 'future'
     : 'active';
   const orderColor = ORDER_STATUS_COLORS[orderKey] || '#3b82f6';
 
-  // ── Payment status color ────────────────────────────────────
-  const payKey   = getPaymentStatus(order);                          // ✅ global
-  const payColor = window.PAYMENT_STATUS_COLORS[payKey] || '#f59e0b'; // ✅ global
-  const payLabel = getPaymentStatusLabel(order); 
+  const payKey   = getPaymentStatus(order);
+  const payColor = window.PAYMENT_STATUS_COLORS[payKey] || '#f59e0b';
+  const payLabel = getPaymentStatusLabel(order);
 
-  // ── Tail backgrounds ────────────────────────────────────────
   let tailBg = null;
   if (isAccident) {
     tailBg = 'repeating-linear-gradient(45deg,#f59e0b,#f59e0b 4px,#111827 4px,#111827 8px)';
@@ -1010,21 +996,20 @@ function _buildOrderBar(
   }
 
   const clientName = (order['اسم العميل'] || '').replace(/'/g, '');
+  const tipKey     = 'g_' + order.id.replace(/[^a-zA-Z0-9]/g, '_');
 
-  // Store tooltip data
-  const tipKey = 'g_' + order.id.replace(/[^a-zA-Z0-9]/g, '_');
   window.ganttData[tipKey] = {
     id: order.id, no: getOrderNo(order),
-    client: getOrderClientName(order) || '-',
+    client  : getOrderClientName(order) || '-',
     clientId: order['كود العميل'] || '-',
-    start: fmtDate(start), end: end ? fmtDate(end) : 'N/A',
+    start   : fmtDate(start), end: end ? fmtDate(end) : 'N/A',
     total, paid, daily, debt, lateDays, latePenalty,
-    status: statusRaw, isAccident, isOverdue, isClosed, isFuture,
+    status  : statusRaw, isAccident, isOverdue, isClosed, isFuture,
     payStatus: payKey, payLabel,
-    deposit: order['الوديعة المعلقة لدينا'] || '£0.00',
-    pickup: order['مكان الاستلام'] || '-',
-    dropoff: order['مكان التسليم'] || '-',
-    branch: order['فرع الإصدار'] || '-'
+    deposit : order['الوديعة المعلقة لدينا'] || '£0.00',
+    pickup  : order['مكان الاستلام']  || '-',
+    dropoff : order['مكان التسليم']   || '-',
+    branch  : order['فرع الإصدار']    || '-'
   };
 
   const barEvents = `
@@ -1036,23 +1021,20 @@ function _buildOrderBar(
 
   let html = '';
 
-  // ── Future bar (dashed outline) ──────────────────────────────
   if (isFuture && barW > 0) {
     html += `
       <div style="position:absolute;left:${clampedStartPx}px;top:${barTop}px;
                   width:${barW}px;height:${barH}px;z-index:3;cursor:pointer;
                   border:2px dashed ${orderColor};border-radius:4px;
                   background:${orderColor}18;overflow:hidden;" ${barEvents}>
-        <!-- Top: order status -->
         <div style="height:${topH}px;background:${orderColor}30;
-                    display:flex;align-items:center;
-                    padding:0 4px;border-bottom:1px solid ${orderColor}44;">
+                    display:flex;align-items:center;padding:0 4px;
+                    border-bottom:1px solid ${orderColor}44;">
           <span style="font-size:9px;font-weight:700;color:${orderColor};
                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             ${clientName}
           </span>
         </div>
-        <!-- Bottom: payment status -->
         <div style="height:${botH}px;background:${payColor}22;
                     display:flex;align-items:center;padding:0 4px;">
           <span style="font-size:8px;font-weight:600;color:${payColor};
@@ -1062,7 +1044,6 @@ function _buildOrderBar(
         </div>
       </div>`;
 
-  // ── Normal bar (solid, split top/bottom) ─────────────────────
   } else if (barW > 0) {
     html += `
       <div style="position:absolute;left:${clampedStartPx}px;top:${barTop}px;
@@ -1070,8 +1051,6 @@ function _buildOrderBar(
                   border-radius:${tailW > 0 ? '4px 0 0 4px' : '4px'};
                   box-shadow:0 2px 6px rgba(0,0,0,0.35);
                   overflow:hidden;transition:filter 0.12s;" ${barEvents}>
-
-        <!-- Top half: order status -->
         <div style="height:${topH}px;background:${orderColor};
                     display:flex;align-items:center;padding:0 5px;">
           <span style="font-size:9px;font-weight:700;color:#fff;
@@ -1080,13 +1059,10 @@ function _buildOrderBar(
             ${clientName}
           </span>
         </div>
-
-        <!-- Bottom half: payment status -->
         <div style="height:${botH}px;background:${payColor};
                     display:flex;align-items:center;padding:0 5px;
                     border-top:1px solid rgba(255,255,255,0.15);">
-          <span style="font-size:8px;font-weight:600;
-                       color:rgba(255,255,255,0.95);
+          <span style="font-size:8px;font-weight:600;color:rgba(255,255,255,0.95);
                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
                        text-shadow:0 1px 2px rgba(0,0,0,0.5);">
             ${payLabel}
@@ -1094,7 +1070,6 @@ function _buildOrderBar(
         </div>
       </div>`;
 
-    // Overdue / accident tail
     if (tailW > 0 && tailBg) {
       html += `
         <div style="position:absolute;left:${baseEndPx}px;top:${barTop}px;
@@ -1110,8 +1085,11 @@ function _buildOrderBar(
 
 function _buildAssignmentInfo(lastOrd, today, DAY_PX) {
   if (!lastOrd) {
-    return `<span style="font-size:10px;color:var(--text3);">Idle / No Assignment</span>`;
+    return `<span style="font-size:10px;color:var(--text3);">
+              Idle / No Assignment
+            </span>`;
   }
+
   const { end: le } = getOrderDates(lastOrd);
   const lst  = getOrderStatus(lastOrd);
   const lt   = getOrderTotal(lastOrd);
@@ -1122,15 +1100,25 @@ function _buildAssignmentInfo(lastOrd, today, DAY_PX) {
   const lcl  = lst === 'Closed' || lastOrd.closed === true;
   const lov  = !lcl && le && today > le && (lst === 'Active' || lst === 'Overdue');
 
-  if (lcl) return `<span style="font-size:10px;color:var(--text3);">Idle / No Assignment</span>`;
+  if (lcl) {
+    return `<span style="font-size:10px;color:var(--text3);">
+              Idle / No Assignment
+            </span>`;
+  }
 
   if (lac) {
     const ldays = le ? Math.max(0, Math.ceil((today - le) / 86400000)) : 0;
     const ldbt  = Math.max(0, lt + (ldays * ld) - lp);
     return `
-      <div style="font-size:10px;color:var(--orange);font-weight:700;">🚨 ACCIDENT</div>
-      <div style="font-size:9px;color:var(--text2);">${getOrderClientName(lastOrd)||'-'}</div>
-      <div style="font-size:9px;color:var(--danger);">Debt: ${fmtMoney(ldbt)}</div>`;
+      <div style="font-size:10px;color:var(--orange);font-weight:700;">
+        🚨 ACCIDENT
+      </div>
+      <div style="font-size:9px;color:var(--text2);">
+        ${getOrderClientName(lastOrd) || '-'}
+      </div>
+      <div style="font-size:9px;color:var(--danger);">
+        Debt: ${fmtMoney(ldbt)}
+      </div>`;
   }
 
   if (lov) {
@@ -1138,32 +1126,35 @@ function _buildAssignmentInfo(lastOrd, today, DAY_PX) {
     const ldbt  = Math.max(0, lt + (ldays * ld) - lp);
     return `
       <div style="font-size:10px;color:var(--danger);font-weight:700;">
-        ⚠️ ${getOrderClientName(lastOrd)||'-'}
+        ⚠️ ${getOrderClientName(lastOrd) || '-'}
       </div>
       <div style="font-size:9px;color:var(--text3);">OVERDUE ${ldays}d</div>
       <div style="font-size:9px;color:var(--danger);">${fmtMoney(ldbt)}</div>`;
   }
 
-  // Payment status indicator in assignment panel
   const payKey   = getPaymentStatus(lastOrd);
   const payColor = window.PAYMENT_STATUS_COLORS[payKey] || '#f59e0b';
   const payLbl   = getPaymentStatusLabel(lastOrd);
 
   return `
-    <div style="font-size:10px;font-weight:700;">${lastOrd['اسم العميل']||'-'}</div>
+    <div style="font-size:10px;font-weight:700;">
+      ${lastOrd['اسم العميل'] || '-'}
+    </div>
     <div style="font-size:9px;color:var(--text3);">
       Ends: ${le ? fmtDateShort(le) : 'N/A'}
     </div>
-    <div style="font-size:9px;color:${payColor};font-weight:600;">${payLbl}</div>`;
+    <div style="font-size:9px;color:${payColor};font-weight:600;">
+      ${payLbl}
+    </div>`;
 }
 
 function _buildBranchAvailBadges() {
   const avail = { HRG:0, ALX:0, CAI:0, RSH:0 };
   const keys  = {
-    HRG: ['hurghada','الغردقة'],
-    ALX: ['alexandria','اسكندرية'],
-    CAI: ['cairo','قاهرة'],
-    RSH: ['rashid','رشيد']
+    HRG: ['hurghada', 'الغردقة'],
+    ALX: ['alexandria', 'اسكندرية'],
+    CAI: ['cairo', 'قاهرة'],
+    RSH: ['rashid', 'رشيد']
   };
   G.fleet.forEach(c => {
     if (getCarStatusCategory(c) !== 'available') return;
@@ -1181,7 +1172,10 @@ function _buildBranchAvailBadges() {
 }
 
 function _updateGanttSummaryBar(cars) {
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  };
   set('gsb-total',    cars.length);
   set('gsb-avail',    cars.filter(c => getCarStatusCategory(c) === 'available').length);
   set('gsb-rented',   cars.filter(c => getCarStatusCategory(c) === 'rented').length);
@@ -1190,7 +1184,7 @@ function _updateGanttSummaryBar(cars) {
 }
 
 // ============================================================
-// GANTT DRAG TO SCROLL
+// GANTT DRAG
 // ============================================================
 window.initGanttDrag = function() {
   const wrap = document.getElementById('gantt-wrap');
@@ -1203,6 +1197,7 @@ function _initGanttTouchDrag(el) {
   if (el._drag) return;
   el._drag = true;
   let dn = false, sx = 0, sl = 0, sy = 0, st = 0;
+
   el.addEventListener('mousedown', e => {
     if (e.button) return;
     dn = true; sx = e.clientX; sl = el.scrollLeft;
@@ -1210,7 +1205,10 @@ function _initGanttTouchDrag(el) {
     el.style.cursor = 'grabbing';
     e.preventDefault();
   });
-  window.addEventListener('mouseup', () => { dn = false; if (el) el.style.cursor = 'grab'; });
+  window.addEventListener('mouseup', () => {
+    dn = false;
+    if (el) el.style.cursor = 'grab';
+  });
   window.addEventListener('mousemove', e => {
     if (!dn) return;
     el.scrollLeft = sl - (e.clientX - sx);
@@ -1237,26 +1235,32 @@ window.showGanttTip = function(e, tipKey) {
 
   const orderColor = ORDER_STATUS_COLORS[
     d.isAccident ? 'accident' : d.isOverdue ? 'overdue' :
-    d.isClosed ? 'closed' : d.isFuture ? 'future' : 'active'
+    d.isClosed   ? 'closed'  : d.isFuture  ? 'future'  : 'active'
   ] || '#3b82f6';
+  const payColor = window.PAYMENT_STATUS_COLORS[d.payStatus] || '#f59e0b';
 
-  const payColor = PAYMENT_STATUS_COLORS[d.payStatus] || '#f59e0b';
-
-  let badge = d.isAccident ? `<span style="background:#f97316;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">🚨 ACCIDENT</span>`
-    : d.isOverdue ? `<span style="background:#ef4444;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">⚠️ OVERDUE</span>`
-    : d.isClosed  ? `<span style="background:#475569;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">✅ CLOSED</span>`
-    : d.isFuture  ? `<span style="background:#8b5cf6;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">📅 UPCOMING</span>`
+  const badge = d.isAccident
+    ? `<span style="background:#f97316;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">🚨 ACCIDENT</span>`
+    : d.isOverdue
+    ? `<span style="background:#ef4444;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">⚠️ OVERDUE</span>`
+    : d.isClosed
+    ? `<span style="background:#475569;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">✅ CLOSED</span>`
+    : d.isFuture
+    ? `<span style="background:#8b5cf6;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">📅 UPCOMING</span>`
     : `<span style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;">🚗 ACTIVE</span>`;
 
   t.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                margin-bottom:9px;">
       ${badge}
-      <span style="font-size:10px;font-weight:800;color:var(--accent);">Order #${d.no}</span>
+      <span style="font-size:10px;font-weight:800;color:var(--accent);">
+        Order #${d.no}
+      </span>
     </div>
     <div style="font-size:13px;font-weight:800;margin-bottom:2px;">${d.client}</div>
-    <div style="font-size:10px;color:var(--text3);margin-bottom:9px;">CRM ID: ${d.clientId}</div>
-
-    <!-- Status indicators -->
+    <div style="font-size:10px;color:var(--text3);margin-bottom:9px;">
+      CRM ID: ${d.clientId}
+    </div>
     <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap;">
       <span style="padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;
                    background:${orderColor}22;color:${orderColor};
@@ -1269,9 +1273,8 @@ window.showGanttTip = function(e, tipKey) {
         ${d.payLabel}
       </span>
     </div>
-
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;
-                font-size:10px;margin-bottom:9px;">
+    <div style="display:grid;grid-template-columns:auto 1fr;
+                gap:3px 10px;font-size:10px;margin-bottom:9px;">
       <span style="color:var(--text3);">Branch:</span>
       <span style="font-weight:600;">${d.branch}</span>
       <span style="color:var(--text3);">Pickup:</span>
@@ -1283,7 +1286,6 @@ window.showGanttTip = function(e, tipKey) {
       <span style="color:var(--text3);">End:</span>
       <span>${d.end}</span>
     </div>
-
     <div style="background:${d.debt > 0 ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)'};
                 border:1px solid ${d.debt > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'};
                 border-radius:8px;padding:9px;font-size:11px;">
@@ -1294,7 +1296,9 @@ window.showGanttTip = function(e, tipKey) {
       ${d.latePenalty > 0 ? `
         <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
           <span style="color:var(--danger);">+Penalty (${d.lateDays}d):</span>
-          <span style="color:var(--danger);font-weight:700;">${fmtMoney(d.latePenalty)}</span>
+          <span style="color:var(--danger);font-weight:700;">
+            ${fmtMoney(d.latePenalty)}
+          </span>
         </div>` : ''}
       <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
         <span style="color:var(--text3);">Paid:</span>
@@ -1311,8 +1315,7 @@ window.showGanttTip = function(e, tipKey) {
     </div>
     <div style="text-align:center;margin-top:7px;font-size:9px;color:var(--text3);">
       Click bar to open order
-    </div>
-  `;
+    </div>`;
 
   t.style.display = 'block';
   const tx = Math.min(e.clientX + 14, window.innerWidth - 325);
@@ -1321,7 +1324,10 @@ window.showGanttTip = function(e, tipKey) {
   t.style.top  = Math.max(5, ty) + 'px';
 };
 
-window.hideGanttTip  = function() { const t = document.getElementById('gantt-tooltip'); if (t) t.style.display = 'none'; };
+window.hideGanttTip  = function() {
+  const t = document.getElementById('gantt-tooltip');
+  if (t) t.style.display = 'none';
+};
 window.closeGanttTip = function() { hideGanttTip(); };
 
 // ============================================================
@@ -1341,71 +1347,115 @@ window.openCarDetailModal = async function(carId) {
     maintenance: 'var(--warning)',
     archived   : 'var(--text3)'
   };
-  const dotColor  = statusColors[catStatus] || 'var(--text3)';
-  // ✅ Plate from _c columns
-  const plateStr  = formatPlate(car);
+  const dotColor = statusColors[catStatus] || 'var(--text3)';
+  const plateStr = formatPlate(car);
+
+  // ✅ Load rate card for this car
+  const tiers = await getRateTiersForCar(String(car.id || car.ID));
 
   const html = `
     <div style="display:flex;align-items:center;gap:12px;padding:11px 13px;
                 border-radius:9px;margin-bottom:14px;
-                background:${catStatus==='accident'?'rgba(239,68,68,0.1)':catStatus==='maintenance'?'rgba(245,158,11,0.1)':catStatus==='available'?'rgba(34,197,94,0.1)':'rgba(59,130,246,0.1)'};
+                background:${catStatus === 'accident'   ? 'rgba(239,68,68,0.1)'  :
+                             catStatus === 'maintenance' ? 'rgba(245,158,11,0.1)' :
+                             catStatus === 'available'   ? 'rgba(34,197,94,0.1)'  :
+                             'rgba(59,130,246,0.1)'};
                 border:1px solid ${dotColor}30;">
       <div style="width:36px;height:36px;border-radius:50%;background:${dotColor}22;
                   display:flex;align-items:center;justify-content:center;font-size:18px;">
-        ${catStatus==='accident'?'🚨':catStatus==='maintenance'?'🔧':catStatus==='rented'?'🔵':catStatus==='archived'?'📦':'🟢'}
+        ${catStatus === 'accident'    ? '🚨' :
+          catStatus === 'maintenance' ? '🔧' :
+          catStatus === 'rented'      ? '🔵' :
+          catStatus === 'archived'    ? '📦' : '🟢'}
       </div>
       <div>
-        <div style="font-size:13px;font-weight:800;">${getCarLabel(car,'en')}</div>
+        <div style="font-size:13px;font-weight:800;">${getCarLabel(car, 'en')}</div>
         <div style="font-size:11px;color:${dotColor};font-weight:700;margin-top:2px;">
-          ${catStatus.toUpperCase()} | ID: ${car.ID||car.id}
-          ${plateStr ? ` | ${plateStr}` : ''}
+          ${catStatus.toUpperCase()} | ID: ${car.ID || car.id}
+          ${plateStr ? `| ${plateStr}` : ''}
         </div>
       </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:14px;">
+      <!-- Vehicle Info -->
       <div class="panel">
         <div style="font-size:10px;font-weight:800;color:var(--accent);
                     text-transform:uppercase;margin-bottom:9px;">🚗 Vehicle Info</div>
-        <div style="font-size:11px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;">
+        <div style="font-size:11px;display:grid;
+                    grid-template-columns:auto 1fr;gap:4px 10px;">
           <span style="color:var(--text3);">Model:</span>
-          <span style="font-weight:700;">${car.model||car.Type||'-'}</span>
+          <span style="font-weight:700;">${car.model || car.Type || '-'}</span>
           <span style="color:var(--text3);">Year:</span>
-          <span>${car.year||car['سنة الصنع']||'-'}</span>
+          <span>${car.year || car['سنة الصنع'] || '-'}</span>
           <span style="color:var(--text3);">Color:</span>
-          <span>${car.Color||car['اللون']||'-'}</span>
+          <span>${car.Color || car['اللون'] || '-'}</span>
           <span style="color:var(--text3);">Plate:</span>
-          <span style="font-weight:700;">${plateStr||'—'}</span>
+          <span style="font-weight:700;">${plateStr || '—'}</span>
           <span style="color:var(--text3);">Seats:</span>
-          <span>${car['Seat No.']||car['عدد المقاعد']||'-'}</span>
+          <span>${car['Seat No.'] || car['عدد المقاعد'] || '-'}</span>
           <span style="color:var(--text3);">Trans.:</span>
-          <span>${car['Transm. Type']||car['نوع ناقل الحركة']||'-'}</span>
+          <span>${car['Transm. Type'] || car['نوع ناقل الحركة'] || '-'}</span>
           <span style="color:var(--text3);">KM:</span>
-          <span>${car['كيلومتر تعاقد']||'-'}</span>
+          <span>${car['كيلومتر تعاقد'] || '-'}</span>
         </div>
       </div>
+
+      <!-- Contract Info -->
       <div class="panel">
         <div style="font-size:10px;font-weight:800;color:var(--accent);
                     text-transform:uppercase;margin-bottom:9px;">📋 Contract Info</div>
-        <div style="font-size:11px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;">
+        <div style="font-size:11px;display:grid;
+                    grid-template-columns:auto 1fr;gap:4px 10px;">
           <span style="color:var(--text3);">Status:</span>
           <span style="font-weight:700;color:${dotColor};">
-            ${car.Contract||car['حاله التعاقد']||'-'}
+            ${car.Contract || car['حاله التعاقد'] || '-'}
           </span>
           <span style="color:var(--text3);">License:</span>
-          <span>${fmtDateShort(parseDBDate(car['نهاية الترخيص']||''))||'-'}</span>
+          <span>
+            ${fmtDateShort(parseDBDate(car['نهاية الترخيص'] || '')) || '-'}
+          </span>
           <span style="color:var(--text3);">Insurance:</span>
-          <span>${fmtDateShort(parseDBDate(car['نهاية التأمين']||''))||'-'}</span>
+          <span>
+            ${fmtDateShort(parseDBDate(car['نهاية التأمين'] || '')) || '-'}
+          </span>
           <span style="color:var(--text3);">Contract end:</span>
-          <span>${fmtDateShort(parseDBDate(car['نهاية التعاقد']||''))||'-'}</span>
+          <span>
+            ${fmtDateShort(parseDBDate(car['نهاية التعاقد'] || '')) || '-'}
+          </span>
           <span style="color:var(--text3);">Monthly fee:</span>
           <span style="font-weight:700;">
-            ${fmtMoney(parseAmount(car['monthly_fee']||car['القيمة المالية']||0))}
+            ${fmtMoney(parseAmount(car['monthly_fee'] || car['القيمة المالية'] || 0))}
           </span>
         </div>
       </div>
     </div>
 
+    <!-- ✅ Rate Card section -->
+    <div style="margin-bottom:14px;padding:10px 12px;background:var(--surface2);
+                border:1px solid var(--border);border-radius:9px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:800;color:var(--accent);
+                    text-transform:uppercase;">💰 Rate Card</div>
+        ${isPriv ? `
+          <button class="btn btn-ghost btn-xs"
+            onclick="openRateCardEditor('${car.id || car.ID}')">
+            ✏️ Edit Rates
+          </button>` : ''}
+      </div>
+      ${tiers.length > 0
+        ? buildRateTierDisplay(tiers)
+        : `<div style="font-size:11px;color:var(--text3);">
+             No rate card set.
+             ${isPriv ? `<span style="color:var(--accent);cursor:pointer;"
+               onclick="openRateCardEditor('${car.id || car.ID}')">
+               Click to add rates
+             </span>` : ''}
+           </div>`}
+    </div>
+
+    <!-- Location -->
     <div style="margin-bottom:14px;padding:10px 12px;background:var(--surface2);
                 border:1px solid var(--border);border-radius:9px;">
       <div style="font-size:10px;font-weight:800;color:var(--accent);
@@ -1425,17 +1475,18 @@ window.openCarDetailModal = async function(carId) {
         </select>
         <input type="text" id="car-location-detail-${car.id}" class="form-input"
           style="flex:1;min-width:140px;" placeholder="Detail / notes..."
-          value="${car.current_location_detail||''}">
+          value="${car.current_location_detail || ''}">
         <button class="btn btn-primary btn-sm"
           onclick="saveCarLocation('${car.id}')">💾 Save</button>
       </div>
       <div style="font-size:10px;color:var(--text3);margin-top:5px;">
-        Current: <strong>${car.current_location||'Not set'}</strong>
+        Current: <strong>${car.current_location || 'Not set'}</strong>
         ${car.current_location_updated
           ? ' (updated: ' + car.current_location_updated + ')' : ''}
       </div>
     </div>
 
+    <!-- Actions -->
     <div style="display:flex;gap:7px;flex-wrap:wrap;">
       <button class="btn btn-primary"
         onclick="closeModal();showPage('vehicle-360');
@@ -1447,30 +1498,185 @@ window.openCarDetailModal = async function(carId) {
       </button>
       ${isPriv ? `
         <button class="btn btn-warning"
-          onclick="openCarEditModal('${car.ID||car.id}')">✏️ Edit Status</button>
-      ` : ''}
+          onclick="openCarEditModal('${car.ID || car.id}')">
+          ✏️ Edit Status
+        </button>` : ''}
       <button class="btn btn-ghost" onclick="closeModal()">Close</button>
-	  <button class="btn btn-ghost btn-sm"
-	  onclick="createTaskFromCar('${car.id}')">
-	  📌 Task
-	</button>
-	<button class="btn btn-ghost btn-sm"
-	  onclick="closeModal();showPage('order-book');
-		setTimeout(()=>{
-		  const s=document.getElementById('ob-search');
-		  if(s){s.value='${plateStr}';filterOrders();}
-		},300)">
-	  📋 Orders
-	</button>
+      <button class="btn btn-ghost btn-sm"
+        onclick="createTaskFromCar('${car.id}')">📌 Task</button>
+      <button class="btn btn-ghost btn-sm"
+        onclick="closeModal();showPage('order-book');
+          setTimeout(()=>{
+            const s=document.getElementById('ob-search');
+            if(s){s.value='${plateStr}';filterOrders();}
+          },300)">
+        📋 Orders
+      </button>
     </div>
   `;
 
-  openModal(`🚗 ${getCarLabel(car,'en')}`, html, true);
+  openModal(`🚗 ${getCarLabel(car, 'en')}`, html, true);
   setTimeout(() => {
     const sel = document.getElementById('car-location-select-' + car.id);
     if (sel && car.current_location) sel.value = car.current_location;
   }, 100);
-  await logAction('VIEW', 'Fleet Radar', `Viewed car: ${getCarLabel(car,'en')}`);
+  await logAction('VIEW', 'Fleet Radar', `Viewed car: ${getCarLabel(car, 'en')}`);
+};
+
+// ============================================================
+// RATE CARD EDITOR MODAL
+// ============================================================
+window.openRateCardEditor = async function(carId) {
+  if (!['Admin', 'Executive'].includes(G.user?.role)) {
+    toast('Admin access required', 'error'); return;
+  }
+  const car   = getCarById(String(carId));
+  if (!car)   { toast('Car not found', 'error'); return; }
+
+  const tiers = await getRateTiersForCar(String(carId));
+  const label = getCarLabel(car, 'en');
+  const plate = formatPlate(car);
+
+  // Build initial rows
+  const initTiers = tiers.length > 0 ? tiers : [
+    { min_days:1,  max_days:3,  daily_rate:0 },
+    { min_days:4,  max_days:7,  daily_rate:0 },
+    { min_days:8,  max_days:14, daily_rate:0 },
+    { min_days:15, max_days:29, daily_rate:0 },
+    { min_days:30, max_days:null, daily_rate:0 }
+  ];
+
+  const html = `
+    <div style="display:grid;gap:12px;">
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;
+                  font-size:12px;">
+        <strong>${label}</strong>
+        ${plate ? `<span style="color:var(--text3);"> | ${plate}</span>` : ''}
+      </div>
+
+      <div style="font-size:11px;color:var(--text3);">
+        Set daily rates per number of rental days.
+        Each tier applies when rental days fall within the range.
+      </div>
+
+      <div id="rate-tier-rows" style="display:grid;gap:6px;">
+        ${initTiers.map((t, i) => _buildRateTierRow(t, i)).join('')}
+      </div>
+
+      <button class="btn btn-ghost btn-sm" onclick="addRateTierRow()">
+        ➕ Add Tier
+      </button>
+
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-success" style="flex:1;"
+          onclick="submitRateCard('${carId}')">
+          💾 Save Rate Card
+        </button>
+        <button class="btn btn-ghost" style="flex:1;"
+          onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  openModal(`💰 Rate Card — ${label}`, html);
+
+  // Store tier count for dynamic add
+  window._rateTierCount = initTiers.length;
+};
+
+function _buildRateTierRow(tier, index) {
+  return `
+    <div id="rate-row-${index}"
+      style="display:grid;grid-template-columns:1fr 1fr 1fr auto;
+             gap:6px;align-items:center;">
+      <div>
+        <label style="font-size:10px;color:var(--text3);">
+          Min Days
+        </label>
+        <input type="number" id="tier-min-${index}" min="1"
+          value="${tier.min_days || 1}"
+          style="width:100%;padding:6px 8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:6px;
+                 color:var(--text);font-size:11px;"/>
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--text3);">
+          Max Days (blank = unlimited)
+        </label>
+        <input type="number" id="tier-max-${index}" min="1"
+          value="${tier.max_days || ''}"
+          placeholder="∞"
+          style="width:100%;padding:6px 8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:6px;
+                 color:var(--text);font-size:11px;"/>
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--text3);">
+          Daily Rate (EGP)
+        </label>
+        <input type="number" id="tier-rate-${index}" min="0"
+          value="${tier.daily_rate || ''}"
+          placeholder="0"
+          style="width:100%;padding:6px 8px;background:var(--surface2);
+                 border:1px solid var(--border);border-radius:6px;
+                 color:var(--text);font-size:11px;"/>
+      </div>
+      <button class="btn btn-danger btn-xs" style="margin-top:16px;"
+        onclick="removeRateTierRow(${index})">✕</button>
+    </div>`;
+}
+
+window.addRateTierRow = function() {
+  const container = document.getElementById('rate-tier-rows');
+  if (!container) return;
+  const idx  = window._rateTierCount || 0;
+  const prev = document.getElementById(`tier-max-${idx - 1}`);
+  const prevMax = prev ? parseInt(prev.value) || 0 : 0;
+  const newDiv = document.createElement('div');
+  newDiv.innerHTML = _buildRateTierRow(
+    { min_days: prevMax + 1, max_days: null, daily_rate: 0 },
+    idx
+  );
+  container.appendChild(newDiv.firstElementChild);
+  window._rateTierCount = idx + 1;
+};
+
+window.removeRateTierRow = function(index) {
+  const row = document.getElementById('rate-row-' + index);
+  if (row) row.remove();
+};
+
+window.submitRateCard = async function(carId) {
+  const tiers = [];
+  let i = 0;
+  while (true) {
+    const minEl  = document.getElementById(`tier-min-${i}`);
+    const maxEl  = document.getElementById(`tier-max-${i}`);
+    const rateEl = document.getElementById(`tier-rate-${i}`);
+    if (!minEl) break;
+
+    const min  = parseInt(minEl.value)  || 1;
+    const max  = maxEl.value ? parseInt(maxEl.value) : null;
+    const rate = parseFloat(rateEl.value) || 0;
+
+    tiers.push({ min_days: min, max_days: max, daily_rate: rate });
+    i++;
+  }
+
+  if (!tiers.length || tiers.every(t => t.daily_rate <= 0)) {
+    toast('Please enter at least one rate greater than 0', 'error');
+    return;
+  }
+
+  const car    = getCarById(String(carId));
+  const branch = getCarBranchCode(car) || '';
+  const ok     = await saveRateCard(carId, tiers, branch);
+
+  if (ok) {
+    closeModal();
+    // Reopen car detail to show updated rates
+    setTimeout(() => openCarDetailModal(carId), 300);
+  }
 };
 
 // ============================================================
@@ -1485,14 +1691,14 @@ window.saveCarLocation = async function(carId) {
     await db.collection('fleet').doc(carId).update({
       current_location         : location,
       current_location_detail  : detail,
-      current_location_updated : new Date().toISOString().slice(0,10),
+      current_location_updated : new Date().toISOString().slice(0, 10),
       current_location_updated_by: G.user?.username || ''
     }, { merge: true });
     const idx = G.fleet.findIndex(c => c.id === carId);
     if (idx >= 0) {
       G.fleet[idx].current_location        = location;
       G.fleet[idx].current_location_detail = detail;
-      G.fleet[idx].current_location_updated= new Date().toISOString().slice(0,10);
+      G.fleet[idx].current_location_updated= new Date().toISOString().slice(0, 10);
     }
     toast('✅ Location updated: ' + location, 'success');
   } catch (e) {
@@ -1504,49 +1710,71 @@ window.saveCarLocation = async function(carId) {
 // CAR EDIT MODAL
 // ============================================================
 window.openCarEditModal = async function(carId) {
-  const car = G.fleet.find(c => String(c.ID||c.id) === String(carId));
+  const car = G.fleet.find(c => String(c.ID || c.id) === String(carId));
   if (!car) return;
   closeModal();
 
   const html = `
     <p style="font-size:11px;color:var(--text3);margin-bottom:13px;">
-      Editing: <strong>${getCarLabel(car,'en')}</strong>
+      Editing: <strong>${getCarLabel(car, 'en')}</strong>
     </p>
     <div class="form-grid">
       <div class="field">
         <label>Contract Status</label>
         <select id="ce-contract">
-          <option value="Valid"       ${(car.Contract||'') === 'Valid'       ? 'selected':''}>Valid</option>
-          <option value="Maintenance" ${(car.Contract||'') === 'Maintenance' ? 'selected':''}>Maintenance</option>
-          <option value="Accident"    ${(car.Contract||'') === 'Accident'    ? 'selected':''}>Accident</option>
-          <option value="Finished"    ${(car.Contract||'') === 'Finished'    ? 'selected':''}>Finished</option>
+          <option value="Valid"
+            ${(car.Contract || '') === 'Valid'       ? 'selected' : ''}>Valid</option>
+          <option value="Maintenance"
+            ${(car.Contract || '') === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
+          <option value="Accident"
+            ${(car.Contract || '') === 'Accident'    ? 'selected' : ''}>Accident</option>
+          <option value="Finished"
+            ${(car.Contract || '') === 'Finished'    ? 'selected' : ''}>Finished</option>
         </select>
       </div>
       <div class="field">
         <label>Availability Status</label>
         <select id="ce-status">
-          <option value="available"    ${(car.status||'') === 'available'     ? 'selected':''}>Available</option>
-          <option value="rented"       ${(car.status||'') === 'rented'        ? 'selected':''}>Rented</option>
-          <option value="maintenance"  ${(car.status||'') === 'maintenance'   ? 'selected':''}>Maintenance</option>
-          <option value="accident"     ${(car.status||'') === 'accident'      ? 'selected':''}>Accident</option>
-          <option value="out_of_service" ${(car.status||'') === 'out_of_service' ? 'selected':''}>Out of Service</option>
+          <option value="available"
+            ${(car.status || '') === 'available'    ? 'selected' : ''}>Available</option>
+          <option value="rented"
+            ${(car.status || '') === 'rented'       ? 'selected' : ''}>Rented</option>
+          <option value="maintenance"
+            ${(car.status || '') === 'maintenance'  ? 'selected' : ''}>Maintenance</option>
+          <option value="accident"
+            ${(car.status || '') === 'accident'     ? 'selected' : ''}>Accident</option>
+          <option value="out_of_service"
+            ${(car.status || '') === 'out_of_service'? 'selected' : ''}>
+            Out of Service
+          </option>
         </select>
       </div>
       <div class="field">
         <label>Current KM</label>
-        <input type="number" id="ce-km" value="${car['كيلومتر تعاقد']||''}"/>
+        <input type="number" id="ce-km"
+          value="${car['كيلومتر تعاقد'] || ''}"/>
       </div>
       <div class="field">
         <label>GPS Status</label>
         <select id="ce-gps">
-          <option value="لا يوجد" ${(car['GPS Stat.']||'') === 'لا يوجد' ? 'selected':''}>No GPS</option>
-          <option value="يعمل"    ${(car['GPS Stat.']||'') === 'يعمل'    ? 'selected':''}>Working</option>
-          <option value="لا يعمل" ${(car['GPS Stat.']||'') === 'لا يعمل' ? 'selected':''}>Not Working</option>
+          <option value="لا يوجد"
+            ${(car['GPS Stat.'] || '') === 'لا يوجد' ? 'selected' : ''}>
+            No GPS
+          </option>
+          <option value="يعمل"
+            ${(car['GPS Stat.'] || '') === 'يعمل'    ? 'selected' : ''}>
+            Working
+          </option>
+          <option value="لا يعمل"
+            ${(car['GPS Stat.'] || '') === 'لا يعمل' ? 'selected' : ''}>
+            Not Working
+          </option>
         </select>
       </div>
       <div class="field" style="grid-column:1/-1;">
         <label>Notes</label>
-        <input type="text" id="ce-notes" value="${(car.Notes||car['ملاحظات']||'').replace(/"/g,'&quot;')}"/>
+        <input type="text" id="ce-notes"
+          value="${(car.Notes || car['ملاحظات'] || '').replace(/"/g, '&quot;')}"/>
       </div>
     </div>
     <div style="display:flex;gap:7px;margin-top:13px;">
@@ -1555,18 +1783,18 @@ window.openCarEditModal = async function(carId) {
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>
   `;
-  openModal(`✏️ Edit Car — #${car.ID||car.id}`, html);
+  openModal(`✏️ Edit Car — #${car.ID || car.id}`, html);
 };
 
 window.saveCarEdit = async function(docId) {
   try {
     const upd = {
-      Contract       : document.getElementById('ce-contract')?.value || 'Valid',
-      status         : document.getElementById('ce-status')?.value   || 'available',
+      Contract        : document.getElementById('ce-contract')?.value || 'Valid',
+      status          : document.getElementById('ce-status')?.value   || 'available',
       'كيلومتر تعاقد': document.getElementById('ce-km')?.value       || '',
-      'GPS Stat.'    : document.getElementById('ce-gps')?.value      || '',
-      Notes          : document.getElementById('ce-notes')?.value    || '',
-      _sys_updated   : Date.now()
+      'GPS Stat.'     : document.getElementById('ce-gps')?.value      || '',
+      Notes           : document.getElementById('ce-notes')?.value    || '',
+      _sys_updated    : Date.now()
     };
     await db.collection('fleet').doc(docId).update(upd);
     const idx = G.fleet.findIndex(c => c.id === docId);
@@ -1590,8 +1818,8 @@ window.showCarInfoBadge = function(carId, containerId) {
   if (!carId) { container.className = 'car-info-badge'; return; }
   const car = getCarById(carId);
   if (!car)  { container.className = 'car-info-badge'; return; }
-  const cat         = getCarStatusCategory(car);
-  const plateStr    = formatPlate(car);
+  const cat      = getCarStatusCategory(car);
+  const plateStr = formatPlate(car);
   const statusLabel = {
     available  : '🟢 Available',
     rented     : '🔵 Rented',
@@ -1601,17 +1829,17 @@ window.showCarInfoBadge = function(carId, containerId) {
 
   container.className = 'car-info-badge visible';
   container.innerHTML = [
-    { label:'Plate',    value: plateStr||'—' },
-    { label:'Year',     value: car.year||car['سنة الصنع']||'-' },
-    { label:'Color',    value: car.Color||car['اللون']||'-' },
-    { label:'Seats',    value: car['Seat No.']||car['عدد المقاعد']||'-' },
+    { label:'Plate',    value: plateStr || '—' },
+    { label:'Year',     value: car.year || car['سنة الصنع'] || '-' },
+    { label:'Color',    value: car.Color || car['اللون'] || '-' },
+    { label:'Seats',    value: car['Seat No.'] || car['عدد المقاعد'] || '-' },
     { label:'Status',   value: statusLabel },
-    { label:'KM',       value: car['كيلومتر تعاقد']||'-' },
-    { label:'Contract', value: car.Contract||car['حاله التعاقد']||'-' },
+    { label:'KM',       value: car['كيلومتر تعاقد'] || '-' },
+    { label:'Contract', value: car.Contract || car['حاله التعاقد'] || '-' },
     { label:'Until',    value: car['تاريخ التسليم']
         ? fmtDateShort(parseDBDate(car['تاريخ التسليم'])) : '-' },
-    { label:'Owner',    value: ((car['الاسم الأول']||'') + ' ' +
-        (car['الاسم الأخير']||'')).trim()||'-' }
+    { label:'Owner',    value: ((car['الاسم الأول'] || '') + ' ' +
+        (car['الاسم الأخير'] || '')).trim() || '-' }
   ].map(f =>
     `<div class="cib-field"><label>${f.label}</label><span>${f.value}</span></div>`
   ).join('');
@@ -1625,7 +1853,6 @@ async function _renderVehicle360Full() {
   if (!el) return;
   if (!G.fleet || !G.fleet.length) await loadFleetData();
 
-  // ── Collapsible header state ─────────────────────────────────
   const hKey      = 'v360_header_collapsed';
   const collapsed = localStorage.getItem(hKey) === 'true';
 
@@ -1662,7 +1889,6 @@ async function _renderVehicle360Full() {
         style="overflow:hidden;transition:max-height 0.3s ease;
                max-height:${collapsed ? '0px' : '200px'};">
         <div style="padding:0 14px 12px;">
-          <!-- Tab bar -->
           <div style="display:flex;gap:7px;">
             <button id="v360-tab-active"
               onclick="window._v360Tab='active';_v360SwitchTab()"
@@ -1685,17 +1911,14 @@ async function _renderVehicle360Full() {
       </div>
     </div>
 
-    <!-- Hidden select -->
     <select id="v360-car-select" onchange="loadVehicle360Details()"
       style="display:none;"></select>
 
-    <!-- Car grid -->
     <div id="v360-car-grid"
       style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
              gap:12px;margin-bottom:18px;">
     </div>
 
-    <!-- Detail pane -->
     <div id="v360-content">
       <div class="empty-state">
         <div class="es-icon">🔭</div>
@@ -1721,7 +1944,7 @@ async function _renderVehicle360Full() {
   };
 
   window._v360SwitchTab = function() {
-    ['active','all','archived'].forEach(t => {
+    ['active', 'all', 'archived'].forEach(t => {
       const btn = document.getElementById('v360-tab-' + t);
       if (!btn) return;
       const on = window._v360Tab === t;
@@ -1738,17 +1961,22 @@ function _v360RenderGrid() {
 
   let cars = G.fleet;
   const tab = window._v360Tab || 'active';
+
   if (tab === 'active') {
-	  cars = G.fleet.filter(c => {
-		const cat      = getCarStatusCategory(c);
-		if (cat === 'archived') return false;
-		// Only show cars with valid/active contracts
-		const contract = String(c.Contract || c['حاله التعاقد'] || '').toLowerCase();
-		return contract === 'valid' || contract === 'ساري' ||
-			   cat === 'rented' || cat === 'available' ||
-			   cat === 'accident' || cat === 'maintenance';
-	  });
-	}
+    cars = G.fleet.filter(c => {
+      const cat      = getCarStatusCategory(c);
+      if (cat === 'archived') return false;
+      const contract = String(c.Contract || c['حاله التعاقد'] || '').toLowerCase();
+      return contract === 'valid' || contract === 'ساري' ||
+             cat === 'rented'    || cat === 'available'  ||
+             cat === 'accident'  || cat === 'maintenance';
+    });
+  } else if (tab === 'archived') {
+    cars = G.fleet.filter(c =>
+      c.archived === true || c.is_active === false ||
+      getCarStatusCategory(c) === 'archived'
+    );
+  }
 
   if (!cars.length) {
     gridEl.innerHTML = `
@@ -1778,7 +2006,8 @@ function _v360RenderGrid() {
     html += `
       <div style="grid-column:1/-1;font-size:11px;font-weight:800;color:var(--accent);
                   text-transform:uppercase;letter-spacing:0.08em;
-                  padding:6px 0 4px;border-bottom:1px solid var(--border);margin-bottom:2px;">
+                  padding:6px 0 4px;border-bottom:1px solid var(--border);
+                  margin-bottom:2px;">
         ${type}
         <span style="font-size:9px;color:var(--text3);font-weight:400;">
           (${groups[type].length})
@@ -1793,14 +2022,17 @@ function _v360RenderGrid() {
       const fee      = c.monthly_fee || c['col_CJ'] || '';
       return `
         <div style="background:var(--surface2);border:1px solid var(--border);
-                    border-radius:10px;padding:12px;cursor:pointer;transition:all 0.2s;"
-             onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'"
-             onmouseout="this.style.borderColor='var(--border)';this.style.transform=''"
+                    border-radius:10px;padding:12px;cursor:pointer;
+                    transition:all 0.2s;"
+             onmouseover="this.style.borderColor='var(--accent)';
+                          this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.borderColor='var(--border)';
+                         this.style.transform=''"
              onclick="loadVehicle360ById('${c.id}')">
           <div style="font-size:22px;text-align:center;margin-bottom:6px;">🚗</div>
           <div style="font-size:11px;font-weight:800;white-space:nowrap;
                       overflow:hidden;text-overflow:ellipsis;" title="${en}">
-            ${en||'—'}
+            ${en || '—'}
           </div>
           <div style="display:flex;align-items:center;gap:5px;margin-top:6px;">
             <span style="width:8px;height:8px;border-radius:50%;
@@ -1808,13 +2040,15 @@ function _v360RenderGrid() {
             <span style="font-size:9px;color:var(--text3);">${cat}</span>
           </div>
           <div style="font-size:10px;color:var(--text3);margin-top:4px;">
-            🔢 ${plateStr||'No plate'}
+            🔢 ${plateStr || 'No plate'}
           </div>
           <div style="font-size:9px;color:var(--text3);margin-top:2px;">
-            📍 ${c.current_location||'Location unknown'}
+            📍 ${c.current_location || 'Location unknown'}
           </div>
-          ${fee ? `<div style="font-size:10px;color:var(--success);margin-top:2px;">
-            💰 ${fee}/mo</div>` : ''}
+          ${fee ? `
+            <div style="font-size:10px;color:var(--success);margin-top:2px;">
+              💰 ${fee}/mo
+            </div>` : ''}
         </div>`;
     }).join('');
   });
@@ -1886,9 +2120,9 @@ window.loadVehicle360Details = async function() {
 
     const cacheKey = '_carExpCache_' + carId;
     if (!window[cacheKey] || Date.now() - window[cacheKey + '_t'] > 60000) {
-      const snap = await db.collection('car_expenses').get();
-      window[cacheKey]       = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-      window[cacheKey + '_t']= Date.now();
+      const snap      = await db.collection('car_expenses').get();
+      window[cacheKey]= snap.docs.map(d => ({ id:d.id, ...d.data() }));
+      window[cacheKey + '_t'] = Date.now();
     }
     const carExps = window[cacheKey].filter(e => {
       const eCarId = String(e['كود السيارة'] || '').trim();
@@ -1896,14 +2130,18 @@ window.loadVehicle360Details = async function() {
       return orders.some(o => String(o['No.']) === String(e['كود الاوردر']));
     });
 
-    const totalRevenue  = orders.reduce((s,o) => s + getOrderTotal(o), 0);
-    const totalPaid     = orders.reduce((s,o) => s + getOrderPaid(o), 0);
-    const totalExpenses = carExps.reduce((s,e) => s + parseAmount(e['قيمة المصروف']), 0);
+    const totalRevenue  = orders.reduce((s, o) => s + getOrderTotal(o), 0);
+    const totalPaid     = orders.reduce((s, o) => s + getOrderPaid(o), 0);
+    const totalExpenses = carExps.reduce((s, e) => s + parseAmount(e['قيمة المصروف']), 0);
     const netROI        = totalPaid - totalExpenses;
-    const isPriv        = ['Admin','Executive'].includes(G.user?.role);
+    const isPriv        = ['Admin', 'Executive'].includes(G.user?.role);
     const plateStr      = formatPlate(car);
 
+    // Load rate card tiers for display
+    const tiers = await getRateTiersForCar(String(car.id || car.ID));
+
     content.innerHTML = `
+      <!-- KPI Row -->
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
                   gap:10px;margin-bottom:16px;">
         <div class="kpi-card">
@@ -1924,13 +2162,35 @@ window.loadVehicle360Details = async function() {
         <div class="kpi-card">
           <div class="kpi-label">Net ROI</div>
           <div class="kpi-value"
-            style="color:${netROI>=0?'var(--success)':'var(--danger)'};">
+            style="color:${netROI >= 0 ? 'var(--success)' : 'var(--danger)'};">
             ${fmtMoney(netROI)}
           </div>
           <div class="kpi-sub">Collected - Expenses</div>
         </div>
       </div>
 
+      <!-- Rate Card in V360 -->
+      ${tiers.length > 0 ? `
+        <div class="panel" style="margin-bottom:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;
+                      margin-bottom:10px;">
+            <h3 style="font-size:13px;font-weight:800;">💰 Rate Card</h3>
+            ${isPriv ? `
+              <button class="btn btn-ghost btn-xs"
+                onclick="openRateCardEditor('${car.id || car.ID}')">
+                ✏️ Edit
+              </button>` : ''}
+          </div>
+          ${buildRateTierDisplay(tiers)}
+        </div>` : isPriv ? `
+        <div class="panel" style="margin-bottom:14px;text-align:center;padding:14px;">
+          <button class="btn btn-ghost btn-sm"
+            onclick="openRateCardEditor('${car.id || car.ID}')">
+            ➕ Add Rate Card
+          </button>
+        </div>` : ''}
+
+      <!-- Rental History -->
       <div class="panel" style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;
                     margin-bottom:11px;">
@@ -1942,39 +2202,56 @@ window.loadVehicle360Details = async function() {
           ? '<div class="empty-state" style="padding:20px;"><p>No orders found.</p></div>'
           : `<div class="table-wrap">
                <table class="data-table">
-                 <thead><tr>
-                   <th>Order #</th><th>Client</th>
-                   <th>Start</th><th>End</th>
-                   <th>Total</th><th>Paid</th>
-                   <th>Order Status</th><th>Payment</th>
-                 </tr></thead>
+                 <thead>
+                   <tr>
+                     <th>Order #</th><th>Client</th>
+                     <th>Start</th><th>End</th>
+                     <th>Total</th><th>Paid</th>
+                     <th>Order Status</th><th>Payment</th>
+                   </tr>
+                 </thead>
                  <tbody>
                    ${orders
-                     .sort((a,b) => {
-                       const {start:as} = getOrderDates(a);
-                       const {start:bs} = getOrderDates(b);
-                       return (bs||0) - (as||0);
+                     .sort((a, b) => {
+                       const { start:as } = getOrderDates(a);
+                       const { start:bs } = getOrderDates(b);
+                       return (bs || 0) - (as || 0);
                      })
                      .map(o => {
-                       const {start,end} = getOrderDates(o);
+                       const { start, end } = getOrderDates(o);
                        const st    = getOrderStatus(o);
-                       const sk    = st==='Accident'?'accident':st==='Overdue'?'overdue':st==='Closed'?'closed':'active';
-                       const payK   = getPaymentStatus(o);
-					   const payLbl = getPaymentStatusLabel(o);
-					   const payC   = window.PAYMENT_STATUS_COLORS[payK] || '#f59e0b';
+                       const sk    = st === 'Accident' ? 'accident'
+                                   : st === 'Overdue'  ? 'overdue'
+                                   : st === 'Closed'   ? 'closed' : 'active';
+                       const payK  = getPaymentStatus(o);
+                       const payLbl= getPaymentStatusLabel(o);
+                       const payC  = window.PAYMENT_STATUS_COLORS[payK] || '#f59e0b';
                        return `
-                         <tr style="cursor:pointer;" onclick="openOrderDetail('${o.id}')">
-                           <td><span style="color:var(--accent);font-weight:700;">
-                             #${getOrderNo(o)}</span></td>
-                           <td>${getOrderClientName(o)||'—'}</td>
-                           <td style="font-size:10px;">${start?fmtDate(start):'—'}</td>
-                           <td style="font-size:10px;">${end?fmtDate(end):'—'}</td>
+                         <tr style="cursor:pointer;"
+                             onclick="openOrderDetail('${o.id}')">
+                           <td>
+                             <span style="color:var(--accent);font-weight:700;">
+                               #${getOrderNo(o)}
+                             </span>
+                           </td>
+                           <td>${getOrderClientName(o) || '—'}</td>
+                           <td style="font-size:10px;">
+                             ${start ? fmtDate(start) : '—'}
+                           </td>
+                           <td style="font-size:10px;">
+                             ${end ? fmtDate(end) : '—'}
+                           </td>
                            <td>${fmtMoney(getOrderTotal(o))}</td>
                            <td>${fmtMoney(getOrderPaid(o))}</td>
-                           <td><span class="pill pill-${sk}">${st}</span></td>
-                           <td><span style="font-size:10px;font-weight:700;color:${payC};">
-                             ${payLbl}
-                           </span></td>
+                           <td>
+                             <span class="pill pill-${sk}">${st}</span>
+                           </td>
+                           <td>
+                             <span style="font-size:10px;font-weight:700;
+                                          color:${payC};">
+                               ${payLbl}
+                             </span>
+                           </td>
                          </tr>`;
                      }).join('')}
                  </tbody>
@@ -1982,18 +2259,22 @@ window.loadVehicle360Details = async function() {
              </div>`}
       </div>
 
+      <!-- Actions -->
       <div style="display:flex;gap:7px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="showPage('fleet-radar')">
-          📡 Fleet Radar
-        </button>
+        <button class="btn btn-primary"
+          onclick="showPage('fleet-radar')">📡 Fleet Radar</button>
         ${isPriv ? `
-          <button class="btn btn-warning" onclick="openCarEditModal('${car.id}')">
-            ✏️ Edit Status
+          <button class="btn btn-warning"
+            onclick="openCarEditModal('${car.id}')">✏️ Edit Status</button>
+          <button class="btn btn-ghost"
+            onclick="openRateCardEditor('${car.id || car.ID}')">
+            💰 Rate Card
           </button>` : ''}
       </div>
     `;
 
-    await logAction('VIEW','Vehicle 360',`Viewed: ${getCarLabel(car,'en')}`);
+    await logAction('VIEW', 'Vehicle 360', `Viewed: ${getCarLabel(car, 'en')}`);
+
   } catch (e) {
     content.innerHTML = `<div class="empty-state"><p>Failed: ${e.message}</p></div>`;
     console.warn('V360 error:', e);

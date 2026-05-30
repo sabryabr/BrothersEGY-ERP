@@ -1,46 +1,24 @@
 // ============================================================
-// modules/vehicle360.js
-// Payment status helpers (duplicated here since fleet.js
-// functions are not accessible cross-module)
+// modules/vehicle360.js v4.1
+// Vehicle 360 — complete financial and operational view
+// Uses global getPaymentStatus / PAYMENT_STATUS_COLORS from utils.js
 // ============================================================
 
-const PAYMENT_STATUS_COLORS_V360 = {
-  paid   : '#22c55e',
-  partial: '#f59e0b',
-  unpaid : '#ef4444',
-  overdue: '#dc2626',
-  clear  : '#22c55e'
+// ============================================================
+// ENTRY POINT
+// ============================================================
+window.renderVehicle360 = function() {
+  renderPageLoading('page-vehicle-360', '🔭', 'Vehicle 360');
+  _renderVehicle360Full();
 };
 
-function _getPaymentStatus(order) {
-  const total = parseAmount(order['إجمالي المستحق (Total)'] || 0);
-  const paid  = parseAmount(order['المدفوع EGP']           || 0);
-  if (total <= 0)    return 'clear';
-  if (paid  <= 0)    return 'unpaid';
-  if (paid  >= total) return 'paid';
-  const { end } = getOrderDates(order);
-  const today   = getCairoNow();
-  if (end && today > end && !order.closed) return 'overdue';
-  return 'partial';
-}
-
-function _getPaymentStatusLabel(order) {
-  return {
-    paid   : '✅ Paid',
-    partial: '⚡ Partial',
-    unpaid : '❌ Unpaid',
-    overdue: '🔴 Overdue Debt',
-    clear  : '✅ Clear'
-  }[_getPaymentStatus(order)] || '—';
-}
-
 // ============================================================
-// VEHICLE 360 — Full replacement for V360 section in fleet.js
+// MAIN PAGE BUILDER
 // ============================================================
-
 async function _renderVehicle360Full() {
   const el = document.getElementById('page-vehicle-360');
   if (!el) return;
+
   if (!G.fleet || !G.fleet.length) await loadFleetData();
 
   const hKey      = 'v360_header_collapsed';
@@ -75,7 +53,7 @@ async function _renderVehicle360Full() {
         </div>
       </div>
 
-      <!-- Collapsible body: tabs -->
+      <!-- Collapsible tabs -->
       <div id="v360-header-collapsible"
         style="overflow:hidden;transition:max-height 0.3s ease;
                max-height:${collapsed ? '0px' : '200px'};">
@@ -102,16 +80,14 @@ async function _renderVehicle360Full() {
       </div>
     </div>
 
-    <!-- Hidden select (keeps loadVehicle360Details working) -->
+    <!-- Hidden select -->
     <select id="v360-car-select" onchange="loadVehicle360Details()"
       style="display:none;"></select>
 
     <!-- Car grid -->
     <div id="v360-car-grid"
-      style="display:grid;
-             grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
-             gap:12px;margin-bottom:18px;">
-    </div>
+      style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+             gap:12px;margin-bottom:18px;"></div>
 
     <!-- Detail pane -->
     <div id="v360-content">
@@ -151,23 +127,24 @@ async function _renderVehicle360Full() {
   _v360RenderGrid();
 }
 
+// ============================================================
+// CAR GRID
+// ============================================================
 function _v360RenderGrid() {
   const gridEl = document.getElementById('v360-car-grid');
   if (!gridEl) return;
 
   const tab = window._v360Tab || 'active';
-  let cars  = [];
+  let cars   = [];
 
   if (tab === 'active') {
-    // ✅ FIXED: Active = Contract is Valid/ساري AND not archived
     cars = G.fleet.filter(c => {
       const cat      = getCarStatusCategory(c);
       if (cat === 'archived') return false;
       const contract = String(c.Contract || c['حاله التعاقد'] || '').toLowerCase();
-      // Include cars with valid contracts or cars that are actively rented
       return contract === 'valid' || contract === 'ساري' ||
-             cat === 'rented' || cat === 'available' ||
-             cat === 'accident' || cat === 'maintenance';
+             cat === 'rented'    || cat === 'available'  ||
+             cat === 'accident'  || cat === 'maintenance';
     });
   } else if (tab === 'archived') {
     cars = G.fleet.filter(c => getCarStatusCategory(c) === 'archived');
@@ -183,7 +160,6 @@ function _v360RenderGrid() {
     return;
   }
 
-  // Group by make/type
   const groups = {};
   cars.forEach(c => {
     const type = (c['النوع'] || c.Type || 'Other').toString().trim() || 'Other';
@@ -263,8 +239,8 @@ window.loadVehicle360ById = function(carDocId) {
   const sel = document.getElementById('v360-car-select');
   if (!sel) return;
   if (!sel.querySelector(`option[value="${carDocId}"]`)) {
-    const opt   = document.createElement('option');
-    opt.value   = carDocId;
+    const opt = document.createElement('option');
+    opt.value = carDocId;
     sel.appendChild(opt);
   }
   sel.value = carDocId;
@@ -273,6 +249,9 @@ window.loadVehicle360ById = function(carDocId) {
   if (content) content.scrollIntoView({ behavior:'smooth', block:'start' });
 };
 
+// ============================================================
+// VEHICLE DETAIL
+// ============================================================
 window.loadVehicle360Details = async function() {
   const carId  = document.getElementById('v360-car-select')?.value;
   const content= document.getElementById('v360-content');
@@ -323,11 +302,11 @@ window.loadVehicle360Details = async function() {
       return false;
     });
 
-    // Load car expenses
+    // Load car expenses (cached 60s)
     const cacheKey = '_carExpCache_' + carId;
     if (!window[cacheKey] || Date.now() - window[cacheKey + '_t'] > 60000) {
-      const snap       = await db.collection('car_expenses').get();
-      window[cacheKey] = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+      const snap      = await db.collection('car_expenses').get();
+      window[cacheKey]= snap.docs.map(d => ({ id:d.id, ...d.data() }));
       window[cacheKey + '_t'] = Date.now();
     }
     const carExps = window[cacheKey].filter(e => {
@@ -336,61 +315,45 @@ window.loadVehicle360Details = async function() {
       return orders.some(o => String(o['No.']) === String(e['كود الاوردر']));
     });
 
-    const today   = getCairoNow();
-    const catStatus       = getCarStatusCategory(car);
-    const isPriv          = ['Admin','Executive'].includes(G.user?.role);
-    const plateStr        = formatPlate(car);
+    const today      = getCairoNow();
+    const catStatus  = getCarStatusCategory(car);
+    const isPriv     = ['Admin','Executive'].includes(G.user?.role);
+    const plateStr   = formatPlate(car);
 
-    // ── Financial calcs ────────────────────────────────────
-    const totalRevenue    = orders.reduce((s,o) => s + getOrderTotal(o), 0);
-    const totalCollected  = orders.reduce((s,o) => s + getOrderPaid(o), 0);
-    const totalExpenses   = carExps.reduce((s,e) => s + parseAmount(e['قيمة المصروف']), 0);
-    const netROI          = totalCollected - totalExpenses;
+    // ── Financial calcs ──────────────────────────────────────
+    const totalRevenue   = orders.reduce((s, o) => s + getOrderTotal(o), 0);
+    const totalCollected = orders.reduce((s, o) => s + getOrderPaid(o), 0);
+    const totalExpenses  = carExps.reduce((s, e) => s + parseAmount(e['قيمة المصروف']), 0);
+    const netROI         = totalCollected - totalExpenses;
 
-    // ✅ FIXED: Pending debt = sum of actual debts on non-closed orders
+    // ✅ Correct pending debt calc
     const pendingDebt = orders.reduce((sum, o) => {
       if (o.closed || getOrderStatus(o) === 'Closed') return sum;
-      const total   = getOrderTotal(o);
-      const paid    = getOrderPaid(o);
-      const daily   = parseAmount(o['سعر السيارة اليومي بالجنيه المصري']) ||
+      const total = getOrderTotal(o);
+      const paid  = getOrderPaid(o);
+      const daily = parseAmount(o['سعر السيارة اليومي بالجنيه المصري']) ||
         (total / Math.max(1, parseFloat(o.rental_days || 1)));
       const { end } = getOrderDates(o);
       let debt = total - paid;
       if (end && today > end) {
-        const lateDays = Math.max(0, Math.ceil((today - end) / 86400000));
-        debt += lateDays * daily;
+        debt += Math.max(0, Math.ceil((today - end) / 86400000)) * daily;
       }
       return sum + Math.max(0, debt);
     }, 0);
 
-    // Held deposits
     const heldDeposits = orders.reduce((sum, o) => {
       const held     = parseAmount(o['الوديعة المحتجزة'] || o.deposit_held     || 0);
       const returned = parseAmount(o['الوديعة المردودة'] || o.deposit_returned || 0);
       return sum + Math.max(0, held - returned);
     }, 0);
 
-    // ── Expiry dates ────────────────────────────────────────
-    const licenseEnd   = car['نهاية الترخيص']   || '';
-    const insuranceEnd = car['نهاية التأمين']    || '';
-    const contractEnd  = car['نهاية التعاقد']   || '';
-    const contractStart= car['بداية التعاقد']   || '';
-    const handoverDate = car['تاريخ التسليم']   || '';
-    const inspDate     = car['تاريخ الفحص']     || '';
-
-    function expiryBadge(dateStr) {
-      if (!dateStr) return '—';
-      const d    = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      const days = Math.ceil((d - today) / 86400000);
-      const fmt  = d.toLocaleDateString('en-GB',{ day:'2-digit', month:'short', year:'numeric' });
-      if (days < 0)   return `<span style="color:var(--danger);">${fmt} ⚠️ EXPIRED</span>`;
-      if (days <= 30) return `<span style="color:#f97316;">${fmt} ⚡ ${days}d</span>`;
-      if (days <= 90) return `<span style="color:var(--warning);">${fmt} ✓ ${days}d</span>`;
-      return `<span style="color:var(--success);">${fmt} ✓ ${days}d</span>`;
+    // ── Car field helpers ─────────────────────────────────────
+    // ✅ FIXED: use ternary not tagged template literals
+    function bilingual(en, ar) {
+      if (en && ar && en !== ar) return `${en} / ${ar}`;
+      return en || ar || '—';
     }
 
-    // ── Bilingual car info ──────────────────────────────────
     const carType_AR  = car['النوع']          || '';
     const carType_EN  = car.Type               || '';
     const carModel_AR = car['الطراز']          || '';
@@ -409,65 +372,84 @@ window.loadVehicle360Details = async function() {
     const chassis     = car['رقم الشاسية']    || '';
     const engine      = car['رقم الموتور']    || '';
 
-    // Owner info (bilingual)
-    const ownerFirst_AR  = car['الاسم الأول'] || '';
-    const ownerLast_AR   = car['الاسم الأخير']|| '';
-    const ownerFirst2_AR = car['الاسم الأول الموكل عنها']  || '';
-    const ownerLast2_AR  = car['الاسم الأخير الموكل عنها'] || '';
-    const ownerPhone     = car['رقم التليفون']|| '';
-    const ownerNID       = car['الرقم القومي']|| '';
-    const ownerBank_AR   = car['اسم البنك']   || '';
-    const ownerBank_EN   = car.Bank            || '';
-    const ownerBankBr_AR = car['اسم الفرع']   || '';
-    const ownerBankBr_EN = car.Branch          || '';
-    const ownerCity_AR   = car['محافظة']      || '';
-    const ownerCity_EN   = car.City            || '';
-    const ownerRegion_AR = car['المنطقة']     || car['المنطقة_1'] || '';
-    const ownerRegion_EN = car.Region          || car.Region_1 || '';
-    const notes          = car.Notes           || car['ملاحظات'] || '';
+    // ── Owner info ────────────────────────────────────────────
+    const ownerFirst  = car['الاسم الأول الموكل عنها'] || car['الاسم الأول'] || '';
+    const ownerLast   = car['الاسم الأخير الموكل عنها']|| car['الاسم الأخير']|| '';
+    const ownerPhone  = car['رقم التليفون'] || '';
+    const ownerNID    = car['الرقم القومي']  || '';
+    const ownerBank   = bilingual(car.Bank || '', car['اسم البنك'] || '');
+    const ownerBankBr = bilingual(car.Branch || '', car['اسم الفرع'] || '');
+    const ownerCity   = bilingual(car.City || '', car['محافظة'] || '');
+    const ownerRegion = bilingual(car.Region || car.Region_1 || '', car['المنطقة'] || car['المنطقة_1'] || '');
+    const notes       = car.Notes || car['ملاحظات'] || '';
 
-    // Contract info
-    const contractStatus_AR = car['حاله التعاقد']  || '';
-    const contractStatus_EN = car.Contract          || '';
-    const licenseStatus_AR  = car['حاله الترخيص']  || '';
-    const licenseStatus_EN  = car.License           || '';
-    const insStatus_AR      = car['حالة التأمين']  || '';
-    const insStatus_EN      = car.Insurance         || '';
-    const insCompany_AR     = car['شركة التأمين']  || '';
-    const insCompany_EN     = car['Insurance Comp.']|| '';
+    // ── Contract info ─────────────────────────────────────────
+    const contractStatus = bilingual(car.Contract || '', car['حاله التعاقد'] || '');
+    const contractStart  = car['بداية التعاقد']   || '';
+    const contractEnd    = car['نهاية التعاقد']   || '';
+    const handoverDate   = car['تاريخ التسليم']   || '';
+    const licenseEnd     = car['نهاية الترخيص']   || '';
+    const insuranceEnd   = car['نهاية التأمين']   || '';
+    const insCompany     = bilingual(car['Insurance Comp.'] || '', car['شركة التأمين'] || '');
+    const chassis_field  = car['رقم الشاسية']     || '';
+    const engine_field   = car['رقم الموتور']     || '';
+
+    // ── Expiry badge helper ───────────────────────────────────
+    function expiryBadge(dateStr) {
+      if (!dateStr) return '—';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return String(dateStr).slice(0, 10) || '—';
+      const days = Math.ceil((d - today) / 86400000);
+      const fmt  = d.toLocaleDateString('en-GB', {
+        day:'2-digit', month:'short', year:'numeric'
+      });
+      if (days < 0)   return `<span style="color:var(--danger);">${fmt} ⚠️ EXPIRED</span>`;
+      if (days <= 30) return `<span style="color:#f97316;">${fmt} ⚡ ${days}d</span>`;
+      if (days <= 90) return `<span style="color:var(--warning);">${fmt} ✓ ${days}d</span>`;
+      return `<span style="color:var(--success);">${fmt} ✓ ${days}d</span>`;
+    }
 
     const statusDotColors = {
-      available:'var(--success)', rented:'var(--accent)',
-      accident:'var(--danger)',   maintenance:'var(--warning)', archived:'var(--text3)'
+      available  : 'var(--success)',
+      rented     : 'var(--accent)',
+      accident   : 'var(--danger)',
+      maintenance: 'var(--warning)',
+      archived   : 'var(--text3)'
     };
     const dotColor = statusDotColors[catStatus] || 'var(--text3)';
+
+    // ── Load rate card tiers ──────────────────────────────────
+    const tiers = await getRateTiersForCar(String(car.id || car.ID));
 
     content.innerHTML = `
       <!-- Status banner -->
       <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;
                   border-radius:10px;margin-bottom:14px;
-                  background:${catStatus==='accident'?'rgba(239,68,68,0.1)':
-                    catStatus==='available'?'rgba(34,197,94,0.1)':'rgba(59,130,246,0.1)'};
+                  background:${catStatus==='accident'   ?'rgba(239,68,68,0.1)':
+                               catStatus==='available'  ?'rgba(34,197,94,0.1)':
+                                                         'rgba(59,130,246,0.1)'};
                   border:1px solid ${dotColor}30;">
         <div style="font-size:28px;">
-          ${catStatus==='accident'?'🚨':catStatus==='available'?'🟢':
-            catStatus==='rented'?'🔵':catStatus==='maintenance'?'🔧':'📦'}
+          ${catStatus==='accident'   ?'🚨':
+            catStatus==='available' ?'🟢':
+            catStatus==='rented'    ?'🔵':
+            catStatus==='maintenance'?'🔧':'📦'}
         </div>
         <div style="flex:1;">
           <div style="font-size:15px;font-weight:800;">
-            ${carType_EN} ${carModel_EN} (${carYear})
-            ${plateStr ? `<span style="color:var(--accent);"> | ${plateStr}</span>` : ''}
-          </div>
-          <div style="font-size:12px;color:var(--text3);">
-            ${carType_AR} ${carModel_AR} (${carYear}) ${carColor_AR} / ${carColor_EN}
+            ${bilingual(carType_EN + ' ' + carModel_EN, carType_AR + ' ' + carModel_AR).trim()}
+            (${carYear})
+            ${plateStr
+              ? `<span style="color:var(--accent);"> | ${plateStr}</span>`
+              : ''}
           </div>
           <div style="font-size:11px;color:${dotColor};font-weight:700;margin-top:2px;">
-            ${catStatus.toUpperCase()} | Doc ID: ${car.id} | Car ID: ${car.ID||car.id}
+            ${catStatus.toUpperCase()} | ID: ${car.id}
           </div>
         </div>
         ${isPriv ? `
           <button class="btn btn-warning btn-sm"
-            onclick="openCarEditModal('${car.id}')">✏️ Edit Status</button>
+            onclick="openCarEditModal('${car.id}')">✏️ Edit</button>
         ` : ''}
       </div>
 
@@ -486,7 +468,8 @@ window.loadVehicle360Details = async function() {
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Pending Debt</div>
-          <div class="kpi-value" style="color:${pendingDebt>0?'var(--danger)':'var(--success)'};">
+          <div class="kpi-value"
+            style="color:${pendingDebt>0?'var(--danger)':'var(--success)'};">
             ${fmtMoney(pendingDebt)}
           </div>
           <div class="kpi-sub">Outstanding</div>
@@ -514,7 +497,8 @@ window.loadVehicle360Details = async function() {
       </div>
 
       <!-- Info grid: Vehicle + Contract -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;
+                  gap:12px;margin-bottom:14px;">
 
         <!-- Vehicle Info -->
         <div class="panel">
@@ -522,34 +506,36 @@ window.loadVehicle360Details = async function() {
                       margin-bottom:10px;">
             <div style="font-size:10px;font-weight:800;color:var(--accent);
                         text-transform:uppercase;">🚗 Vehicle Info</div>
-            ${isPriv?`<button class="btn btn-ghost btn-xs"
-                onclick="openCarEditModal('${car.id}')">✏️ Edit</button>`:''}
+            ${isPriv ? `
+              <button class="btn btn-ghost btn-xs"
+                onclick="openCarEditModal('${car.id}')">✏️ Edit</button>
+            ` : ''}
           </div>
           <div style="font-size:11px;display:grid;
                       grid-template-columns:auto 1fr;gap:5px 10px;">
             <span style="color:var(--text3);">Model:</span>
             <span style="font-weight:700;">
-              ${carType_EN} ${carModel_EN}
-              ${carType_AR?`<span style="color:var(--text3);"> / ${carType_AR} ${carModel_AR}</span>`:''}
+              ${bilingual(carType_EN + ' ' + carModel_EN,
+                          carType_AR + ' ' + carModel_AR).trim()}
             </span>
             <span style="color:var(--text3);">Year:</span>
-            <span>${carYear||'—'}</span>
+            <span>${carYear || '—'}</span>
             <span style="color:var(--text3);">Color:</span>
-            <span>${carColor_EN}${carColor_AR?` / ${carColor_AR}`:''}</span>
+            <span>${bilingual(carColor_EN, carColor_AR)}</span>
             <span style="color:var(--text3);">Plate:</span>
             <span style="font-weight:700;font-family:monospace;">
-              ${plateStr||'—'}
+              ${plateStr || '—'}
             </span>
             <span style="color:var(--text3);">Seats:</span>
-            <span>${carSeats||'—'}</span>
+            <span>${carSeats || '—'}</span>
             <span style="color:var(--text3);">Trans.:</span>
-            <span>${carTrans_EN}${carTrans_AR?` / ${carTrans_AR}`:''}</span>
+            <span>${bilingual(carTrans_EN, carTrans_AR)}</span>
             <span style="color:var(--text3);">A/C:</span>
-            <span>${carAC_EN}${carAC_AR?` / ${carAC_AR}`:''}</span>
+            <span>${bilingual(carAC_EN, carAC_AR)}</span>
             <span style="color:var(--text3);">GPS:</span>
-            <span>${carGPS||'—'}</span>
+            <span>${carGPS || '—'}</span>
             <span style="color:var(--text3);">KM:</span>
-            <span>${carKM||'—'}</span>
+            <span>${carKM || '—'}</span>
             <span style="color:var(--text3);">Monthly Fee:</span>
             <span style="font-weight:700;color:var(--success);">
               ${fmtMoney(monthlyFee)}
@@ -563,19 +549,19 @@ window.loadVehicle360Details = async function() {
                       margin-bottom:10px;">
             <div style="font-size:10px;font-weight:800;color:var(--accent);
                         text-transform:uppercase;">📋 Contract & Expiries</div>
-            ${isPriv?`<button class="btn btn-ghost btn-xs"
-                onclick="openCarEditModal('${car.id}')">✏️ Edit</button>`:''}
+            ${isPriv ? `
+              <button class="btn btn-ghost btn-xs"
+                onclick="openCarEditModal('${car.id}')">✏️ Edit</button>
+            ` : ''}
           </div>
           <div style="font-size:11px;display:grid;
                       grid-template-columns:auto 1fr;gap:5px 10px;">
             <span style="color:var(--text3);">Status:</span>
-            <span style="font-weight:700;">
-              ${contractStatus_EN}${contractStatus_AR?` / ${contractStatus_AR}`:''}
-            </span>
+            <span style="font-weight:700;">${contractStatus}</span>
             <span style="color:var(--text3);">Start:</span>
-            <span>${contractStart||'—'}</span>
+            <span>${contractStart || '—'}</span>
             <span style="color:var(--text3);">End:</span>
-            <span>${contractEnd||'—'}</span>
+            <span>${contractEnd || '—'}</span>
             <span style="color:var(--text3);">Handover:</span>
             <span>${expiryBadge(handoverDate)}</span>
             <span style="color:var(--text3);">License:</span>
@@ -583,11 +569,15 @@ window.loadVehicle360Details = async function() {
             <span style="color:var(--text3);">Insurance:</span>
             <span>${expiryBadge(insuranceEnd)}</span>
             <span style="color:var(--text3);">Ins. Co.:</span>
-            <span>${insCompany_EN}${insCompany_AR?` / ${insCompany_AR}`:''}</span>
+            <span>${insCompany}</span>
             <span style="color:var(--text3);">Chassis:</span>
-            <span style="font-size:10px;font-family:monospace;">${chassis||'—'}</span>
+            <span style="font-size:10px;font-family:monospace;">
+              ${chassis_field || '—'}
+            </span>
             <span style="color:var(--text3);">Engine:</span>
-            <span style="font-size:10px;font-family:monospace;">${engine||'—'}</span>
+            <span style="font-size:10px;font-family:monospace;">
+              ${engine_field || '—'}
+            </span>
           </div>
         </div>
       </div>
@@ -598,29 +588,34 @@ window.loadVehicle360Details = async function() {
                     margin-bottom:10px;">
           <div style="font-size:10px;font-weight:800;color:var(--accent);
                       text-transform:uppercase;">👤 Owner</div>
-          ${isPriv?`<button class="btn btn-ghost btn-xs"
-              onclick="openCarEditModal('${car.id}')">✏️ Edit</button>`:''}
+          ${isPriv ? `
+            <button class="btn btn-ghost btn-xs"
+              onclick="openCarEditModal('${car.id}')">✏️ Edit</button>
+          ` : ''}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;
+                    gap:10px;font-size:11px;">
           <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;">
             <span style="color:var(--text3);">Name:</span>
             <span style="font-weight:700;">
-              ${ownerFirst2_AR||ownerFirst_AR} ${ownerLast2_AR||ownerLast_AR}
+              ${(ownerFirst + ' ' + ownerLast).trim() || '—'}
             </span>
             <span style="color:var(--text3);">Phone:</span>
-            <span>${ownerPhone||'—'}</span>
+            <span>${ownerPhone || '—'}</span>
             <span style="color:var(--text3);">National ID:</span>
-            <span style="font-family:monospace;font-size:10px;">${ownerNID||'—'}</span>
+            <span style="font-family:monospace;font-size:10px;">
+              ${ownerNID || '—'}
+            </span>
           </div>
           <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;">
             <span style="color:var(--text3);">Bank:</span>
-            <span>${ownerBank_EN}${ownerBank_AR?` / ${ownerBank_AR}`:''}</span>
+            <span>${ownerBank}</span>
             <span style="color:var(--text3);">Bank Branch:</span>
-            <span>${ownerBankBr_EN}${ownerBankBr_AR?` / ${ownerBankBr_AR}`:''}</span>
+            <span>${ownerBankBr}</span>
             <span style="color:var(--text3);">City:</span>
-            <span>${ownerCity_EN||'—'}${ownerCity_AR?` / ${ownerCity_AR}`:''}</span>
+            <span>${ownerCity}</span>
             <span style="color:var(--text3);">Region:</span>
-            <span>${ownerRegion_EN||'—'}${ownerRegion_AR?` / ${ownerRegion_AR}`:''}</span>
+            <span>${ownerRegion}</span>
           </div>
         </div>
         ${notes && notes !== '-' ? `
@@ -629,6 +624,29 @@ window.loadVehicle360Details = async function() {
             📝 ${notes}
           </div>` : ''}
       </div>
+
+      <!-- Rate Card -->
+      ${tiers.length > 0 ? `
+        <div class="panel" style="margin-bottom:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;
+                      margin-bottom:8px;">
+            <div style="font-size:10px;font-weight:800;color:var(--accent);
+                        text-transform:uppercase;">💰 Rate Card</div>
+            ${isPriv ? `
+              <button class="btn btn-ghost btn-xs"
+                onclick="openRateCardEditor('${car.id}')">✏️ Edit</button>
+            ` : ''}
+          </div>
+          ${buildRateTierDisplay(tiers)}
+        </div>
+      ` : isPriv ? `
+        <div class="panel" style="margin-bottom:14px;text-align:center;padding:14px;">
+          <button class="btn btn-ghost btn-sm"
+            onclick="openRateCardEditor('${car.id}')">
+            ➕ Add Rate Card
+          </button>
+        </div>
+      ` : ''}
 
       <!-- Location -->
       <div class="panel" style="margin-bottom:14px;">
@@ -649,12 +667,12 @@ window.loadVehicle360Details = async function() {
           </select>
           <input type="text" id="car-location-detail-${car.id}" class="form-input"
             style="flex:1;min-width:140px;" placeholder="Detail / notes..."
-            value="${car.current_location_detail||''}">
+            value="${car.current_location_detail || ''}">
           <button class="btn btn-primary btn-sm"
             onclick="saveCarLocation('${car.id}')">💾 Save</button>
         </div>
         <div style="font-size:10px;color:var(--text3);margin-top:5px;">
-          Current: <strong>${car.current_location||'Not set'}</strong>
+          Current: <strong>${car.current_location || 'Not set'}</strong>
         </div>
       </div>
 
@@ -672,13 +690,19 @@ window.loadVehicle360Details = async function() {
                 const s=document.getElementById('ob-search');
                 if(s){s.value='${(carType_EN+' '+carModel_EN).trim()}';filterOrders();}
               },300)">
-            📋 Orders for this Car
+            📋 Orders
           </button>
           <button class="btn btn-ghost btn-sm"
             onclick="showPage('risk-radar')">⚠️ Risk Radar</button>
+          <button class="btn btn-ghost btn-sm"
+            onclick="createTaskFromCar('${car.id}')">📌 Task</button>
           ${isPriv ? `
             <button class="btn btn-warning btn-sm"
               onclick="openCarEditModal('${car.id}')">✏️ Edit Status</button>
+            ${tiers.length === 0 ? `
+              <button class="btn btn-ghost btn-sm"
+                onclick="openRateCardEditor('${car.id}')">💰 Rate Card</button>
+            ` : ''}
           ` : ''}
         </div>
       </div>
@@ -695,48 +719,53 @@ window.loadVehicle360Details = async function() {
           ? '<div class="empty-state" style="padding:20px;"><p>No orders found for this car.</p></div>'
           : `<div class="table-wrap">
                <table class="data-table">
-                 <thead><tr>
-                   <th>Order #</th><th>Client</th>
-                   <th>Start</th><th>End</th>
-                   <th>Total</th><th>Paid</th>
-                   <th>Debt</th><th>Status</th><th>Payment</th>
-                 </tr></thead>
+                 <thead>
+                   <tr>
+                     <th>Order #</th><th>Client</th>
+                     <th>Start</th><th>End</th>
+                     <th>Total</th><th>Paid</th>
+                     <th>Debt</th><th>Status</th><th>Payment</th>
+                   </tr>
+                 </thead>
                  <tbody>
                    ${orders
-                     .sort((a,b) => {
-                       const {start:as} = getOrderDates(a);
-                       const {start:bs} = getOrderDates(b);
-                       return (bs||0) - (as||0);
+                     .sort((a, b) => {
+                       const { start:as } = getOrderDates(a);
+                       const { start:bs } = getOrderDates(b);
+                       return (bs || 0) - (as || 0);
                      })
                      .map(o => {
-                       const {start,end} = getOrderDates(o);
+                       const { start, end } = getOrderDates(o);
                        const st     = getOrderStatus(o);
-                       const sk     = st==='Accident'?'accident':
-                                      st==='Overdue'?'overdue':
-                                      st==='Closed'?'closed':'active';
+                       const sk     = st === 'Accident' ? 'accident'
+                                    : st === 'Overdue'  ? 'overdue'
+                                    : st === 'Closed'   ? 'closed' : 'active';
                        const oTotal = getOrderTotal(o);
                        const oPaid  = getOrderPaid(o);
                        const oDebt  = Math.max(0, oTotal - oPaid);
-                       const payK   = _getPaymentStatus(o);
-                       const payLbl = _getPaymentStatusLabel(o);
-                       const payC   = PAYMENT_STATUS_COLORS[payK]||'#f59e0b';
+
+                       // ✅ Use global getPaymentStatus from utils.js
+                       const payK   = getPaymentStatus(o);
+                       const payLbl = getPaymentStatusLabel(o);
+                       const payC   = (window.PAYMENT_STATUS_COLORS || {})[payK] || '#f59e0b';
+
                        return `
                          <tr style="cursor:pointer;"
                              onclick="openOrderDetail('${o.id}')">
                            <td style="color:var(--accent);font-weight:700;">
                              #${getOrderNo(o)}
                            </td>
-                           <td>${getOrderClientName(o)||'—'}</td>
+                           <td>${getOrderClientName(o) || '—'}</td>
                            <td style="font-size:10px;">
-                             ${start?fmtDate(start):'—'}
+                             ${start ? fmtDate(start) : '—'}
                            </td>
                            <td style="font-size:10px;">
-                             ${end?fmtDate(end):'—'}
+                             ${end ? fmtDate(end) : '—'}
                            </td>
                            <td>${fmtMoney(oTotal)}</td>
                            <td style="color:var(--success);">${fmtMoney(oPaid)}</td>
                            <td style="color:${oDebt>0?'var(--danger)':'var(--success)'};">
-                             ${oDebt>0?fmtMoney(oDebt):'✅'}
+                             ${oDebt > 0 ? fmtMoney(oDebt) : '✅'}
                            </td>
                            <td><span class="pill pill-${sk}">${st}</span></td>
                            <td style="font-size:10px;font-weight:700;color:${payC};">
@@ -757,27 +786,34 @@ window.loadVehicle360Details = async function() {
           </h3>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr>
-                <th>Date</th><th>Type</th><th>Amount</th><th>Notes</th>
-              </tr></thead>
+              <thead>
+                <tr>
+                  <th>Date</th><th>Type</th><th>Amount</th><th>Notes</th>
+                </tr>
+              </thead>
               <tbody>
                 ${carExps
-                  .sort((a,b) => (b['تاريخ المصروف']||'') > (a['تاريخ المصروف']||'') ? 1 : -1)
+                  .sort((a, b) =>
+                    (b['تاريخ المصروف'] || '') > (a['تاريخ المصروف'] || '') ? 1 : -1
+                  )
                   .map(e => `
                     <tr>
-                      <td style="font-size:10px;">${e['تاريخ المصروف']||'—'}</td>
-                      <td>${e['نوع المصروف']||e['expense_type']||'—'}</td>
+                      <td style="font-size:10px;">
+                        ${e['تاريخ المصروف'] || '—'}
+                      </td>
+                      <td>${e['نوع المصروف'] || e['expense_type'] || '—'}</td>
                       <td style="color:var(--danger);font-weight:700;">
-                        ${fmtMoney(parseAmount(e['قيمة المصروف']||0))}
+                        ${fmtMoney(parseAmount(e['قيمة المصروف'] || 0))}
                       </td>
                       <td style="font-size:10px;color:var(--text3);">
-                        ${e['ملاحظات']||e.Notes||'—'}
+                        ${e['ملاحظات'] || e.Notes || '—'}
                       </td>
                     </tr>`).join('')}
               </tbody>
             </table>
           </div>
-        </div>` : ''}
+        </div>
+      ` : ''}
     `;
 
     // Pre-select location
@@ -786,13 +822,11 @@ window.loadVehicle360Details = async function() {
       if (sel && car.current_location) sel.value = car.current_location;
     }, 100);
 
-    await logAction('VIEW', 'Vehicle 360', `Viewed: ${getCarLabel(car,'en')}`);
+    await logAction('VIEW', 'Vehicle 360', `Viewed: ${getCarLabel(car, 'en')}`);
 
   } catch (e) {
     content.innerHTML = `
-      <div class="empty-state">
-        <p>Failed to load: ${e.message}</p>
-      </div>`;
+      <div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
     console.warn('V360 error:', e);
   }
 };

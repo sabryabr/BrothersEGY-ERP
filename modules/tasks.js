@@ -1,24 +1,17 @@
 // ============================================================
-// modules/tasks.js  v3.0
-// Smart task system with:
-// - Dynamic user list from Firestore
-// - Tag anything: order, car, client, payment
-// - Quick-create from any page
-// - Penalty system
-// - Status tracking with timestamps
+// modules/tasks.js v3.1
 // ============================================================
 
-// ── Task type config ──────────────────────────────────────────
 const TASK_TYPES = {
-  rental     : { icon:'🚗', label:'Rental Task',     color:'var(--accent)'   },
-  admin      : { icon:'📋', label:'Admin Task',      color:'var(--text3)'    },
-  maintenance: { icon:'🔧', label:'Maintenance',     color:'var(--warning)'  },
-  followup   : { icon:'📞', label:'Follow-up',       color:'var(--success)'  },
-  payment    : { icon:'💰', label:'Payment Task',    color:'var(--success)'  },
-  pickup     : { icon:'📤', label:'Pickup',          color:'#8b5cf6'         },
-  dropoff    : { icon:'📥', label:'Dropoff',         color:'#06b6d4'         },
-  inspection : { icon:'🔍', label:'Inspection',      color:'var(--warning)'  },
-  general    : { icon:'📌', label:'General',         color:'var(--text2)'    }
+  rental     : { icon:'🚗', label:'Rental Task',   color:'var(--accent)'   },
+  admin      : { icon:'📋', label:'Admin Task',     color:'var(--text3)'    },
+  maintenance: { icon:'🔧', label:'Maintenance',    color:'var(--warning)'  },
+  followup   : { icon:'📞', label:'Follow-up',      color:'var(--success)'  },
+  payment    : { icon:'💰', label:'Payment Task',   color:'var(--success)'  },
+  pickup     : { icon:'📤', label:'Pickup',         color:'#8b5cf6'         },
+  dropoff    : { icon:'📥', label:'Dropoff',        color:'#06b6d4'         },
+  inspection : { icon:'🔍', label:'Inspection',     color:'var(--warning)'  },
+  general    : { icon:'📌', label:'General',        color:'var(--text2)'    }
 };
 
 const PRIORITY_CONFIG = {
@@ -40,10 +33,8 @@ window.loadTaskManager = async function() {
   const el = document.getElementById('page-tasks');
   if (!el) return;
 
-  // Load users in background
-  loadSystemUsers();
+  loadSystemUsers().then(() => _populateUserFilterDropdown());
 
-  // Collapsible header state
   const hKey      = 'tasks_header_collapsed';
   const collapsed = localStorage.getItem(hKey) === 'true';
 
@@ -91,7 +82,7 @@ window.loadTaskManager = async function() {
                        border:1px solid var(--border);border-radius:8px;
                        color:var(--text);font-size:11px;">
                 <option value="all">All</option>
-                <option value="pending"    selected>Pending</option>
+                <option value="pending" selected>Pending</option>
                 <option value="inprogress">In Progress</option>
                 <option value="done">Done</option>
                 <option value="overdue">Overdue</option>
@@ -154,7 +145,7 @@ window.loadTaskManager = async function() {
       </div>
     </div>
 
-    <!-- KPI Summary bar -->
+    <!-- KPI bar -->
     <div id="task-kpi-bar"
       style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
 
@@ -190,15 +181,13 @@ window.subscribeTaskList = function() {
   const query  = isPriv
     ? db.collection('tasks').orderBy('created_at','desc').limit(500)
     : db.collection('tasks')
-        .where('assigned_to','==', G.user?.username || '')
+        .where('assigned_to', '==', G.user?.username || '')
         .orderBy('created_at','desc').limit(200);
 
   _taskUnsub = query.onSnapshot(snap => {
-    window._allTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    window._allTasks = snap.docs.map(d => ({ id:d.id, ...d.data() }));
     renderTaskList();
     renderTaskKPIBar();
-
-    // Also update user dropdown
     _populateUserFilterDropdown();
   }, e => console.warn('Task subscription error:', e.message));
 
@@ -218,16 +207,18 @@ function _populateUserFilterDropdown() {
         ${u.username === cur ? 'selected' : ''}>${u.username}</option>`)
       .join('')}
   `;
+  if (cur) sel.value = cur;
 }
 
 // ============================================================
-// RENDER TASK KPI BAR
+// KPI BAR
 // ============================================================
 window.renderTaskKPIBar = function() {
-  const bar = document.getElementById('task-kpi-bar');
+  const bar   = document.getElementById('task-kpi-bar');
   if (!bar) return;
-  const today    = getCairoNow();
-  const tasks    = window._allTasks || [];
+  const today = getCairoNow();
+  const tasks = window._allTasks || [];
+
   const pending  = tasks.filter(t => t.status === 'pending').length;
   const inprog   = tasks.filter(t => t.status === 'inprogress').length;
   const done     = tasks.filter(t => t.status === 'done').length;
@@ -240,11 +231,11 @@ window.renderTaskKPIBar = function() {
     .reduce((s,t) => s + (t.penalty_amount || 0), 0);
 
   const kpis = [
-    { label:'Pending',     value:pending,  color:'var(--accent)',   click:"setTaskFilter('pending')"   },
-    { label:'In Progress', value:inprog,   color:'#8b5cf6',         click:"setTaskFilter('inprogress')" },
-    { label:'Done',        value:done,     color:'var(--success)',  click:"setTaskFilter('done')"      },
-    { label:'Overdue',     value:overdue,  color:'var(--danger)',   click:"setTaskFilter('overdue')"   },
-    { label:'Penalties',   value:fmtMoney(totalPenalty), color:'var(--warning)', click:'' }
+    { label:'Pending',     value:pending,              color:'var(--accent)',   click:"setTaskFilter('pending')"    },
+    { label:'In Progress', value:inprog,               color:'#8b5cf6',         click:"setTaskFilter('inprogress')" },
+    { label:'Done',        value:done,                 color:'var(--success)',  click:"setTaskFilter('done')"       },
+    { label:'Overdue',     value:overdue,              color:'var(--danger)',   click:"setTaskFilter('overdue')"    },
+    { label:'Penalties',   value:fmtMoney(totalPenalty),color:'var(--warning)', click:''                            }
   ];
 
   bar.innerHTML = kpis.map(k => `
@@ -268,8 +259,7 @@ window.setTaskFilter = function(status) {
 
 window.clearTaskFilters = function() {
   ['task-filter-status','task-filter-type','task-filter-priority'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = 'all';
+    const el = document.getElementById(id); if (el) el.value = 'all';
   });
   const s = document.getElementById('task-search');
   if (s) s.value = '';
@@ -282,34 +272,24 @@ window.clearTaskFilters = function() {
 window.renderTaskList = function() {
   const listEl    = document.getElementById('task-list');
   if (!listEl) return;
-
   const today     = getCairoNow();
   const statusF   = document.getElementById('task-filter-status')?.value  || 'all';
   const typeF     = document.getElementById('task-filter-type')?.value    || 'all';
   const userF     = document.getElementById('task-filter-user')?.value    || 'all';
   const priorityF = document.getElementById('task-filter-priority')?.value|| 'all';
-  const searchF   = (document.getElementById('task-search')?.value || '').toLowerCase().trim();
+  const searchF   = (document.getElementById('task-search')?.value        || '').toLowerCase().trim();
 
   let tasks = [...(window._allTasks || [])];
 
   tasks = tasks.filter(t => {
-    // Status filter
     if (statusF === 'overdue') {
       if (t.status === 'done') return false;
       return t.due_date && new Date(t.due_date) < today;
     }
     if (statusF !== 'all' && t.status !== statusF) return false;
-
-    // Type filter
-    if (typeF !== 'all' && t.type !== typeF) return false;
-
-    // User filter
-    if (userF !== 'all' && t.assigned_to !== userF) return false;
-
-    // Priority filter
+    if (typeF     !== 'all' && t.type     !== typeF)     return false;
+    if (userF     !== 'all' && t.assigned_to !== userF)  return false;
     if (priorityF !== 'all' && t.priority !== priorityF) return false;
-
-    // Search
     if (searchF) {
       const hay = [
         t.title, t.description, t.assigned_to,
@@ -318,17 +298,15 @@ window.renderTaskList = function() {
       ].join(' ').toLowerCase();
       if (!hay.includes(searchF)) return false;
     }
-
     return true;
   });
 
-  // Sort: overdue first, then by due date, then by priority weight
   const priorityWeight = { urgent:4, high:3, medium:2, low:1 };
   tasks.sort((a, b) => {
     const aOD = a.due_date && new Date(a.due_date) < today && a.status !== 'done';
     const bOD = b.due_date && new Date(b.due_date) < today && b.status !== 'done';
     if (aOD && !bOD) return -1;
-    if (!aOD && bOD) return 1;
+    if (!aOD && bOD) return  1;
     if (a.due_date && b.due_date) return new Date(a.due_date) - new Date(b.due_date);
     return (priorityWeight[b.priority]||0) - (priorityWeight[a.priority]||0);
   });
@@ -351,7 +329,7 @@ window.renderTaskList = function() {
 };
 
 function _buildTaskCard(t, today) {
-  const tc      = TASK_TYPES[t.type]    || TASK_TYPES.general;
+  const tc      = TASK_TYPES[t.type]         || TASK_TYPES.general;
   const pc      = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.medium;
   const due     = t.due_date ? new Date(t.due_date) : null;
   const isOD    = due && today > due && t.status !== 'done';
@@ -366,85 +344,81 @@ function _buildTaskCard(t, today) {
     cancelled : 'var(--text3)'
   };
   const statusColor = isOD ? 'var(--danger)' : (statusColors[t.status] || 'var(--text3)');
+  const rowBg       = isOD   ? 'rgba(239,68,68,0.06)'
+                   : isDone  ? 'rgba(34,197,94,0.04)'
+                   : 'var(--surface2)';
 
-  const rowBg = isOD  ? 'rgba(239,68,68,0.06)'  :
-                isDone ? 'rgba(34,197,94,0.04)'  : 'var(--surface2)';
+  // ✅ Format due date with time
+  const dueDisplay = due
+    ? due.toLocaleString('en-GB', {
+        day:'2-digit', month:'short',
+        hour:'2-digit', minute:'2-digit',
+        timeZone:'Africa/Cairo'
+      })
+    : null;
 
   return `
-    <div style="background:${rowBg};border:1px solid ${isOD
-        ? 'rgba(239,68,68,0.3)' : 'var(--border)'};
-                border-radius:10px;padding:12px 14px;transition:all 0.2s;"
+    <div style="background:${rowBg};border:1px solid ${
+      isOD ? 'rgba(239,68,68,0.3)' : 'var(--border)'};
+              border-radius:10px;padding:12px 14px;transition:all 0.2s;"
          onmouseover="this.style.borderColor='var(--accent)'"
-         onmouseout="this.style.borderColor='${isOD
-           ? 'rgba(239,68,68,0.3)' : 'var(--border)'}'">
+         onmouseout="this.style.borderColor='${
+           isOD ? 'rgba(239,68,68,0.3)' : 'var(--border)'}'">
 
-      <!-- Header row -->
+      <!-- Header -->
       <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">
-
-        <!-- Type icon -->
         <div style="width:32px;height:32px;border-radius:8px;flex-shrink:0;
                     background:${tc.color}22;display:flex;align-items:center;
                     justify-content:center;font-size:16px;">
           ${tc.icon}
         </div>
-
-        <!-- Title + badges -->
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span style="font-size:13px;font-weight:700;
                          ${isDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">
-              ${t.title || 'Untitled Task'}
+              ${t.title || tc.label}
             </span>
-            <!-- Priority badge -->
             <span style="padding:2px 7px;border-radius:99px;font-size:9px;
                          font-weight:800;background:${pc.color}22;
                          color:${pc.color};border:1px solid ${pc.color}44;">
-              ${pc.label}
-              ${pc.penalty ? `• £${pc.penalty}` : ''}
+              ${pc.label}${pc.penalty ? ` • £${pc.penalty}` : ''}
             </span>
-            <!-- Status badge -->
             <span style="padding:2px 7px;border-radius:99px;font-size:9px;
                          font-weight:800;background:${statusColor}22;
                          color:${statusColor};border:1px solid ${statusColor}44;">
               ${isOD ? '⚠️ OVERDUE' : t.status?.toUpperCase() || 'PENDING'}
             </span>
           </div>
-
-          <!-- Assigned info -->
           <div style="font-size:11px;color:var(--text3);margin-top:3px;">
             👤 <strong>${t.assigned_to || '—'}</strong>
             ${t.created_by && t.created_by !== t.assigned_to
               ? ` • by ${t.created_by}` : ''}
-            ${t.branch
-              ? ` • ${BRANCH_MAP[t.branch] || t.branch}` : ''}
+            ${t.branch ? ` • ${BRANCH_MAP[t.branch] || t.branch}` : ''}
           </div>
         </div>
 
-        <!-- Due date -->
+        <!-- Due date + time -->
         <div style="text-align:right;flex-shrink:0;">
-          ${due ? `
+          ${dueDisplay ? `
             <div style="font-size:11px;font-weight:700;
                         color:${isOD ? 'var(--danger)' : 'var(--text3)'};">
-              ${isOD ? '⚠️ ' : '📅 '}
-              ${due.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}
+              ${isOD ? '⚠️ ' : '📅 '}${dueDisplay}
             </div>
             <div style="font-size:9px;color:var(--text3);">
               ${isOD
                 ? Math.abs(Math.ceil((today-due)/86400000)) + 'd overdue'
                 : Math.ceil((due-today)/86400000) + 'd left'}
-            </div>
-          ` : '<div style="font-size:10px;color:var(--text3);">No deadline</div>'}
+            </div>` : `
+            <div style="font-size:10px;color:var(--text3);">No deadline</div>`}
         </div>
       </div>
 
-      <!-- Description -->
       ${t.description ? `
         <div style="font-size:11px;color:var(--text2);margin-bottom:8px;
                     background:var(--surface);border-radius:6px;padding:6px 8px;">
           ${t.description}
         </div>` : ''}
 
-      <!-- Links row -->
       ${(t.linked_order_id || t.linked_car_id || t.linked_client_id) ? `
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
           ${t.linked_order_id ? `
@@ -464,18 +438,15 @@ function _buildTaskCard(t, today) {
             </button>` : ''}
         </div>` : ''}
 
-      <!-- Tags -->
       ${t.tags && t.tags.length ? `
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">
           ${t.tags.map(tag => `
             <span style="padding:1px 7px;border-radius:99px;font-size:9px;
-                         font-weight:700;background:var(--surface3);
-                         color:var(--text3);">
+                         font-weight:700;background:var(--surface3);color:var(--text3);">
               #${tag}
             </span>`).join('')}
         </div>` : ''}
 
-      <!-- Actions -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
         ${!isDone ? `
           <button class="btn btn-success btn-xs"
@@ -491,8 +462,7 @@ function _buildTaskCard(t, today) {
           ${t.penalty_applied ? `
             <span style="font-size:10px;color:var(--danger);">
               💰 Penalty: ${fmtMoney(t.penalty_amount)}
-            </span>` : ''}
-        `}
+            </span>` : ''}`}
         ${(isPriv || isOwn) ? `
           <button class="btn btn-ghost btn-xs"
             onclick="openEditTaskModal('${t.id}')">✏️ Edit</button>
@@ -510,22 +480,53 @@ function _buildTaskCard(t, today) {
 // ============================================================
 // CREATE TASK MODAL
 // ============================================================
-window.openCreateTaskModal = async function(prefill = {}) {
+window.openCreateTaskModal = async function(prefill) {
+  prefill = prefill || {};
   await loadSystemUsers();
+
+  // ✅ Auto-generate title suggestion based on type
+  const titlePlaceholder = prefill.type && prefill.type !== 'general'
+    ? `Auto: ${TASK_TYPES[prefill.type]?.label || 'Task'} — fill in details`
+    : 'e.g. Call client about overdue payment';
+
+  // ✅ Default due date = tomorrow at 18:00
+  const now       = getCairoNow();
+  const tomorrow  = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const defaultDate = tomorrow.toISOString().slice(0, 10);
+  const defaultTime = '18:00';
 
   const html = `
     <div style="display:grid;gap:12px;">
 
-      <!-- Title -->
-      <div>
-        <label style="font-size:11px;font-weight:700;color:var(--text3);">
-          Task Title *
-        </label>
-        <input type="text" id="task-title"
-          placeholder="e.g. Call client about overdue payment"
-          value="${prefill.title || ''}"
-          style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
-                 border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+      <!-- Type + Title row -->
+      <div style="display:grid;grid-template-columns:160px 1fr;gap:8px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Task Type
+          </label>
+          <select id="task-type" onchange="updateTaskTitleSuggestion()"
+            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);">
+            ${Object.entries(TASK_TYPES).map(([k,v]) => `
+              <option value="${k}" ${(prefill.type||'general')===k?'selected':''}>
+                ${v.icon} ${v.label}
+              </option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Task Title
+            <span id="task-title-note" style="font-weight:400;color:var(--text3);">
+              (optional — auto from type)
+            </span>
+          </label>
+          <input type="text" id="task-title"
+            placeholder="${titlePlaceholder}"
+            value="${prefill.title || ''}"
+            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+        </div>
       </div>
 
       <!-- Description -->
@@ -540,33 +541,37 @@ window.openCreateTaskModal = async function(prefill = {}) {
                  resize:vertical;">${prefill.description || ''}</textarea>
       </div>
 
-      <!-- Type + Priority row -->
+      <!-- Priority -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div>
           <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            Task Type
+            Priority
           </label>
-          <select id="task-type"
+          <select id="task-priority" onchange="updatePenaltyDisplay()"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);">
-            ${Object.entries(TASK_TYPES).map(([k,v]) =>
-              `<option value="${k}" ${prefill.type===k?'selected':''}>
-                ${v.icon} ${v.label}
+            ${Object.entries(PRIORITY_CONFIG).map(([k,v]) => `
+              <option value="${k}" ${(prefill.priority||'medium')===k?'selected':''}>
+                ${v.label} (£${v.penalty} penalty)
               </option>`).join('')}
           </select>
         </div>
         <div>
           <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            Priority
+            Branch
           </label>
-          <select id="task-priority"
-            onchange="updatePenaltyDisplay()"
+          <select id="task-branch"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);">
-            ${Object.entries(PRIORITY_CONFIG).map(([k,v]) =>
-              `<option value="${k}" ${prefill.priority===k?'selected':''}>
-                ${v.label} (£${v.penalty} penalty)
-              </option>`).join('')}
+            <option value="">All Branches</option>
+            <option value="HRG" ${(prefill.branch||G.user?.branch)==='HRG'?'selected':''}>
+              🌊 Hurghada</option>
+            <option value="ALX" ${(prefill.branch)==='ALX'?'selected':''}>
+              🏙 Alexandria</option>
+            <option value="CAI" ${(prefill.branch)==='CAI'?'selected':''}>
+              🏛 Cairo</option>
+            <option value="RSH" ${(prefill.branch)==='RSH'?'selected':''}>
+              ⚓ Rashid</option>
           </select>
         </div>
       </div>
@@ -579,7 +584,7 @@ window.openCreateTaskModal = async function(prefill = {}) {
         if not completed by deadline
       </div>
 
-      <!-- Assign To — dynamic user list -->
+      <!-- Assign To -->
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--text3);">
           Assign To *
@@ -590,7 +595,6 @@ window.openCreateTaskModal = async function(prefill = {}) {
                    border:1px solid var(--border);border-radius:8px;color:var(--text);">
             ${buildUserDropdown('task-assign-to', prefill.assigned_to || G.user?.username)}
           </select>
-          <!-- Quick-assign me button -->
           <button class="btn btn-ghost btn-sm"
             onclick="document.getElementById('task-assign-to').value='${G.user?.username}'">
             👤 Me
@@ -598,42 +602,37 @@ window.openCreateTaskModal = async function(prefill = {}) {
         </div>
       </div>
 
-      <!-- Branch + Due Date row -->
+      <!-- ✅ Due Date + Time (separate fields) -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            Branch
-          </label>
-          <select id="task-branch"
-            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
-                   border:1px solid var(--border);border-radius:8px;color:var(--text);">
-            <option value="">All Branches</option>
-            <option value="HRG" ${prefill.branch==='HRG'?'selected':''}>🌊 Hurghada</option>
-            <option value="ALX" ${prefill.branch==='ALX'?'selected':''}>🏙 Alexandria</option>
-            <option value="CAI" ${prefill.branch==='CAI'?'selected':''}>🏛 Cairo</option>
-            <option value="RSH" ${prefill.branch==='RSH'?'selected':''}>⚓ Rashid</option>
-          </select>
-        </div>
         <div>
           <label style="font-size:11px;font-weight:700;color:var(--text3);">
             Due Date *
           </label>
           <input type="date" id="task-due-date"
-            value="${prefill.due_date || ''}"
+            value="${prefill.due_date || defaultDate}"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
-          <div style="font-size:9px;color:var(--text3);margin-top:3px;">
-            ⏰ Deadline set to <strong>18:00</strong> on selected date
-          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Due Time
+            <span style="font-weight:400;color:var(--text3);font-size:9px;">
+              (default 18:00 = end of shift)
+            </span>
+          </label>
+          <input type="time" id="task-due-time"
+            value="${defaultTime}"
+            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
         </div>
       </div>
 
-      <!-- Linked Items — smart search -->
+      <!-- Linked Items -->
       <div style="border:1px solid var(--border);border-radius:8px;padding:10px;">
         <div style="font-size:11px;font-weight:700;color:var(--text3);
                     margin-bottom:8px;">🔗 Link to (Optional)</div>
 
-        <!-- Order link -->
+        <!-- Order search -->
         <div style="margin-bottom:8px;">
           <label style="font-size:10px;font-weight:700;color:var(--text3);">
             Order
@@ -648,8 +647,7 @@ window.openCreateTaskModal = async function(prefill = {}) {
             <button class="btn btn-ghost btn-xs"
               onclick="clearTaskLink('order')">✕</button>
           </div>
-          <div id="task-order-results"
-            style="max-height:100px;overflow-y:auto;"></div>
+          <div id="task-order-results" style="max-height:100px;overflow-y:auto;"></div>
           <div id="task-order-selected"
             style="font-size:11px;color:var(--accent);margin-top:3px;"></div>
           <input type="hidden" id="task-linked-order-id"/>
@@ -658,7 +656,7 @@ window.openCreateTaskModal = async function(prefill = {}) {
           <input type="hidden" id="task-linked-client-id"/>
         </div>
 
-        <!-- Car link -->
+        <!-- Car search -->
         <div style="margin-bottom:8px;">
           <label style="font-size:10px;font-weight:700;color:var(--text3);">
             Car
@@ -673,8 +671,7 @@ window.openCreateTaskModal = async function(prefill = {}) {
             <button class="btn btn-ghost btn-xs"
               onclick="clearTaskLink('car')">✕</button>
           </div>
-          <div id="task-car-results"
-            style="max-height:80px;overflow-y:auto;"></div>
+          <div id="task-car-results" style="max-height:80px;overflow-y:auto;"></div>
           <div id="task-car-selected"
             style="font-size:11px;color:var(--accent);margin-top:3px;"></div>
           <input type="hidden" id="task-linked-car-id"/>
@@ -707,13 +704,14 @@ window.openCreateTaskModal = async function(prefill = {}) {
 
   openModal('➕ Create New Task', html, true);
 
-  // Pre-fill linked order if provided
+  // Pre-fill linked order
   if (prefill.linked_order_id) {
-    document.getElementById('task-linked-order-id').value  = prefill.linked_order_id;
-    document.getElementById('task-linked-order-no').value  = prefill.linked_order_no  || '';
+    document.getElementById('task-linked-order-id').value    = prefill.linked_order_id;
+    document.getElementById('task-linked-order-no').value    = prefill.linked_order_no  || '';
     document.getElementById('task-linked-client-name').value = prefill.linked_client_name || '';
     const sel = document.getElementById('task-order-selected');
-    if (sel) sel.textContent = `📋 Order #${prefill.linked_order_no} — ${prefill.linked_client_name || ''}`;
+    if (sel) sel.textContent =
+      `📋 Order #${prefill.linked_order_no} — ${prefill.linked_client_name || ''}`;
   }
   if (prefill.linked_car_id) {
     document.getElementById('task-linked-car-id').value    = prefill.linked_car_id;
@@ -722,25 +720,43 @@ window.openCreateTaskModal = async function(prefill = {}) {
     if (sel) sel.textContent = `🚗 ${prefill.linked_car_label}`;
   }
 
-  // Set priority display
   updatePenaltyDisplay();
 };
 
+// ✅ Auto-title suggestion when type changes
+window.updateTaskTitleSuggestion = function() {
+  const typeEl  = document.getElementById('task-type');
+  const titleEl = document.getElementById('task-title');
+  const noteEl  = document.getElementById('task-title-note');
+  if (!typeEl || !titleEl) return;
+
+  const type = typeEl.value;
+  const tc   = TASK_TYPES[type] || TASK_TYPES.general;
+
+  if (type !== 'general' && !titleEl.value) {
+    titleEl.placeholder = `${tc.icon} ${tc.label} — add details`;
+  }
+  if (noteEl) {
+    noteEl.textContent = type === 'general'
+      ? '(required for general tasks)'
+      : '(optional — auto from type)';
+  }
+};
+
 window.updatePenaltyDisplay = function() {
-  const pSel    = document.getElementById('task-priority')?.value || 'medium';
-  const pc      = PRIORITY_CONFIG[pSel] || PRIORITY_CONFIG.medium;
-  const amtEl   = document.getElementById('task-penalty-amount');
-  const noticeEl= document.getElementById('task-penalty-notice');
-  if (amtEl)    amtEl.textContent    = `£${pc.penalty}`;
+  const pSel     = document.getElementById('task-priority')?.value || 'medium';
+  const pc       = PRIORITY_CONFIG[pSel] || PRIORITY_CONFIG.medium;
+  const amtEl    = document.getElementById('task-penalty-amount');
+  const noticeEl = document.getElementById('task-penalty-notice');
+  if (amtEl)    amtEl.textContent = `£${pc.penalty}`;
   if (noticeEl) noticeEl.style.color = pc.color;
 };
 
-// ── Order search for linking ───────────────────────────────────
+// ── Order search ───────────────────────────────────────────────
 window.searchTaskLinkOrders = debounce(function(query) {
   const resultsEl = document.getElementById('task-order-results');
   if (!resultsEl) return;
   if (!query || query.length < 2) { resultsEl.innerHTML = ''; return; }
-
   const q    = query.toLowerCase();
   const hits = (G.bookings || []).filter(o => {
     const hay = [
@@ -784,12 +800,11 @@ window.selectTaskLinkOrder = function(id, no, clientName, clientId) {
     </span>`;
 };
 
-// ── Car search for linking ─────────────────────────────────────
+// ── Car search ─────────────────────────────────────────────────
 window.searchTaskLinkCars = debounce(function(query) {
   const resultsEl = document.getElementById('task-car-results');
   if (!resultsEl) return;
   if (!query || query.length < 1) { resultsEl.innerHTML = ''; return; }
-
   const q    = query.toLowerCase();
   const hits = (G.fleet || [])
     .filter(c => getCarStatusCategory(c) !== 'archived')
@@ -808,7 +823,7 @@ window.searchTaskLinkCars = debounce(function(query) {
 
   resultsEl.innerHTML = hits.map(c => {
     const plt = formatPlate(c);
-    const lbl = c.car_label || getCarLabel(c,'en');
+    const lbl = c.car_label || getCarLabel(c, 'en');
     return `
       <div style="padding:5px 8px;cursor:pointer;border-radius:4px;font-size:11px;
                   border-bottom:1px solid var(--border);"
@@ -828,7 +843,8 @@ window.selectTaskLinkCar = function(id, label) {
   document.getElementById('task-car-results').innerHTML  = '';
   document.getElementById('task-car-search').value       = '';
   const sel = document.getElementById('task-car-selected');
-  if (sel) sel.innerHTML = `<span style="color:var(--accent);">✅ 🚗 ${label}</span>`;
+  if (sel) sel.innerHTML =
+    `<span style="color:var(--accent);">✅ 🚗 ${label}</span>`;
 };
 
 window.clearTaskLink = function(type) {
@@ -860,32 +876,40 @@ window.clearTaskLink = function(type) {
 // SAVE NEW TASK
 // ============================================================
 window.saveNewTask = async function() {
-  const title    = document.getElementById('task-title')?.value.trim();
+  const type     = document.getElementById('task-type')?.value      || 'general';
+  const tc       = TASK_TYPES[type] || TASK_TYPES.general;
+  const rawTitle = document.getElementById('task-title')?.value.trim();
   const assignTo = document.getElementById('task-assign-to')?.value;
   const dueDate  = document.getElementById('task-due-date')?.value;
+  const dueTime  = document.getElementById('task-due-time')?.value  || '18:00';
 
-  if (!title)    { toast('Task title is required', 'error'); return; }
+  // ✅ Title is optional for non-general tasks — auto-generate if blank
+  const title = rawTitle ||
+    (type !== 'general' ? `${tc.icon} ${tc.label}` : '');
+
+  if (!title)    { toast('Task title is required for General tasks', 'error'); return; }
   if (!assignTo) { toast('Please assign to a user', 'error'); return; }
   if (!dueDate)  { toast('Please set a due date', 'error'); return; }
 
   const priority = document.getElementById('task-priority')?.value  || 'medium';
-  const type     = document.getElementById('task-type')?.value      || 'general';
   const branch   = document.getElementById('task-branch')?.value    || '';
   const desc     = document.getElementById('task-desc')?.value.trim() || '';
   const tagsRaw  = document.getElementById('task-tags')?.value      || '';
   const tags     = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
-
   const pc       = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.medium;
 
-  // Deadline = selected date at 18:00 Cairo
-  const deadline = new Date(`${dueDate}T18:00:00`);
+  // ✅ FIXED: proper deadline construction using date + time
+  const deadline = new Date(`${dueDate}T${dueTime}:00`);
+  if (isNaN(deadline.getTime())) {
+    toast('Invalid due date/time', 'error'); return;
+  }
 
-  const linkedOrderId    = document.getElementById('task-linked-order-id')?.value   || '';
-  const linkedOrderNo    = document.getElementById('task-linked-order-no')?.value    || '';
-  const linkedClientName = document.getElementById('task-linked-client-name')?.value || '';
-  const linkedClientId   = document.getElementById('task-linked-client-id')?.value   || '';
-  const linkedCarId      = document.getElementById('task-linked-car-id')?.value      || '';
-  const linkedCarLabel   = document.getElementById('task-linked-car-label')?.value   || '';
+  const linkedOrderId    = document.getElementById('task-linked-order-id')?.value    || '';
+  const linkedOrderNo    = document.getElementById('task-linked-order-no')?.value     || '';
+  const linkedClientName = document.getElementById('task-linked-client-name')?.value  || '';
+  const linkedClientId   = document.getElementById('task-linked-client-id')?.value    || '';
+  const linkedCarId      = document.getElementById('task-linked-car-id')?.value       || '';
+  const linkedCarLabel   = document.getElementById('task-linked-car-label')?.value    || '';
 
   const task = {
     title,
@@ -898,6 +922,7 @@ window.saveNewTask = async function() {
     branch,
     due_date          : deadline.toISOString(),
     due_date_display  : dueDate,
+    due_time_display  : dueTime,
     status            : 'pending',
     penalty_amount    : pc.penalty,
     penalty_applied   : false,
@@ -927,13 +952,12 @@ window.saveNewTask = async function() {
 // TASK ACTIONS
 // ============================================================
 window.markTaskDone = async function(taskId) {
-  const task  = window._allTasks.find(t => t.id === taskId);
+  const task    = window._allTasks.find(t => t.id === taskId);
   if (!task) return;
-
-  const now      = getCairoNow();
-  const due      = task.due_date ? new Date(task.due_date) : null;
-  const isLate   = due && now > due;
-  const penalty  = isLate && task.penalty_amount ? task.penalty_amount : 0;
+  const now     = getCairoNow();
+  const due     = task.due_date ? new Date(task.due_date) : null;
+  const isLate  = due && now > due;
+  const penalty = isLate && task.penalty_amount ? task.penalty_amount : 0;
 
   try {
     await db.collection('tasks').doc(taskId).update({
@@ -944,13 +968,11 @@ window.markTaskDone = async function(taskId) {
       penalty_amount : penalty,
       _sys_updated   : Date.now()
     });
-
     if (isLate && penalty > 0) {
       toast(`✅ Task done — ⚠️ Penalty £${penalty} applied (completed late)`, 'warning', 5000);
     } else {
       toast('✅ Task marked as done!', 'success');
     }
-
     await logAction('EDIT', 'Task Manager',
       `Completed task: "${task.title}"${isLate ? ` (LATE — £${penalty} penalty)` : ''}`);
   } catch (e) {
@@ -987,17 +1009,16 @@ window.deleteTask = async function(taskId) {
 // TASK DETAIL MODAL
 // ============================================================
 window.openTaskDetail = function(taskId) {
-  const t    = window._allTasks.find(x => x.id === taskId);
+  const t   = window._allTasks.find(x => x.id === taskId);
   if (!t) return;
-  const tc   = TASK_TYPES[t.type]         || TASK_TYPES.general;
-  const pc   = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.medium;
-  const due  = t.due_date ? new Date(t.due_date) : null;
-  const today= getCairoNow();
-  const isOD = due && today > due && t.status !== 'done';
+  const tc  = TASK_TYPES[t.type]         || TASK_TYPES.general;
+  const pc  = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.medium;
+  const due = t.due_date ? new Date(t.due_date) : null;
+  const today = getCairoNow();
+  const isOD  = due && today > due && t.status !== 'done';
 
   const html = `
     <div style="display:grid;gap:12px;">
-      <!-- Banner -->
       <div style="background:${tc.color}11;border:1px solid ${tc.color}33;
                   border-radius:10px;padding:12px 14px;
                   display:flex;align-items:center;gap:10px;">
@@ -1010,7 +1031,8 @@ window.openTaskDetail = function(taskId) {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;
+                  gap:10px;font-size:11px;">
         <div>
           <div style="color:var(--text3);font-size:10px;font-weight:700;
                       margin-bottom:3px;">ASSIGNED TO</div>
@@ -1023,18 +1045,20 @@ window.openTaskDetail = function(taskId) {
         </div>
         <div>
           <div style="color:var(--text3);font-size:10px;font-weight:700;
-                      margin-bottom:3px;">DUE DATE</div>
+                      margin-bottom:3px;">DUE DATE &amp; TIME</div>
           <div style="color:${isOD ? 'var(--danger)' : 'var(--text)'};">
-            ${due ? due.toLocaleString('en-GB',{
+            ${due ? due.toLocaleString('en-GB', {
               day:'2-digit', month:'short', year:'numeric',
               hour:'2-digit', minute:'2-digit',
-              timeZone:'Africa/Cairo'}) : '—'}
+              timeZone:'Africa/Cairo'
+            }) : '—'}
           </div>
         </div>
         <div>
           <div style="color:var(--text3);font-size:10px;font-weight:700;
                       margin-bottom:3px;">STATUS</div>
-          <div style="font-weight:700;color:${isOD ? 'var(--danger)' : 'var(--success)'};">
+          <div style="font-weight:700;
+                      color:${isOD ? 'var(--danger)' : 'var(--success)'};">
             ${isOD ? '⚠️ OVERDUE' : t.status?.toUpperCase()}
           </div>
         </div>
@@ -1107,17 +1131,25 @@ window.openEditTaskModal = async function(taskId) {
 
   const dueDate = t.due_date_display ||
     (t.due_date ? new Date(t.due_date).toISOString().slice(0,10) : '');
+  // ✅ Extract time from due_date
+  const dueTime = t.due_time_display ||
+    (t.due_date ? new Date(t.due_date).toLocaleString('en-GB',{
+      hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Africa/Cairo'
+    }).replace(' ', '') : '18:00');
 
   const html = `
     <div style="display:grid;gap:10px;">
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--text3);">Title</label>
-        <input type="text" id="edit-task-title" value="${(t.title||'').replace(/"/g,'&quot;')}"
+        <input type="text" id="edit-task-title"
+          value="${(t.title||'').replace(/"/g,'&quot;')}"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
       </div>
       <div>
-        <label style="font-size:11px;font-weight:700;color:var(--text3);">Description</label>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">
+          Description
+        </label>
         <textarea id="edit-task-desc" rows="2"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);
@@ -1140,13 +1172,15 @@ window.openEditTaskModal = async function(taskId) {
           <select id="edit-task-priority"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);">
-            ${Object.entries(PRIORITY_CONFIG).map(([k,v]) =>
-              `<option value="${k}" ${t.priority===k?'selected':''}>${v.label}</option>`
+            ${Object.entries(PRIORITY_CONFIG).map(([k,v]) => `
+              <option value="${k}" ${t.priority===k?'selected':''}>${v.label}</option>`
             ).join('')}
           </select>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">Assign To</label>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Assign To
+          </label>
           <select id="edit-task-assign"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);">
@@ -1154,8 +1188,22 @@ window.openEditTaskModal = async function(taskId) {
           </select>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">Due Date</label>
+          <!-- empty spacer -->
+        </div>
+        <!-- ✅ Due date + time -->
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Due Date
+          </label>
           <input type="date" id="edit-task-due" value="${dueDate}"
+            style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
+                   border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">
+            Due Time
+          </label>
+          <input type="time" id="edit-task-time" value="${dueTime}"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
         </div>
@@ -1168,7 +1216,7 @@ window.openEditTaskModal = async function(taskId) {
       </div>
     </div>`;
 
-  openModal(`✏️ Edit Task`, html);
+  openModal('✏️ Edit Task', html);
 };
 
 window.saveTaskEdit = async function(taskId) {
@@ -1178,15 +1226,24 @@ window.saveTaskEdit = async function(taskId) {
   const priority = document.getElementById('edit-task-priority')?.value;
   const assignTo = document.getElementById('edit-task-assign')?.value;
   const dueDate  = document.getElementById('edit-task-due')?.value;
+  const dueTime  = document.getElementById('edit-task-time')?.value || '18:00';
 
   if (!title) { toast('Title required', 'error'); return; }
 
+  // ✅ FIXED: proper deadline construction
+  let dueISO = '';
+  if (dueDate) {
+    const dl = new Date(`${dueDate}T${dueTime}:00`);
+    dueISO   = isNaN(dl.getTime()) ? '' : dl.toISOString();
+  }
+
   const upd = {
-    title, description: desc, status, priority,
-    assigned_to  : assignTo,
-    due_date     : dueDate ? new Date(`${dueDate}T18:00:00`).toISOString() : '',
-    due_date_display: dueDate,
-    _sys_updated : Date.now()
+    title, description  : desc, status, priority,
+    assigned_to         : assignTo,
+    due_date            : dueISO,
+    due_date_display    : dueDate,
+    due_time_display    : dueTime,
+    _sys_updated        : Date.now()
   };
 
   if (status === 'done' && !window._allTasks.find(t => t.id === taskId)?.completed_at) {
@@ -1205,16 +1262,14 @@ window.saveTaskEdit = async function(taskId) {
 };
 
 // ============================================================
-// QUICK CREATE FROM ANYWHERE IN THE ERP
+// QUICK CREATE FROM ANYWHERE
 // ============================================================
-
-// Call this from any page to open task creation with pre-filled context
-window.quickCreateTask = async function(context = {}) {
+window.quickCreateTask = async function(context) {
+  context = context || {};
   await loadSystemUsers();
   openCreateTaskModal(context);
 };
 
-// ── From an order ─────────────────────────────────────────────
 window.createTaskFromOrder = async function(orderId) {
   const order = (window.allOrders || G.bookings || []).find(o => o.id === orderId);
   if (!order) return;
@@ -1222,7 +1277,6 @@ window.createTaskFromOrder = async function(orderId) {
   const today   = getCairoNow();
   const isOD    = end && today > end && !order.closed;
   const st      = getOrderStatus(order);
-
   await quickCreateTask({
     title             : isOD
       ? `Follow up overdue order #${getOrderNo(order)} — ${getOrderClientName(order)}`
@@ -1234,19 +1288,17 @@ window.createTaskFromOrder = async function(orderId) {
     linked_client_name: getOrderClientName(order),
     linked_client_id  : order['كود العميل'] || '',
     tags              : [st.toLowerCase(), isOD ? 'overdue' : 'order'],
-    due_date          : new Date().toISOString().slice(0,10),
+    due_date          : new Date().toISOString().slice(0, 10),
     branch            : order['فرع الإصدار'] || ''
   });
 };
 
-// ── From a car ────────────────────────────────────────────────
 window.createTaskFromCar = async function(carId) {
   const car = G.fleet.find(c => String(c.id || c.ID) === String(carId));
   if (!car) return;
   const cat = getCarStatusCategory(car);
   const plt = formatPlate(car);
-  const lbl = getCarLabel(car,'en');
-
+  const lbl = getCarLabel(car, 'en');
   await quickCreateTask({
     title         : cat === 'maintenance'
       ? `Maintenance check: ${lbl} | ${plt}`
@@ -1259,7 +1311,6 @@ window.createTaskFromCar = async function(carId) {
   });
 };
 
-// ── From a pickup/dropoff ─────────────────────────────────────
 window.createPickupTask = async function(orderId) {
   const order = (window.allOrders || G.bookings || []).find(o => o.id === orderId);
   if (!order) return;
@@ -1272,7 +1323,7 @@ window.createPickupTask = async function(orderId) {
     linked_order_no   : getOrderNo(order),
     linked_client_name: getOrderClientName(order),
     tags              : ['pickup'],
-    due_date          : start ? start.toISOString().slice(0,10) : '',
+    due_date          : start ? start.toISOString().slice(0, 10) : '',
     branch            : order['فرع الإصدار'] || ''
   });
 };
@@ -1289,7 +1340,7 @@ window.createDropoffTask = async function(orderId) {
     linked_order_no   : getOrderNo(order),
     linked_client_name: getOrderClientName(order),
     tags              : ['dropoff'],
-    due_date          : end ? end.toISOString().slice(0,10) : '',
+    due_date          : end ? end.toISOString().slice(0, 10) : '',
     branch            : order['فرع الإصدار'] || ''
   });
 };

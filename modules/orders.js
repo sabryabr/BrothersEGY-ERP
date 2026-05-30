@@ -1,12 +1,7 @@
 // ============================================================
-// modules/orders.js
-// Order Book — table, detail modal, payments, bulk ops,
-// order edit, extend, switch car, photo upload, reminders
+// modules/orders.js v4.4
 // ============================================================
 
-// ============================================================
-// ENTRY POINT
-// ============================================================
 window.renderOrderBook = function() {
   renderPageLoading('page-order-book', '📋', 'Order Book');
   loadOrderBook();
@@ -116,13 +111,11 @@ window.loadOrderBook = async function() {
     </div>
   `;
 
-  // Hide branch filter for non-privileged users
   if (!['Admin', 'Executive'].includes(G.user?.role)) {
     const bw = document.getElementById('ob-branch-wrap');
     if (bw) bw.style.display = 'none';
   }
 
-  // Use cached data immediately
   if (G.bookings && G.bookings.length) {
     window.allOrders = G.bookings;
     filterOrders();
@@ -178,7 +171,6 @@ window.subscribeOrders = function() {
 
     window.allOrders = orders;
     G.bookings       = orders;
-
     filterOrders();
     updateOrderSummaryBar();
   }, e => {
@@ -205,7 +197,6 @@ window.filterOrders = debounce(function() {
   const today  = getCairoNow();
 
   let filtered = allOrders.filter(o => {
-    // Search
     if (search) {
       const hay = [
         getOrderClientName(o), getOrderNo(o),
@@ -216,7 +207,6 @@ window.filterOrders = debounce(function() {
       if (!hay.includes(search)) return false;
     }
 
-    // Status
     if (status !== 'all') {
       const st = getOrderStatus(o);
       const { end } = getOrderDates(o);
@@ -234,10 +224,8 @@ window.filterOrders = debounce(function() {
       }
     }
 
-    // Branch
     if (branch !== 'all' && o['فرع الإصدار'] !== branch) return false;
 
-    // Date range
     if (from || to) {
       const { start } = getOrderDates(o);
       if (from && start && start < new Date(from))              return false;
@@ -268,11 +256,11 @@ function _updateFilterPills(search, status, branch, from, to) {
   const pills = document.getElementById('ob-filter-pills');
   if (!pills) return;
   const active = [];
-  if (search)           active.push({ label: `Search: "${search}"`, key: 'search' });
-  if (status !== 'all') active.push({ label: `Status: ${status}`,   key: 'status' });
-  if (branch !== 'all') active.push({ label: `Branch: ${BRANCH_MAP[branch] || branch}`, key: 'branch' });
-  if (from)             active.push({ label: `From: ${from}`,       key: 'from' });
-  if (to)               active.push({ label: `To: ${to}`,           key: 'to' });
+  if (search)           active.push({ label:`Search: "${search}"`, key:'search' });
+  if (status !== 'all') active.push({ label:`Status: ${status}`,   key:'status' });
+  if (branch !== 'all') active.push({ label:`Branch: ${BRANCH_MAP[branch]||branch}`, key:'branch' });
+  if (from)             active.push({ label:`From: ${from}`,       key:'from'   });
+  if (to)               active.push({ label:`To: ${to}`,           key:'to'     });
 
   pills.innerHTML = active.map(p => `
     <span style="padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700;
@@ -280,14 +268,13 @@ function _updateFilterPills(search, status, branch, from, to) {
                  border:1px solid rgba(59,130,246,0.3);cursor:pointer;"
           onclick="clearFilter('${p.key}')">
       ${p.label} ✕
-    </span>
-  `).join('');
+    </span>`).join('');
 }
 
 window.clearFilter = function(key) {
   const map = {
-    search: 'ob-search', status: 'ob-status',
-    branch: 'ob-branch', from:   'ob-from', to: 'ob-to'
+    search:'ob-search', status:'ob-status',
+    branch:'ob-branch', from:'ob-from', to:'ob-to'
   };
   const el = document.getElementById(map[key]);
   if (el) el.value = (key === 'status' || key === 'branch') ? 'all' : '';
@@ -295,13 +282,11 @@ window.clearFilter = function(key) {
 };
 
 window.clearOrderFilters = function() {
-  ['ob-search', 'ob-from', 'ob-to'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
+  ['ob-search','ob-from','ob-to'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
   });
-  ['ob-status', 'ob-branch'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = 'all';
+  ['ob-status','ob-branch'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = 'all';
   });
   filterOrders();
 };
@@ -366,8 +351,7 @@ window.updateOrderSummaryBar = function() {
   const cardStyle = key => `
     border:2px solid ${curStatus === key ? 'var(--accent)' : 'transparent'};
     transition:border 0.15s;cursor:pointer;padding:8px 14px;border-radius:10px;
-    background:var(--surface2);text-align:center;min-width:70px;
-  `;
+    background:var(--surface2);text-align:center;min-width:70px;`;
 
   bar.innerHTML = `
     <div style="${cardStyle('all')}" onclick="setOrderFilter('all')">
@@ -394,9 +378,8 @@ window.updateOrderSummaryBar = function() {
       <div style="font-size:10px;font-weight:700;color:var(--text3);">Closed</div>
       <div style="font-size:17px;font-weight:900;">${closed}</div>
     </div>
-    <div style="padding:8px 14px;border-radius:10px;
-                background:rgba(239,68,68,0.08);border:2px solid transparent;
-                min-width:100px;text-align:center;">
+    <div style="padding:8px 14px;border-radius:10px;background:rgba(239,68,68,0.08);
+                border:2px solid transparent;min-width:100px;text-align:center;">
       <div style="font-size:10px;font-weight:700;color:var(--danger);">Total Debt</div>
       <div style="font-size:14px;font-weight:900;color:var(--danger);">
         ${fmtMoney(totalDebt)}
@@ -417,8 +400,7 @@ window.renderOrdersTable = function(orders) {
       <div style="text-align:center;padding:60px 20px;color:var(--text3);">
         <div style="font-size:40px;margin-bottom:12px;">📋</div>
         <div style="font-size:14px;">No orders match your filters</div>
-      </div>
-    `;
+      </div>`;
     return;
   }
 
@@ -438,8 +420,7 @@ window.renderOrdersTable = function(orders) {
         <thead>
           <tr style="background:var(--surface2);color:var(--text3);
                      font-size:10px;font-weight:700;text-transform:uppercase;">
-            ${window.bulkMode
-              ? '<th style="padding:8px;width:32px;"></th>' : ''}
+            ${window.bulkMode ? '<th style="padding:8px;width:32px;"></th>' : ''}
             <th style="padding:8px;text-align:left;">Order #</th>
             <th style="padding:8px;text-align:left;">Client</th>
             <th style="padding:8px;text-align:left;">Car</th>
@@ -505,27 +486,22 @@ function _buildOrderRow(o, today) {
     : (statusRaw || 'Active');
 
   const statusColors = {
-    active:    'var(--success)',
-    overdue:   'var(--danger)',
-    accident:  'var(--warning)',
-    closed:    'var(--text3)',
-    cancelled: 'var(--text3)',
-    future:    'var(--accent)'
+    active:'var(--success)', overdue:'var(--danger)',
+    accident:'var(--warning)', closed:'var(--text3)',
+    cancelled:'var(--text3)', future:'var(--accent)'
   };
   const statusColor = statusColors[statusKey] || 'var(--text)';
 
   const carCode    = getOrderCarCode(o);
   const carInFleet = G.fleet.find(c => String(c.ID || c.id) === String(carCode));
-  // ✅ Include plate in car label
   const plate      = carInFleet ? formatPlate(carInFleet) : '';
   const baseLabel  = carInFleet
     ? (carInFleet.car_label || getCarLabel(carInFleet, 'en'))
     : (o['اسم السيارة'] || '-');
   const carLabel   = plate ? `${baseLabel} | ${plate}` : baseLabel;
-
-  const clientId = o['كود العميل'] || '';
-  const rowBg    = isAccident ? 'rgba(249,115,22,0.04)'
-    : isOverdue  ? 'rgba(239,68,68,0.04)' : 'transparent';
+  const clientId   = o['كود العميل'] || '';
+  const rowBg      = isAccident ? 'rgba(249,115,22,0.04)'
+    : isOverdue ? 'rgba(239,68,68,0.04)' : 'transparent';
 
   return `
     <tr style="border-bottom:1px solid var(--border);cursor:pointer;background:${rowBg};"
@@ -538,8 +514,7 @@ function _buildOrderRow(o, today) {
             ${window.bulkSelected.has(o.id) ? 'checked' : ''}
             onchange="toggleBulkSelect('${o.id}',this)"
             onclick="event.stopPropagation()"/>
-        </td>
-      ` : ''}
+        </td>` : ''}
       <td style="padding:8px;font-weight:700;">#${getOrderNo(o)}</td>
       <td style="padding:8px;">
         <div style="font-weight:600;">${getOrderClientName(o) || '-'}</div>
@@ -550,13 +525,9 @@ function _buildOrderRow(o, today) {
       <td style="padding:8px;font-size:11px;color:var(--text2);">${carLabel}</td>
       <td style="padding:8px;font-size:11px;">
         <div>
-          ${start
-            ? start.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })
-            : '—'}
+          ${start ? start.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '—'}
           →
-          ${end
-            ? end.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })
-            : '—'}
+          ${end   ? end.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})   : '—'}
         </div>
         <div style="color:var(--text3);">${days}d
           ${isOverdue
@@ -568,14 +539,12 @@ function _buildOrderRow(o, today) {
       <td style="padding:8px;text-align:right;">
         ${fmtMoney(paid)}
         <div style="height:3px;border-radius:2px;margin-top:3px;
-                    background:${pct >= 100
-                      ? 'var(--success)' : pct > 50
-                      ? 'var(--accent)'  : 'var(--warning)'};
+                    background:${pct>=100?'var(--success)':pct>50?'var(--accent)':'var(--warning)'};
                     width:${pct}%;min-width:4px;"></div>
       </td>
       <td style="padding:8px;text-align:right;">
         <span style="font-weight:700;
-                     color:${debt > 0 ? 'var(--danger)' : 'var(--success)'};">
+                     color:${debt>0?'var(--danger)':'var(--success)'};">
           ${debt > 0 ? fmtMoney(debt) : '✅'}
         </span>
         ${latePenalty > 0
@@ -597,9 +566,14 @@ function _buildOrderRow(o, today) {
           onclick="event.stopPropagation();openOrderEdit('${o.id}')">✏️</button>
         <button class="btn btn-primary btn-xs" title="Add Payment"
           onclick="event.stopPropagation();quickAddPayment('${o.id}')">💰</button>
+        ${['Admin'].includes(G.user?.role) ? `
+          <button class="btn btn-danger btn-xs" title="Delete"
+            onclick="event.stopPropagation();
+              if(confirm('Delete this order?')) adminDeleteOrder('${o.id}')">
+            🗑️
+          </button>` : ''}
       </td>
-    </tr>
-  `;
+    </tr>`;
 }
 
 window.refreshOrderBook = function() {
@@ -648,16 +622,14 @@ window.openOrderDetail = async function(orderId) {
 
   const totalDue    = total + latePenalty;
   const debt        = isClosed ? 0 : Math.max(0, totalDue - paid);
-  const depositHeld = parseAmount(o['الوديعة المحتجزة'] || o['deposit_held']     || 0);
-  const depositRet  = parseAmount(o['الوديعة المردودة'] || o['deposit_returned'] || 0);
+  const depositHeld = parseAmount(o['الوديعة المحتجزة'] || o.deposit_held     || 0);
+  const depositRet  = parseAmount(o['الوديعة المردودة'] || o.deposit_returned || 0);
 
   const customer   = G.customers.find(
     c => String(c['No.'] || c.col_A) === String(o['كود العميل'])
   );
   const carCode    = getOrderCarCode(o);
   const carInFleet = G.fleet.find(c => String(c.ID || c.id) === String(carCode));
-
-  // ✅ Build car label with plate
   const plate      = carInFleet ? formatPlate(carInFleet) : '';
   const baseLabel  = carInFleet
     ? (carInFleet.car_label || getCarLabel(carInFleet, 'en'))
@@ -669,13 +641,11 @@ window.openOrderDetail = async function(orderId) {
     : isClosed  ? 'var(--text3)'
     : isFuture  ? 'var(--accent)'
     : 'var(--success)';
-
   const bannerBg = isAccident ? 'rgba(249,115,22,0.1)'
     : isOverdue ? 'rgba(239,68,68,0.1)'
     : isClosed  ? 'rgba(100,116,139,0.1)'
     : isFuture  ? 'rgba(59,130,246,0.1)'
     : 'rgba(34,197,94,0.1)';
-
   const statusLabel = isAccident ? '— ACCIDENT'
     : isOverdue ? '— OVERDUE'
     : isClosed  ? '— CLOSED'
@@ -687,7 +657,7 @@ window.openOrderDetail = async function(orderId) {
     <div style="background:${bannerBg};border-radius:10px;padding:12px 16px;
                 margin-bottom:16px;display:flex;align-items:center;gap:10px;">
       <span style="font-size:24px;">
-        ${isAccident ? '🚨' : isOverdue ? '⚠️' : isClosed ? '✅' : isFuture ? '📅' : '🚗'}
+        ${isAccident?'🚨':isOverdue?'⚠️':isClosed?'✅':isFuture?'📅':'🚗'}
       </span>
       <div>
         <div style="font-size:15px;font-weight:800;">
@@ -698,13 +668,12 @@ window.openOrderDetail = async function(orderId) {
           <div style="font-size:11px;color:var(--danger);">
             ${lateDays} days ${isAccident ? 'since accident' : 'overdue'}
             • Penalty: ${fmtMoney(latePenalty)}
-          </div>
-        ` : ''}
+          </div>` : ''}
         ${isFuture && start ? `
           <div style="font-size:11px;color:var(--accent);">
-            Starts ${start.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })}
-          </div>
-        ` : ''}
+            Starts ${start.toLocaleDateString('en-GB',{
+              day:'2-digit',month:'short',year:'numeric'})}
+          </div>` : ''}
       </div>
     </div>
 
@@ -715,40 +684,40 @@ window.openOrderDetail = async function(orderId) {
           👤 CLIENT
         </div>
         <div style="font-weight:700;font-size:13px;
-                    cursor:${customer ? 'pointer' : 'default'};
-                    color:${customer ? 'var(--accent)' : 'var(--text)'};"
+                    cursor:${customer?'pointer':'default'};
+                    color:${customer?'var(--accent)':'var(--text)'};"
              ${customer
                ? `onclick="closeModal();setTimeout(()=>openClientProfile('${customer.id}'),100)"`
                : ''}>
-          ${o['اسم العميل'] || '-'}${customer ? ' 🔗' : ''}
+          ${o['اسم العميل']||'-'}${customer?' 🔗':''}
         </div>
         <div style="font-size:11px;color:var(--text3);">
-          CRM ID: ${o['كود العميل'] || '-'}
+          CRM ID: ${o['كود العميل']||'-'}
         </div>
         ${customer ? `
           <div style="font-size:11px;color:var(--text2);margin-top:4px;">
-            📞 ${customer['رقم التليفون'] || '-'}<br>
-            🪪 ${customer['رقم جواز السفر'] || customer['الرقم القومي'] || '-'}
-          </div>
-        ` : ''}
+            📞 ${customer['رقم التليفون']||'-'}<br>
+            🪪 ${customer['رقم جواز السفر']||customer['الرقم القومي']||'-'}
+          </div>` : ''}
       </div>
-
       <div style="background:var(--surface2);border-radius:10px;padding:12px;">
         <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;">
           🚗 CAR
         </div>
         <div style="font-weight:700;font-size:13px;
-                    cursor:${carInFleet ? 'pointer' : 'default'};
-                    color:${carInFleet ? 'var(--accent)' : 'var(--text)'};"
+                    cursor:${carInFleet?'pointer':'default'};
+                    color:${carInFleet?'var(--accent)':'var(--text)'};"
              ${carInFleet
-               ? `onclick="closeModal();setTimeout(()=>openCarDetailModal('${carInFleet.id || carCode}'),200)"`
+               ? `onclick="closeModal();setTimeout(()=>openCarDetailModal('${carInFleet.id||carCode}'),200)"`
                : ''}>
-          ${carLabel}${carInFleet ? ' 🔗' : ''}
+          ${carLabel}${carInFleet?' 🔗':''}
         </div>
-        <div style="font-size:11px;color:var(--text3);">Code: ${carCode || '-'}</div>
+        <div style="font-size:11px;color:var(--text3);">
+          Code: ${carCode||'-'}
+        </div>
         <div style="font-size:11px;color:var(--text2);margin-top:4px;">
-          📍 Pickup: ${o['مكان الاستلام'] || '-'}<br>
-          📍 Dropoff: ${o['مكان التسليم'] || '-'}
+          📍 Pickup: ${o['مكان الاستلام']||'-'}<br>
+          📍 Dropoff: ${o['مكان التسليم']||'-'}
         </div>
       </div>
     </div>
@@ -771,11 +740,11 @@ window.openOrderDetail = async function(orderId) {
         <div>
           <span style="color:var(--text3);">Duration:</span>
           ${o['rental_days'] || (start && end
-            ? Math.ceil((end - start) / 86400000) : '-')} days
+            ? Math.ceil((end-start)/86400000) : '-')} days
         </div>
         <div>
           <span style="color:var(--text3);">Branch:</span>
-          ${BRANCH_MAP[o['فرع الإصدار']] || o['فرع الإصدار'] || '-'}
+          ${BRANCH_MAP[o['فرع الإصدار']]||o['فرع الإصدار']||'-'}
         </div>
       </div>
     </div>
@@ -800,8 +769,7 @@ window.openOrderDetail = async function(orderId) {
         <div>
           <div style="color:var(--danger);">+ Penalty</div>
           <div style="font-weight:700;color:var(--danger);">${fmtMoney(latePenalty)}</div>
-        </div>
-        ` : ''}
+        </div>` : ''}
         <div>
           <div style="color:var(--text3);">Total Due</div>
           <div style="font-weight:700;">${fmtMoney(totalDue)}</div>
@@ -812,13 +780,13 @@ window.openOrderDetail = async function(orderId) {
         </div>
       </div>
       <div style="margin-top:12px;padding:10px;border-radius:8px;text-align:center;
-                  background:${debt > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)'};
-                  border:1px solid ${debt > 0 ? 'var(--danger)' : 'var(--success)'}20;">
+                  background:${debt>0?'rgba(239,68,68,0.08)':'rgba(34,197,94,0.08)'};
+                  border:1px solid ${debt>0?'var(--danger)':'var(--success)'}20;">
         <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;">
           CURRENT DEBT
         </div>
         <div style="font-size:18px;font-weight:900;
-                    color:${debt > 0 ? 'var(--danger)' : 'var(--success)'};">
+                    color:${debt>0?'var(--danger)':'var(--success)'};">
           ${debt > 0 ? fmtMoney(debt) : '✅ CLEAR'}
         </div>
       </div>
@@ -871,28 +839,28 @@ window.openOrderDetail = async function(orderId) {
       <button class="btn btn-ghost"
         onclick="generateOrderContractDirect('${o.id}','ar')">📋 AR Contract</button>
       <button class="btn btn-ghost"
-        onclick="viewOrReprintReceipt('${o.id}','${o['No.'] || o.id}')">🧾 Receipt</button>
+        onclick="viewOrReprintReceipt('${o.id}','${o['No.']||o.id}')">🧾 Receipt</button>
       <button class="btn btn-ghost"
-        onclick="viewOrderPayments('${o.id}','${o['No.'] || o.id}')">💳 Payments</button>
+        onclick="viewOrderPayments('${o.id}','${o['No.']||o.id}')">💳 Payments</button>
       <button class="btn btn-ghost"
         onclick="extendOrder('${o.id}')">📅 Extend</button>
       <button class="btn btn-ghost"
         onclick="switchOrderCar('${o.id}')">🔄 Switch Car</button>
       <button class="btn btn-ghost"
         onclick="openReminderForm('${o.id}')">🔔 Reminder</button>
+      <button class="btn btn-ghost btn-sm"
+        onclick="createTaskFromOrder('${o.id}')">📌 Task</button>
       ${G.user?.role === 'Admin' ? `
-        <button class="btn btn-sm"
-          style="background:var(--danger);color:#fff;"
+        <button class="btn btn-sm" style="background:var(--danger);color:#fff;"
           onclick="if(confirm('DELETE order #${o['No.']} permanently?'))
                    adminDeleteOrder('${o.id}')">
           🗑️ Delete
-        </button>
-      ` : ''}
+        </button>` : ''}
     </div>
   `;
 
-  openModal(`Order #${o['No.'] || o.id} — ${o['اسم العميل'] || ''}`, html, true);
-  logAction('VIEW', 'Order Book', `Viewed order #${o['No.'] || o.id}`);
+  openModal(`Order #${o['No.']||o.id} — ${o['اسم العميل']||''}`, html, true);
+  logAction('VIEW', 'Order Book', `Viewed order #${o['No.']||o.id}`);
 };
 
 // ============================================================
@@ -914,13 +882,13 @@ window.openOrderEdit = async function(orderId) {
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);">
           <option value="Active"
-            ${(o['حالة الطلب'] || '') === 'Active'    ? 'selected' : ''}>Active</option>
+            ${(o['حالة الطلب']||'')==='Active'?'selected':''}>Active</option>
           <option value="Closed"
-            ${(o['حالة الطلب'] || '') === 'Closed'    ? 'selected' : ''}>Closed</option>
+            ${(o['حالة الطلب']||'')==='Closed'?'selected':''}>Closed</option>
           <option value="Accident"
-            ${(o['حالة الطلب'] || '') === 'Accident'  ? 'selected' : ''}>Accident</option>
+            ${(o['حالة الطلب']||'')==='Accident'?'selected':''}>Accident</option>
           <option value="Cancelled"
-            ${(o['حالة الطلب'] || '') === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+            ${(o['حالة الطلب']||'')==='Cancelled'?'selected':''}>Cancelled</option>
         </select>
       </div>
       <div>
@@ -930,9 +898,8 @@ window.openOrderEdit = async function(orderId) {
         <input type="number" id="edit-daily"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);"
-          value="${parseAmount(o['سعر السيارة اليومي بالجنيه المصري']) || ''}"
-          ${!isPriv
-            ? 'readonly title="Rate changes require admin approval"' : ''}/>
+          value="${parseAmount(o['سعر السيارة اليومي بالجنيه المصري'])||''}"
+          ${!isPriv?'readonly title="Rate changes require admin approval"':''}/>
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--text3);">
@@ -941,7 +908,7 @@ window.openOrderEdit = async function(orderId) {
         <input type="number" id="edit-total"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);"
-          value="${parseAmount(o['إجمالي المستحق (Total)']) || ''}"/>
+          value="${parseAmount(o['إجمالي المستحق (Total)'])||''}"/>
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--text3);">
@@ -950,26 +917,22 @@ window.openOrderEdit = async function(orderId) {
         <input type="number" id="edit-paid"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);"
-          value="${parseAmount(o['المدفوع EGP']) || ''}"/>
+          value="${parseAmount(o['المدفوع EGP'])||''}"/>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            KM at Start
-          </label>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">KM Start</label>
           <input type="number" id="edit-km-start"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);"
-            value="${parseAmount(o['كيلومتر بداية']) || ''}"/>
+            value="${parseAmount(o['كيلومتر بداية'])||''}"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            KM at End
-          </label>
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">KM End</label>
           <input type="number" id="edit-km-end"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);"
-            value="${parseAmount(o['كيلومتر نهاية']) || ''}"/>
+            value="${parseAmount(o['كيلومتر نهاية'])||''}"/>
         </div>
       </div>
       <div>
@@ -977,19 +940,17 @@ window.openOrderEdit = async function(orderId) {
         <input type="text" id="edit-notes"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);"
-          value="${(o['ملاحظات'] || o.Notes || '').replace(/"/g, '&quot;')}"/>
+          value="${(o['ملاحظات']||o.Notes||'').replace(/"/g,'&quot;')}"/>
       </div>
       <div>
-        <label style="font-size:11px;font-weight:700;color:var(--text3);">
-          Debt Clock
-        </label>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);">Debt Clock</label>
         <select id="edit-closed"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);">
-          <option value="false" ${!o.closed ? 'selected' : ''}>
+          <option value="false" ${!o.closed?'selected':''}>
             Open (debt clock running)
           </option>
-          <option value="true" ${o.closed ? 'selected' : ''}>
+          <option value="true" ${o.closed?'selected':''}>
             Closed (stopped)
           </option>
         </select>
@@ -998,8 +959,7 @@ window.openOrderEdit = async function(orderId) {
         <div style="font-size:11px;color:var(--warning);padding:8px;
                     background:rgba(245,158,11,0.1);border-radius:6px;">
           ⚠️ Rate changes exceeding threshold will require admin approval.
-        </div>
-      ` : ''}
+        </div>` : ''}
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-success" style="flex:1;"
           onclick="saveOrderEdit('${orderId}')">💾 Save Changes</button>
@@ -1008,8 +968,7 @@ window.openOrderEdit = async function(orderId) {
       </div>
     </div>
   `;
-
-  openModal(`Edit Order #${o['No.'] || o.id}`, html);
+  openModal(`Edit Order #${o['No.']||o.id}`, html);
 };
 
 window.saveOrderEdit = async function(orderId) {
@@ -1024,13 +983,10 @@ window.saveOrderEdit = async function(orderId) {
   const kmStart  = document.getElementById('edit-km-start')?.value;
   const kmEnd    = document.getElementById('edit-km-end')?.value;
 
-  // Rate change approval check
   if (!isPriv && order) {
     const origRate    = parseAmount(order['سعر السيارة اليومي بالجنيه المصري']);
     const threshold   = G.settings?.discountThreshold || 5;
-    const discountPct = origRate > 0
-      ? ((origRate - newDaily) / origRate * 100) : 0;
-
+    const discountPct = origRate > 0 ? ((origRate - newDaily) / origRate * 100) : 0;
     if (discountPct > threshold) {
       await db.collection('approvals').add({
         type          : 'rate_change',
@@ -1045,10 +1001,7 @@ window.saveOrderEdit = async function(orderId) {
         status        : 'pending',
         created_at    : Date.now()
       });
-      toast(
-        `Rate change ${discountPct.toFixed(1)}% exceeds threshold. Approval submitted.`,
-        'warning', 6000
-      );
+      toast(`Rate change ${discountPct.toFixed(1)}% exceeds threshold. Approval submitted.`, 'warning', 6000);
       closeModal();
       return;
     }
@@ -1067,20 +1020,15 @@ window.saveOrderEdit = async function(orderId) {
     if (kmStart) upd['كيلومتر بداية'] = kmStart;
     if (kmEnd)   upd['كيلومتر نهاية'] = kmEnd;
 
-    // Accident → update car status
     if (newStatus === 'Accident' && order?.['كود السيارة']) {
-      await db.collection('fleet')
-        .doc(String(order['كود السيارة']))
-        .update({ status: 'accident', Contract: 'Accident', _sys_updated: Date.now() })
-        .catch(() => {});
+      await db.collection('fleet').doc(String(order['كود السيارة']))
+        .update({ status:'accident', Contract:'Accident', _sys_updated:Date.now() })
+        .catch(()=>{});
     }
-
-    // Closing → set car to available
     if (newClosed && order?.['كود السيارة']) {
-      await db.collection('fleet')
-        .doc(String(order['كود السيارة']))
-        .update({ status: 'available', _sys_updated: Date.now() })
-        .catch(() => {});
+      await db.collection('fleet').doc(String(order['كود السيارة']))
+        .update({ status:'available', _sys_updated:Date.now() })
+        .catch(()=>{});
     }
 
     await db.collection('bookings').doc(orderId).update(upd);
@@ -1091,7 +1039,7 @@ window.saveOrderEdit = async function(orderId) {
     if (idx2 > -1) G.bookings[idx2] = { ...G.bookings[idx2], ...upd };
 
     await logAction('EDIT', 'Order Book',
-      `Updated Order #${order?.['No.'] || orderId} → ${newStatus}`);
+      `Updated Order #${order?.['No.']||orderId} → ${newStatus}`);
     toast('Order updated!', 'success');
     closeModal();
     filterOrders();
@@ -1117,11 +1065,11 @@ window.quickAddPayment = function(orderId) {
                 background:var(--surface2);border-radius:8px;padding:10px;">
       <div style="display:flex;justify-content:space-between;">
         <span style="color:var(--text3);">Order:</span>
-        <strong>#${order['No.'] || orderId}</strong>
+        <strong>#${order['No.']||orderId}</strong>
       </div>
       <div style="display:flex;justify-content:space-between;">
         <span style="color:var(--text3);">Client:</span>
-        <strong>${order['اسم العميل'] || '-'}</strong>
+        <strong>${order['اسم العميل']||'-'}</strong>
       </div>
       <div style="display:flex;justify-content:space-between;">
         <span style="color:var(--text3);">Outstanding:</span>
@@ -1182,8 +1130,8 @@ window.quickAddPayment = function(orderId) {
         <select id="qp-collected-by"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);">
-          <option value="${G.user?.username || ''}">
-            Me (${G.user?.username || ''})
+          <option value="${G.user?.username||''}">
+            Me (${G.user?.username||''})
           </option>
           <option value="Sabry">Sabry</option>
           <option value="Eslam">Eslam</option>
@@ -1195,7 +1143,9 @@ window.quickAddPayment = function(orderId) {
 
     <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);
                 border-radius:8px;padding:10px;text-align:center;margin-bottom:12px;">
-      <div style="font-size:10px;font-weight:700;color:var(--text3);">Total This Payment</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);">
+        Total This Payment
+      </div>
       <div id="qp-total"
         style="font-size:18px;font-weight:900;color:var(--success);">£0.00</div>
     </div>
@@ -1251,7 +1201,7 @@ window.quickAddPayment = function(orderId) {
     </div>
   `;
 
-  openModal(`Add Payment — Order #${order['No.'] || orderId}`, html);
+  openModal(`Add Payment — Order #${order['No.']||orderId}`, html);
 };
 
 window.updateQPTotal = function() {
@@ -1285,48 +1235,38 @@ window.saveQuickPayment = async function(orderId, totalDue, prevPaid) {
   const order = allOrders.find(o => o.id === orderId);
 
   try {
-    // ✅ New EGP paid = previous + cash EGP + card + online (not USD/EUR)
     const newPaidEGP = prevPaid + egp + card + online;
-
     const upd = {
       'المدفوع EGP' : String(newPaidEGP),
       '_sys_updated': Date.now()
     };
 
-    // ✅ USD and EUR written once only
     if (usd > 0) {
-      upd['المدفوع USD'] = String(
-        parseAmount(order?.['المدفوع USD'] || '0') + usd
-      );
+      upd['المدفوع USD'] = String(parseAmount(order?.['المدفوع USD']||'0') + usd);
     }
     if (eur > 0) {
-      upd['المدفوع EUR'] = String(
-        parseAmount(order?.['المدفوع EUR'] || '0') + eur
-      );
+      upd['المدفوع EUR'] = String(parseAmount(order?.['المدفوع EUR']||'0') + eur);
     }
 
     const newTotalEquiv = prevPaid + thisPayment;
     const { end }       = getOrderDates(order || {});
 
-    // Auto-close if fully paid and past end date
     if (newTotalEquiv >= totalDue && end && getCairoNow() > end &&
         getOrderStatus(order) !== 'Accident') {
       upd['closed']      = true;
       upd['حالة الطلب'] = 'Closed';
       if (order?.['كود السيارة']) {
-        await db.collection('fleet')
-          .doc(String(order['كود السيارة']))
-          .update({ status: 'available', _sys_updated: Date.now() })
-          .catch(() => {});
+        await db.collection('fleet').doc(String(order['كود السيارة']))
+          .update({ status:'available', _sys_updated:Date.now() })
+          .catch(()=>{});
       }
       toast('Order fully paid and closed!', 'success');
     }
 
     await db.collection('bookings').doc(orderId).update(upd);
 
-    // Build payment record
     const car = G.fleet.find(c =>
-      String(c.ID || c.id) === String(order?.['كود السيارة'] || '')
+      String(c.ID||c.id) === String(order?.['كود السيارة']||'')
     ) || {};
 
     const methods = [];
@@ -1337,7 +1277,7 @@ window.saveQuickPayment = async function(orderId, totalDue, prevPaid) {
     if (eur    > 0) methods.push('Cash EUR');
 
     const orderBranch = order?.['فرع الإصدار'] || order?.branch ||
-      G.user?.branch || 'HRG';
+                        G.user?.branch || 'HRG';
 
     const paymentRecord = {
       order_id        : orderId,
@@ -1362,9 +1302,8 @@ window.saveQuickPayment = async function(orderId, totalDue, prevPaid) {
 
     const payRef = await db.collection('payment_log').add(paymentRecord);
     await logAction('EDIT', 'Order Book',
-      `Payment on Order #${order?.['No.'] || orderId}: ${fmtMoney(thisPayment)}`);
+      `Payment on Order #${order?.['No.']||orderId}: ${fmtMoney(thisPayment)}`);
 
-    // ✅ Update local cache correctly
     const orderIdx = allOrders.findIndex(o => o.id === orderId);
     if (orderIdx >= 0) {
       allOrders[orderIdx]['المدفوع EGP'] = String(newPaidEGP);
@@ -1378,38 +1317,50 @@ window.saveQuickPayment = async function(orderId, totalDue, prevPaid) {
     if (typeof filterOrders === 'function') filterOrders();
     toast('✅ Payment saved! Generating receipt...', 'success');
     closeModal();
-    // ✅ Only generate receipt on actual payment save
-    setTimeout(() => generateSinglePaymentReceipt(
-      paymentRecord, payRef.id, orderId
-    ), 400);
+    setTimeout(() => generateSinglePaymentReceipt(paymentRecord, payRef.id, orderId), 400);
+
   } catch (e) {
     toast('Payment failed: ' + e.message, 'error');
   }
 };
 
 // ============================================================
-// SINGLE PAYMENT RECEIPT (called ONLY from saveQuickPayment)
+// SINGLE PAYMENT RECEIPT
+// ✅ KEY FIX: rcRef is declared BEFORE verifyUrl uses it
 // ============================================================
 window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId) {
   try {
     let order = allOrders.find(o => o.id === orderId);
     if (!order) {
       const snap = await db.collection('bookings').doc(orderId).get();
-      if (snap.exists) order = { id: snap.id, ...snap.data() };
+      if (snap.exists) order = { id:snap.id, ...snap.data() };
     }
 
     const contractNo  = order?.['No.'] || orderId;
     const clientName  = payment.client_name || getOrderClientName(order) || '';
-    const carLabel    = payment.car_label || '';
+    const carLabel    = payment.car_label   || '';
     const { start, end } = getOrderDates(order || {});
-    const verifyUrl = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${encodeURIComponent(rcRef)}`;
     const logo        = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
 
-    const dateStr = new Date(payment.datetime || Date.now())
-      .toLocaleString('en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
+    // ✅ BUILD rcRef FIRST before anything uses it
+    const rcRef = `RC-${(payment.branch || 'GEN').slice(0,3).toUpperCase()}-${
+      new Date().toISOString().slice(2,10).replace(/-/g,'')}-${
+      paymentId.slice(-4).toUpperCase()}`;
+
+    // ✅ verifyUrl uses rcRef (not contractNo)
+    const verifyUrl = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${
+      encodeURIComponent(rcRef)}`;
+
+    // ✅ Full Cairo timestamp
+    const timestampStr = new Date().toLocaleString('en-GB', {
+      day:'2-digit', month:'short', year:'numeric',
+      hour:'2-digit', minute:'2-digit', second:'2-digit',
+      timeZone: 'Africa/Cairo'
+    });
+
+    const totalOrder  = parseAmount(order?.['إجمالي المستحق (Total)'] || 0);
+    const totalPaid   = parseAmount(order?.['المدفوع EGP'] || 0);
+    const outstanding = Math.max(0, totalOrder - totalPaid);
 
     const parts = [];
     if (payment.amount_egp > 0) parts.push(`£${payment.amount_egp.toLocaleString()} EGP`);
@@ -1417,18 +1368,9 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
     if (payment.amount_eur > 0) parts.push(`€${payment.amount_eur} EUR`);
     const amountStr = parts.join(' + ');
 
-    const totalOrder  = parseAmount(order?.['إجمالي المستحق (Total)'] || 0);
-    const totalPaid   = parseAmount(order?.['المدفوع EGP'] || 0);
-    const outstanding = Math.max(0, totalOrder - totalPaid);
-
-    const rcRef = `RC-${(payment.branch || 'GEN').slice(0, 3).toUpperCase()}-${
-      new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${
-      paymentId.slice(-4).toUpperCase()}`;
-
     const slip = copyType => `
       <div style="font-family:'Courier New',monospace;width:80mm;padding:10px;
                   border:1px solid #ccc;border-radius:4px;font-size:8pt;">
-
         <div style="display:flex;justify-content:space-between;align-items:center;
                     border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:8px;">
           <div>
@@ -1447,7 +1389,7 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
 
         <div style="border-bottom:1px dashed #ccc;padding-bottom:6px;margin-bottom:6px;">
           <div>Ref: <strong>${rcRef}</strong></div>
-          <div>Date: ${dateStr}</div>
+          <div>Issued: <strong>${timestampStr}</strong></div>
           <div>Contract: <strong>#${contractNo}</strong></div>
         </div>
 
@@ -1493,19 +1435,16 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
           </div>
           <div>
             <div style="color:#666;">Outstanding</div>
-            <strong style="color:${outstanding > 0 ? '#dc2626' : '#16a34a'};">
-              ${outstanding > 0
-                ? '£' + outstanding.toLocaleString()
-                : '✅ CLEAR'}
+            <strong style="color:${outstanding>0?'#dc2626':'#16a34a'};">
+              ${outstanding > 0 ? '£' + outstanding.toLocaleString() : '✅ CLEAR'}
             </strong>
           </div>
         </div>
 
         <div style="font-size:6pt;color:#999;text-align:center;">
-          Scan QR code to verify this receipt online
+          Scan QR to verify · Ref: ${rcRef}
         </div>
-      </div>
-    `;
+      </div>`;
 
     const html = `<!DOCTYPE html>
 <html>
@@ -1542,18 +1481,19 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
       setTimeout(() => win.print(), 600);
     }
 
-    // Save receipt record to Firestore
+    // ✅ Save to Firestore — all fields correct
     await db.collection('receipts').add({
-	  ...payment,
-	  receipt_ref  : rcRef,
-	  payment_id   : paymentId,
-	  contract_no  : contractNo,
-	  order_id     : orderId,       // ✅ make sure this is saved
-	  qr_ref       : rcRef,         // ✅ changed from contractNo to rcRef
-	  verify_url   : `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${encodeURIComponent(rcRef)}`,
-	  receipt_type : 'single_payment',
-	  _sys_created : firebase.firestore.FieldValue.serverTimestamp()
-	}).catch(() => {});
+      ...payment,
+      receipt_ref  : rcRef,
+      payment_id   : paymentId,
+      contract_no  : contractNo,
+      order_id     : orderId,
+      qr_ref       : rcRef,          // ✅ rcRef not contractNo
+      verify_url   : verifyUrl,      // ✅ points to rcRef
+      issued_at    : timestampStr,
+      receipt_type : 'single_payment',
+      _sys_created : firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
 
   } catch (e) {
     console.error('Receipt generation error:', e);
@@ -1562,19 +1502,18 @@ window.generateSinglePaymentReceipt = async function(payment, paymentId, orderId
 };
 
 // ============================================================
-// VIEW / REPRINT RECEIPT — does NOT create a new record
+// VIEW / REPRINT RECEIPT
 // ============================================================
 window.viewOrReprintReceipt = async function(orderId, orderNo) {
   try {
     const snap = await db.collection('receipts')
       .where('order_id', '==', orderId)
-      .get()
-      .catch(() => null);
+      .get().catch(() => null);
 
     if (snap && !snap.empty) {
       const docs = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        .map(d => ({ id:d.id, ...d.data() }))
+        .sort((a, b) => (b.timestamp||0) - (a.timestamp||0));
       reprintFromRecord(docs[0]);
     } else {
       toast('No receipt found, generating new one...', 'info');
@@ -1586,8 +1525,10 @@ window.viewOrReprintReceipt = async function(orderId, orderNo) {
 };
 
 window.reprintFromRecord = function(r) {
+  // ✅ verifyUrl uses receipt_ref (rcRef) not contract number
   const verifyUrl = r.verify_url ||
-  buildVerifyUrl({ 'No.': r.contract_no || r.order_ref || r.qr_ref, id: r.order_id });
+    `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${
+      encodeURIComponent(r.receipt_ref || r.qr_ref || r.id)}`;
 
   const logo = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
 
@@ -1612,7 +1553,7 @@ window.reprintFromRecord = function(r) {
 
       <div style="border-bottom:1px dashed #ccc;padding-bottom:6px;margin-bottom:6px;">
         <div>Ref: <strong>${r.receipt_ref || r.id}</strong></div>
-        <div>Date: ${r.receipt_date || '—'}</div>
+        <div>Issued: ${r.issued_at || r.receipt_date || '—'}</div>
         <div>Contract: <strong>#${r.contract_no || r.qr_ref || '—'}</strong></div>
         <div>Branch: ${r.branch || '—'}</div>
       </div>
@@ -1641,10 +1582,9 @@ window.reprintFromRecord = function(r) {
       </div>
 
       <div style="font-size:6pt;color:#999;text-align:center;">
-        Scan QR code to verify this receipt online
+        Scan QR to verify · Ref: ${r.receipt_ref || r.id}
       </div>
-    </div>
-  `;
+    </div>`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -1675,10 +1615,7 @@ window.reprintFromRecord = function(r) {
 </html>`;
 
   const win = window.open('', '_blank');
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-  }
+  if (win) { win.document.write(html); win.document.close(); }
 };
 
 // ============================================================
@@ -1691,26 +1628,19 @@ window.requestCloseOrder = async function(orderId) {
   if (isPriv) {
     try {
       const upd = {
-        'حالة الطلب' : 'Closed',
-        'closed'      : true,
-        '_sys_updated': Date.now()
+        'حالة الطلب': 'Closed', 'closed': true, '_sys_updated': Date.now()
       };
       await db.collection('bookings').doc(orderId).update(upd);
-
       if (order?.['كود السيارة']) {
-        await db.collection('fleet')
-          .doc(String(order['كود السيارة']))
-          .update({ status: 'available', _sys_updated: Date.now() })
-          .catch(() => {});
+        await db.collection('fleet').doc(String(order['كود السيارة']))
+          .update({ status:'available', _sys_updated:Date.now() })
+          .catch(()=>{});
       }
-
       const idx = allOrders.findIndex(o => o.id === orderId);
       if (idx > -1) allOrders[idx] = { ...allOrders[idx], ...upd };
       const idx2 = G.bookings.findIndex(b => b.id === orderId);
       if (idx2 > -1) G.bookings[idx2] = { ...G.bookings[idx2], ...upd };
-
-      await logAction('EDIT', 'Order Book',
-        `Closed Order #${order?.['No.'] || orderId}`);
+      await logAction('EDIT','Order Book',`Closed Order #${order?.['No.']||orderId}`);
       toast('Order closed!', 'success');
       closeModal();
       filterOrders();
@@ -1723,8 +1653,8 @@ window.requestCloseOrder = async function(orderId) {
         type        : 'cancellation',
         requested_by: G.user.username,
         branch      : G.user.branch,
-        subject     : `Close Order #${order?.['No.'] || orderId}`,
-        details     : `Request to close order for ${order?.['اسم العميل'] || 'client'}`,
+        subject     : `Close Order #${order?.['No.']||orderId}`,
+        details     : `Request to close order for ${order?.['اسم العميل']||'client'}`,
         linked_ref  : orderId,
         status      : 'pending',
         created_at  : Date.now()
@@ -1751,7 +1681,7 @@ window.extendOrder = function(orderId) {
           New End Date / Time
         </label>
         <input type="datetime-local" id="extend-date"
-          value="${currentEnd.replace(' ', 'T').slice(0, 16)}"
+          value="${currentEnd.replace(' ','T').slice(0,16)}"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
       </div>
@@ -1761,29 +1691,25 @@ window.extendOrder = function(orderId) {
         <button class="btn btn-ghost" style="flex:1;"
           onclick="closeModal()">Cancel</button>
       </div>
-    </div>
-  `;
+    </div>`;
   openModal('📅 Extend Order', html);
 };
 
 window.doExtendOrder = async function(orderId) {
   const newEnd = document.getElementById('extend-date')?.value;
   if (!newEnd) { toast('Select a date', 'error'); return; }
-
   try {
-    // ✅ Write both fields to cover whichever getOrderDates() reads
     await db.collection('bookings').doc(orderId).update({
       col_T             : newEnd,
       'تاريخ الانتهاء' : newEnd,
+      'تاريخ نهاية الإيجار': newEnd,
       _sys_updated      : firebase.firestore.FieldValue.serverTimestamp()
     });
-
-    const patch = { col_T: newEnd, 'تاريخ الانتهاء': newEnd };
-    const idx   = allOrders.findIndex(b => b.id === orderId);
-    if (idx >= 0)  Object.assign(allOrders[idx], patch);
-    const idx2  = G.bookings.findIndex(b => b.id === orderId);
+    const patch = { col_T:newEnd, 'تاريخ الانتهاء':newEnd, 'تاريخ نهاية الإيجار':newEnd };
+    const idx  = allOrders.findIndex(b => b.id === orderId);
+    if (idx  >= 0) Object.assign(allOrders[idx],  patch);
+    const idx2 = G.bookings.findIndex(b => b.id === orderId);
     if (idx2 >= 0) Object.assign(G.bookings[idx2], patch);
-
     toast('✅ Order extended to: ' + newEnd, 'success');
     closeModal();
     setTimeout(() => openOrderDetail(orderId), 200);
@@ -1797,7 +1723,6 @@ window.doExtendOrder = async function(orderId) {
 // ============================================================
 window.switchOrderCar = function(orderId) {
   const cars = G.fleet.filter(c => c.is_active !== false && !c.archived);
-
   const html = `
     <div style="display:grid;gap:12px;">
       <select id="car-switch-sel"
@@ -1806,22 +1731,18 @@ window.switchOrderCar = function(orderId) {
         <option value="">-- Select replacement car --</option>
         ${cars.map(c => `
           <option value="${c.id}">
-            ${getCarLabel(c, 'en')} | ${formatPlate(c) || c.plate || ''}
-          </option>
-        `).join('')}
+            ${getCarLabel(c,'en')} | ${formatPlate(c)||c.plate||''}
+          </option>`).join('')}
       </select>
       <button class="btn btn-primary btn-full" onclick="
         const sel = document.getElementById('car-switch-sel');
         const car = G.fleet.find(c => c.id === sel.value);
-        if (!car) { toast('Select a car', 'error'); return; }
+        if (!car) { toast('Select a car','error'); return; }
         closeModal();
-        setTimeout(() => doSwitchOrderCar(
-          '${orderId}', car.id, getCarLabel(car,'en')
-        ), 100);">
+        setTimeout(()=>doSwitchOrderCar('${orderId}',car.id,getCarLabel(car,'en')),100);">
         🔄 Confirm Switch
       </button>
-    </div>
-  `;
+    </div>`;
   openModal('🔄 Select Replacement Car', html);
 };
 
@@ -1830,26 +1751,20 @@ window.doSwitchOrderCar = async function(orderId, newCarId, newCarLabel) {
     G.bookings.find(b => b.id === orderId);
   if (!o) return;
 
-  const oldCarId    = o['كود السيارة'] || '';
-  const depositHeld = parseAmount(
-    o.deposit_held || o['الوديعة المحتجزة'] || 0
-  );
-
+  const depositHeld = parseAmount(o.deposit_held || o['الوديعة المحتجزة'] || 0);
   const updates = {
-    'كود السيارة'        : newCarId,
-    car_label            : newCarLabel,
-    car_switched_from    : oldCarId,
-    car_switched_at      : new Date().toISOString(),
-    deposit_transfer_note:
-      `Deposit transferred from car ${oldCarId} to car ${newCarId}. ` +
-      `Amount: ${fmtMoney(depositHeld)}`,
-    _sys_updated: firebase.firestore.FieldValue.serverTimestamp()
+    'كود السيارة'       : newCarId,
+    car_label           : newCarLabel,
+    car_switched_from   : o['كود السيارة'] || '',
+    car_switched_at     : new Date().toISOString(),
+    deposit_transfer_note: `Deposit transferred. Amount: ${fmtMoney(depositHeld)}`,
+    _sys_updated        : firebase.firestore.FieldValue.serverTimestamp()
   };
 
   try {
     await db.collection('bookings').doc(orderId).update(updates);
-    const idx = allOrders.findIndex(b => b.id === orderId);
-    if (idx >= 0)  Object.assign(allOrders[idx], updates);
+    const idx  = allOrders.findIndex(b => b.id === orderId);
+    if (idx  >= 0) Object.assign(allOrders[idx],  updates);
     const idx2 = G.bookings.findIndex(b => b.id === orderId);
     if (idx2 >= 0) Object.assign(G.bookings[idx2], updates);
     toast('✅ Car switched to: ' + newCarLabel, 'success');
@@ -1867,27 +1782,25 @@ window.viewOrderPayments = async function(orderId, orderNo) {
 
   try {
     const [plSnap, rcSnap] = await Promise.all([
-      db.collection('payment_log')
-        .where('order_id', '==', orderId)
-        .get().catch(() => ({ docs: [] })),
-      db.collection('receipts')
-        .where('contract_no', '==', String(orderNo))
-        .get().catch(() => ({ docs: [] }))
+      db.collection('payment_log').where('order_id','==',orderId)
+        .get().catch(()=>({ docs:[] })),
+      db.collection('receipts').where('order_id','==',orderId)
+        .get().catch(()=>({ docs:[] }))
     ]);
 
     const payments = plSnap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      .map(d => ({ id:d.id, ...d.data() }))
+      .sort((a, b) => (b.timestamp||0) - (a.timestamp||0));
 
     const receipts = rcSnap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      .map(d => ({ id:d.id, ...d.data() }))
+      .sort((a, b) => (b.timestamp||0) - (a.timestamp||0));
+
+    const isPriv = ['Admin','Executive'].includes(G.user?.role);
 
     const html = `
       <div style="margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">
-          Payment Log
-        </div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Payment Log</div>
         ${payments.length ? `
           <table style="width:100%;border-collapse:collapse;font-size:11px;">
             <thead>
@@ -1899,44 +1812,40 @@ window.viewOrderPayments = async function(orderId, orderNo) {
                 <th style="padding:6px;text-align:left;">Category</th>
                 <th style="padding:6px;text-align:left;">By</th>
                 <th style="padding:6px;text-align:left;">Note</th>
+                ${isPriv ? '<th style="padding:6px;"></th>' : ''}
               </tr>
             </thead>
             <tbody>
-              // Inside viewOrderPayments — replace the payments.map() section:
-			${payments.map(p => `
-			  <tr style="border-bottom:1px solid var(--border);">
-				<td style="padding:6px;">
-				  ${p.date || (p.timestamp
-					? new Date(p.timestamp).toLocaleDateString('en-GB') : '—')}
-				</td>
-				<td style="padding:6px;text-align:right;font-weight:700;color:var(--success);">
-				  ${fmtMoney(p.amount_egp || p.amount || 0)}
-				</td>
-				<td style="padding:6px;">${p.payment_method || p.method || '—'}</td>
-				<td style="padding:6px;">${p.category || '—'}</td>
-				<td style="padding:6px;">${p.collected_by || '—'}</td>
-				<td style="padding:6px;">${p.notes || '—'}</td>
-				${['Admin','Executive'].includes(G.user?.role) ? `
-				<td style="padding:6px;white-space:nowrap;">
-				  <button class="btn btn-warning btn-xs"
-					onclick="editPayment('${p.id}','${orderId}')">✏️</button>
-				  ${G.user?.role === 'Admin' ? `
-				  <button class="btn btn-danger btn-xs"
-					onclick="deletePayment('${p.id}','${orderId}',${p.amount_egp||0})">
-					🗑️
-				  </button>
-				  ` : ''}
-				</td>
-				` : '<td></td>'}
-			  </tr>
-			`).join('')}
+              ${payments.map(p => `
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:6px;">
+                    ${p.date || (p.timestamp
+                      ? new Date(p.timestamp).toLocaleDateString('en-GB') : '—')}
+                  </td>
+                  <td style="padding:6px;text-align:right;font-weight:700;
+                             color:var(--success);">
+                    ${fmtMoney(p.amount_egp || p.amount || 0)}
+                  </td>
+                  <td style="padding:6px;">${p.payment_method||p.method||'—'}</td>
+                  <td style="padding:6px;">${p.category||'—'}</td>
+                  <td style="padding:6px;">${p.collected_by||'—'}</td>
+                  <td style="padding:6px;">${p.notes||'—'}</td>
+                  ${isPriv ? `
+                    <td style="padding:6px;white-space:nowrap;">
+                      <button class="btn btn-warning btn-xs"
+                        onclick="editPayment('${p.id}','${orderId}')">✏️</button>
+                      ${G.user?.role === 'Admin' ? `
+                        <button class="btn btn-danger btn-xs"
+                          onclick="deletePayment('${p.id}','${orderId}',${p.amount_egp||0})">
+                          🗑️
+                        </button>` : ''}
+                    </td>` : ''}
+                </tr>`).join('')}
             </tbody>
-          </table>
-        ` : `
+          </table>` : `
           <div style="color:var(--text3);font-size:12px;">
             No payment log entries found.
-          </div>
-        `}
+          </div>`}
       </div>
 
       <div>
@@ -1947,7 +1856,7 @@ window.viewOrderPayments = async function(orderId, orderNo) {
               <tr style="background:var(--surface2);color:var(--text3);
                          font-size:10px;font-weight:700;">
                 <th style="padding:6px;text-align:left;">Ref</th>
-                <th style="padding:6px;text-align:left;">Date</th>
+                <th style="padding:6px;text-align:left;">Issued</th>
                 <th style="padding:6px;text-align:right;">Amount</th>
                 <th style="padding:6px;text-align:left;">Type</th>
                 <th style="padding:6px;"></th>
@@ -1956,31 +1865,33 @@ window.viewOrderPayments = async function(orderId, orderNo) {
             <tbody>
               ${receipts.map(r => `
                 <tr style="border-bottom:1px solid var(--border);">
-                  <td style="padding:6px;">${r.receipt_ref || r.id}</td>
-                  <td style="padding:6px;">${r.receipt_date || '—'}</td>
+                  <td style="padding:6px;font-family:monospace;font-size:10px;">
+                    ${r.receipt_ref || r.id}
+                  </td>
+                  <td style="padding:6px;font-size:10px;">
+                    ${r.issued_at || r.receipt_date || '—'}
+                  </td>
                   <td style="padding:6px;text-align:right;">
                     ${fmtMoney(r.total_egp_equiv || r.amount_egp || 0)}
                   </td>
-                  <td style="padding:6px;">${r.type || r.receipt_type || '—'}</td>
+                  <td style="padding:6px;">${r.type||r.receipt_type||'—'}</td>
                   <td style="padding:6px;">
                     <button class="btn btn-ghost btn-xs"
-                      onclick="reprintFromRecord(${JSON.stringify(r).replace(/"/g, '&quot;')})">
+                      onclick="reprintFromRecord(${JSON.stringify(r).replace(/"/g,'&quot;')})">
                       🖨️
                     </button>
                   </td>
-                </tr>
-              `).join('')}
+                </tr>`).join('')}
             </tbody>
-          </table>
-        ` : `
+          </table>` : `
           <div style="color:var(--text3);font-size:12px;">
             No receipts found for this order.
-          </div>
-        `}
+          </div>`}
       </div>
     `;
 
     openModal(`💳 Payments — Order #${orderNo}`, html, true);
+
   } catch (e) {
     openModal('💳 Payments',
       `<p style="color:var(--danger);">Failed to load: ${e.message}</p>`);
@@ -1988,18 +1899,17 @@ window.viewOrderPayments = async function(orderId, orderNo) {
 };
 
 // ============================================================
-// PAYMENT EDIT & DELETE (Admin only)
+// PAYMENT EDIT & DELETE
 // ============================================================
 window.editPayment = async function(paymentId, orderId) {
-  if (!['Admin', 'Executive'].includes(G.user?.role)) {
+  if (!['Admin','Executive'].includes(G.user?.role)) {
     toast('Admin access required', 'error'); return;
   }
-
   let payment = null;
   try {
     const snap = await db.collection('payment_log').doc(paymentId).get();
     if (!snap.exists) { toast('Payment not found', 'error'); return; }
-    payment = { id: snap.id, ...snap.data() };
+    payment = { id:snap.id, ...snap.data() };
   } catch (e) {
     toast('Failed to load payment: ' + e.message, 'error'); return;
   }
@@ -2008,82 +1918,68 @@ window.editPayment = async function(paymentId, orderId) {
     <div style="display:grid;gap:10px;">
       <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);
                   border-radius:8px;padding:10px;font-size:11px;color:var(--warning);">
-        ⚠️ Admin edit — changes are permanent and will update the payment record.
+        ⚠️ Admin edit — changes are permanent.
       </div>
-
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            Amount EGP
-          </label>
-          <input type="number" id="ep-egp" min="0"
-            value="${payment.amount_egp || 0}"
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">Amount EGP</label>
+          <input type="number" id="ep-egp" min="0" value="${payment.amount_egp||0}"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            Amount USD
-          </label>
-          <input type="number" id="ep-usd" min="0"
-            value="${payment.amount_usd || 0}"
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">Amount USD</label>
+          <input type="number" id="ep-usd" min="0" value="${payment.amount_usd||0}"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            Amount EUR
-          </label>
-          <input type="number" id="ep-eur" min="0"
-            value="${payment.amount_eur || 0}"
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">Amount EUR</label>
+          <input type="number" id="ep-eur" min="0" value="${payment.amount_eur||0}"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text3);">
-            Date
-          </label>
-          <input type="date" id="ep-date"
-            value="${payment.date || ''}"
+          <label style="font-size:11px;font-weight:700;color:var(--text3);">Date</label>
+          <input type="date" id="ep-date" value="${payment.date||''}"
             style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                    border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
         </div>
       </div>
-
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--text3);">
           Payment Method
         </label>
-        <input type="text" id="ep-method"
-          value="${payment.payment_method || ''}"
+        <input type="text" id="ep-method" value="${payment.payment_method||''}"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
       </div>
-
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--text3);">Category</label>
         <select id="ep-category"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);">
-          <option value="Rental Payment"      ${payment.category==='Rental Payment'      ?'selected':''}>Rental Payment</option>
-          <option value="Advance Payment"     ${payment.category==='Advance Payment'     ?'selected':''}>Advance Payment</option>
-          <option value="Full Settlement"     ${payment.category==='Full Settlement'     ?'selected':''}>Full Settlement</option>
-          <option value="Overdue Settlement"  ${payment.category==='Overdue Settlement'  ?'selected':''}>Overdue Settlement</option>
-          <option value="Traffic Fine"        ${payment.category==='Traffic Fine'        ?'selected':''}>Traffic Fine</option>
-          <option value="Accident Settlement" ${payment.category==='Accident Settlement' ?'selected':''}>Accident Settlement</option>
-          <option value="Security Deposit"    ${payment.category==='Security Deposit'    ?'selected':''}>Security Deposit</option>
-          <option value="Other"               ${payment.category==='Other'               ?'selected':''}>Other</option>
+          <option value="Rental Payment"
+            ${payment.category==='Rental Payment'?'selected':''}>Rental Payment</option>
+          <option value="Advance Payment"
+            ${payment.category==='Advance Payment'?'selected':''}>Advance Payment</option>
+          <option value="Full Settlement"
+            ${payment.category==='Full Settlement'?'selected':''}>Full Settlement</option>
+          <option value="Overdue Settlement"
+            ${payment.category==='Overdue Settlement'?'selected':''}>Overdue Settlement</option>
+          <option value="Security Deposit"
+            ${payment.category==='Security Deposit'?'selected':''}>Security Deposit</option>
+          <option value="Other"
+            ${payment.category==='Other'?'selected':''}>Other</option>
         </select>
       </div>
-
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--text3);">Notes</label>
         <input type="text" id="ep-notes"
-          value="${(payment.notes || '').replace(/"/g,'&quot;')}"
+          value="${(payment.notes||'').replace(/"/g,'&quot;')}"
           style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                  border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
       </div>
-
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-success" style="flex:1;"
           onclick="savePaymentEdit('${paymentId}','${orderId}')">
@@ -2092,14 +1988,13 @@ window.editPayment = async function(paymentId, orderId) {
         <button class="btn btn-ghost" style="flex:1;"
           onclick="closeModal()">Cancel</button>
       </div>
-    </div>
-  `;
+    </div>`;
 
-  openModal(`✏️ Edit Payment`, html);
+  openModal('✏️ Edit Payment', html);
 };
 
 window.savePaymentEdit = async function(paymentId, orderId) {
-  if (!['Admin', 'Executive'].includes(G.user?.role)) return;
+  if (!['Admin','Executive'].includes(G.user?.role)) return;
 
   const newEGP    = parseFloat(document.getElementById('ep-egp')?.value)  || 0;
   const newUSD    = parseFloat(document.getElementById('ep-usd')?.value)  || 0;
@@ -2108,79 +2003,60 @@ window.savePaymentEdit = async function(paymentId, orderId) {
   const newMethod = document.getElementById('ep-method')?.value   || '';
   const newCat    = document.getElementById('ep-category')?.value || '';
   const newNotes  = document.getElementById('ep-notes')?.value    || '';
-
-  const totalEquiv = newEGP + (newUSD * (G.ratesUSD||55)) + (newEUR * (G.ratesEUR||60));
+  const totalEquiv= newEGP + (newUSD*(G.ratesUSD||55)) + (newEUR*(G.ratesEUR||60));
 
   try {
     await db.collection('payment_log').doc(paymentId).update({
-      amount_egp      : newEGP,
-      amount_usd      : newUSD,
-      amount_eur      : newEUR,
-      total_egp_equiv : totalEquiv,
-      date            : newDate,
-      payment_method  : newMethod,
-      category        : newCat,
-      notes           : newNotes,
-      _edited_by      : G.user?.username || '',
-      _edited_at      : Date.now()
+      amount_egp     : newEGP,
+      amount_usd     : newUSD,
+      amount_eur     : newEUR,
+      total_egp_equiv: totalEquiv,
+      date           : newDate,
+      payment_method : newMethod,
+      category       : newCat,
+      notes          : newNotes,
+      _edited_by     : G.user?.username || '',
+      _edited_at     : Date.now()
     });
-
-    await logAction('EDIT', 'Payment Log',
-      `Edited payment ${paymentId} on order ${orderId}`);
+    await logAction('EDIT','Payment Log',`Edited payment ${paymentId} on order ${orderId}`);
     toast('Payment updated!', 'success');
     closeModal();
-
-    // Reopen payments view
     const order = allOrders.find(o => o.id === orderId);
-    setTimeout(() => viewOrderPayments(
-      orderId, order?.['No.'] || orderId
-    ), 300);
+    setTimeout(() => viewOrderPayments(orderId, order?.['No.']||orderId), 300);
   } catch (e) {
     toast('Update failed: ' + e.message, 'error');
   }
 };
 
 window.deletePayment = async function(paymentId, orderId, amountEGP) {
-  if (!['Admin'].includes(G.user?.role)) {
-    toast('Admin only', 'error'); return;
-  }
+  if (G.user?.role !== 'Admin') { toast('Admin only', 'error'); return; }
   if (!confirm(
     `Delete this payment of ${fmtMoney(amountEGP)}?\n\n` +
-    `This will also reduce the order's paid amount by ${fmtMoney(amountEGP)}.\n` +
+    `This will reduce the order paid amount by ${fmtMoney(amountEGP)}.\n` +
     `This cannot be undone.`
   )) return;
 
   try {
-    // Delete the payment record
     await db.collection('payment_log').doc(paymentId).delete();
 
-    // Reduce paid amount on the order
     const order = allOrders.find(o => o.id === orderId);
     if (order) {
-      const currentPaid = parseAmount(order['المدفوع EGP'] || 0);
-      const newPaid     = Math.max(0, currentPaid - amountEGP);
-
+      const newPaid = Math.max(0, parseAmount(order['المدفوع EGP']||0) - amountEGP);
       await db.collection('bookings').doc(orderId).update({
-        'المدفوع EGP' : String(newPaid),
-        '_sys_updated': Date.now()
+        'المدفوع EGP': String(newPaid), '_sys_updated': Date.now()
       });
-
-      // Update local cache
-      const idx = allOrders.findIndex(o => o.id === orderId);
-      if (idx >= 0) allOrders[idx]['المدفوع EGP'] = String(newPaid);
+      const idx  = allOrders.findIndex(o => o.id === orderId);
+      if (idx  >= 0) allOrders[idx]['المدفوع EGP'] = String(newPaid);
       const gIdx = G.bookings.findIndex(o => o.id === orderId);
       if (gIdx >= 0) G.bookings[gIdx]['المدفوع EGP'] = String(newPaid);
     }
 
-    await logAction('DELETE', 'Payment Log',
+    await logAction('DELETE','Payment Log',
       `Deleted payment ${paymentId} (${fmtMoney(amountEGP)}) from order ${orderId}`);
     toast('Payment deleted and order balance updated', 'success');
     closeModal();
     filterOrders();
-
-    setTimeout(() => viewOrderPayments(
-      orderId, order?.['No.'] || orderId
-    ), 300);
+    setTimeout(() => viewOrderPayments(orderId, order?.['No.']||orderId), 300);
   } catch (e) {
     toast('Delete failed: ' + e.message, 'error');
   }
@@ -2240,7 +2116,7 @@ window.addDepositPayment = function(orderId, type) {
         Notes (optional)
       </label>
       <input type="text" id="dep-notes"
-        placeholder="e.g. Cheque #1234 / damaged deposit"
+        placeholder="e.g. Cheque #1234"
         style="width:100%;margin-top:4px;padding:8px;background:var(--surface2);
                border:1px solid var(--border);border-radius:8px;color:var(--text);"/>
     </div>
@@ -2248,8 +2124,7 @@ window.addDepositPayment = function(orderId, type) {
       style="width:100%;padding:11px;background:${color};color:#fff;border:none;
              border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;">
       ${label}
-    </button>
-  `;
+    </button>`;
   openModal(label, html, false);
 };
 
@@ -2258,8 +2133,7 @@ window.calcDepTotal = function() {
   const usd  = parseFloat(document.getElementById('dep-usd')?.value)  || 0;
   const eur  = parseFloat(document.getElementById('dep-eur')?.value)  || 0;
   const card = parseFloat(document.getElementById('dep-card')?.value) || 0;
-  const total = egp + (usd * (G.ratesUSD || 55)) +
-    (eur * (G.ratesEUR || 60)) + card;
+  const total = egp + (usd*(G.ratesUSD||55)) + (eur*(G.ratesEUR||60)) + card;
   const el = document.getElementById('dep-total-display');
   if (el) el.textContent = fmtMoney(total);
 };
@@ -2270,8 +2144,7 @@ window.saveDepositPayment = async function(orderId, type) {
   const eur   = parseFloat(document.getElementById('dep-eur')?.value)  || 0;
   const card  = parseFloat(document.getElementById('dep-card')?.value) || 0;
   const notes = document.getElementById('dep-notes')?.value || '';
-  const totalEGP = egp + (usd * (G.ratesUSD || 55)) +
-    (eur * (G.ratesEUR || 60)) + card;
+  const totalEGP = egp + (usd*(G.ratesUSD||55)) + (eur*(G.ratesEUR||60)) + card;
 
   if (totalEGP <= 0) { toast('Enter at least one amount', 'warning'); return; }
 
@@ -2283,32 +2156,28 @@ window.saveDepositPayment = async function(orderId, type) {
     const cur  = snap.data() || {};
 
     await db.collection('bookings').doc(orderId).update({
-      [field]            : (parseFloat(cur[field] || 0)) + totalEGP,
-      [`${field}_egp`]   : (parseFloat(cur[`${field}_egp`] || 0)) + egp,
-      [`${field}_usd`]   : (parseFloat(cur[`${field}_usd`] || 0)) + usd,
-      [`${field}_eur`]   : (parseFloat(cur[`${field}_eur`] || 0)) + eur,
-      _sys_updated       : firebase.firestore.FieldValue.serverTimestamp()
+      [field]           : (parseFloat(cur[field]||0)) + totalEGP,
+      [`${field}_egp`]  : (parseFloat(cur[`${field}_egp`]||0)) + egp,
+      [`${field}_usd`]  : (parseFloat(cur[`${field}_usd`]||0)) + usd,
+      [`${field}_eur`]  : (parseFloat(cur[`${field}_eur`]||0)) + eur,
+      _sys_updated      : firebase.firestore.FieldValue.serverTimestamp()
     });
 
     await db.collection('payment_log').add({
-      order_id    : orderId,
-      type        : 'deposit_' + type,
-      egp, usd, eur, card,
-      totalEGP,
-      notes,
-      date        : dateStr,
+      order_id   : orderId,
+      type       : 'deposit_' + type,
+      egp, usd, eur, card, totalEGP, notes,
+      date       : dateStr,
       collected_by: G.user?.username || '',
-      timestamp   : Date.now()
+      timestamp  : Date.now()
     });
 
     const dIdx = allOrders.findIndex(o => o.id === orderId);
-    if (dIdx >= 0) {
-      allOrders[dIdx][field] = (parseFloat(cur[field] || 0)) + totalEGP;
-    }
+    if (dIdx >= 0) allOrders[dIdx][field] = (parseFloat(cur[field]||0)) + totalEGP;
 
     closeModal();
     toast(
-      `✅ Deposit ${type === 'collect' ? 'collected' : 'returned'}: ${fmtMoney(totalEGP)}`,
+      `✅ Deposit ${type==='collect'?'collected':'returned'}: ${fmtMoney(totalEGP)}`,
       'success'
     );
   } catch (e) {
@@ -2324,7 +2193,7 @@ window.openReminderForm = function(orderId) {
   const now   = getCairoNow();
   const pad   = n => String(n).padStart(2, '0');
   const defaultDt =
-    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}` +
     `T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
   const html = `
@@ -2364,28 +2233,23 @@ window.openReminderForm = function(orderId) {
         <button class="btn btn-ghost" style="flex:1;"
           onclick="closeModal()">Cancel</button>
       </div>
-    </div>
-  `;
-  openModal(`Set Reminder — Order #${order?.['No.'] || orderId}`, html);
+    </div>`;
+  openModal(`Set Reminder — Order #${order?.['No.']||orderId}`, html);
 };
 
 window.saveReminder = async function(orderId) {
   const dt   = document.getElementById('rem-dt')?.value;
   const cat  = document.getElementById('rem-cat')?.value;
   const note = document.getElementById('rem-note')?.value || '';
-
   if (!dt)  { toast('Please select a date and time', 'error'); return; }
   if (!cat) { toast('Please select a category', 'error'); return; }
-
   try {
     await db.collection('reminders').add({
       order_id  : orderId,
       remind_at : new Date(dt).getTime(),
-      category  : cat,
-      note,
+      category  : cat, note,
       created_by: G.user?.username || '',
-      dismissed : false,
-      fired     : false,
+      dismissed : false, fired: false,
       created_at: Date.now()
     });
     toast('Reminder saved!', 'success');
@@ -2436,25 +2300,20 @@ window.bulkClearAll = function() {
 
 window.bulkUpdateStatus = async function() {
   const status = document.getElementById('bulk-status-sel')?.value;
-  if (!status) { toast('Select a status first', 'error'); return; }
-  if (window.bulkSelected.size === 0) {
-    toast('No orders selected', 'error'); return;
-  }
-  if (!confirm(
-    `Update ${window.bulkSelected.size} orders to status: ${status}?`
-  )) return;
+  if (!status)                      { toast('Select a status first','error'); return; }
+  if (window.bulkSelected.size===0) { toast('No orders selected','error'); return; }
+  if (!confirm(`Update ${window.bulkSelected.size} orders to status: ${status}?`)) return;
 
   const isClosed = status === 'Closed';
   try {
-    const ids   = [...window.bulkSelected];
+    const ids = [...window.bulkSelected];
     const CHUNK = 400;
     for (let i = 0; i < ids.length; i += CHUNK) {
       const batch = db.batch();
-      ids.slice(i, i + CHUNK).forEach(id => {
+      ids.slice(i, i+CHUNK).forEach(id => {
         batch.update(db.collection('bookings').doc(id), {
-          'حالة الطلب' : status,
-          closed       : isClosed,
-          _sys_updated : firebase.firestore.FieldValue.serverTimestamp()
+          'حالة الطلب': status, closed: isClosed,
+          _sys_updated: firebase.firestore.FieldValue.serverTimestamp()
         });
       });
       await batch.commit();
@@ -2468,9 +2327,7 @@ window.bulkUpdateStatus = async function() {
 };
 
 window.bulkDelete = async function() {
-  if (window.bulkSelected.size === 0) {
-    toast('No orders selected', 'error'); return;
-  }
+  if (window.bulkSelected.size===0) { toast('No orders selected','error'); return; }
   if (!confirm(
     `Permanently delete ${window.bulkSelected.size} orders? This cannot be undone.`
   )) return;
@@ -2480,7 +2337,7 @@ window.bulkDelete = async function() {
     const CHUNK = 400;
     for (let i = 0; i < ids.length; i += CHUNK) {
       const batch = db.batch();
-      ids.slice(i, i + CHUNK).forEach(id =>
+      ids.slice(i, i+CHUNK).forEach(id =>
         batch.delete(db.collection('bookings').doc(id))
       );
       await batch.commit();
@@ -2514,7 +2371,7 @@ window.adminDeleteOrder = async function(orderId) {
 };
 
 // ============================================================
-// CONTRACT GENERATION
+// CONTRACT GENERATION — saves to proposals
 // ============================================================
 window.generateOrderContractDirect = async function(orderId, lang) {
   toast('⏳ Generating contract...', 'info');
@@ -2522,125 +2379,108 @@ window.generateOrderContractDirect = async function(orderId, lang) {
     let o = allOrders.find(x => x.id === orderId);
     if (!o) {
       const snap = await db.collection('bookings').doc(orderId).get();
-      if (!snap.exists) { toast('Order not found', 'error'); return; }
-      o = { id: snap.id, ...snap.data() };
+      if (!snap.exists) { toast('Order not found','error'); return; }
+      o = { id:snap.id, ...snap.data() };
     }
 
-    const carCode    = String(o['كود السيارة'] || o.col_D || '').trim();
-    const car        = G.fleet.find(c => String(c.ID || c.id) === carCode) || {};
-    const clientCode = String(o['كود العميل']  || o.col_B || '').trim();
+    const carCode    = String(o['كود السيارة']||o.col_D||'').trim();
+    const car        = G.fleet.find(c => String(c.ID||c.id) === carCode) || {};
+    const clientCode = String(o['كود العميل']||o.col_B||'').trim();
     const customer   = G.customers.find(c =>
-      String(c['No.'] || c.col_A || c.id) === clientCode
+      String(c['No.']||c.col_A||c.id) === clientCode
     ) || {};
 
-    const firstName  = customer['الاسم الأول'] || customer.col_C || '';
-    const lastName   = customer['الاسم الأخير'] || customer.col_D || '';
-    const clientName = o['اسم العميل'] ||
-      (firstName + ' ' + lastName).trim() || '';
-
+    const firstName  = customer['الاسم الأول']||customer.col_C||'';
+    const lastName   = customer['الاسم الأخير']||customer.col_D||'';
+    const clientName = o['اسم العميل']||(firstName+' '+lastName).trim()||'';
     const { start, end } = getOrderDates(o);
-    const days       = start && end
-      ? Math.max(1, Math.ceil((end - start) / 86400000)) : 1;
-    const daily      = parseAmount(o['سعر السيارة اليومي بالجنيه المصري'] || 0);
-    const plate      = formatPlate(car) || car.plate || '';
-    const carLabel   = car.car_label || getCarLabel(car, 'en') || carCode;
-    const contractNo = o['No.'] || o.id;
-    const branch     = o['فرع الإصدار'] || o.branch || 'HRG';
+    const days       = start && end ? Math.max(1, Math.ceil((end-start)/86400000)) : 1;
+    const daily      = parseAmount(o['سعر السيارة اليومي بالجنيه المصري']||0);
+    const plate      = formatPlate(car)||car.plate||'';
+    const carLabel   = car.car_label||getCarLabel(car,'en')||carCode;
+    const contractNo = o['No.']||o.id;
+    const branch     = o['فرع الإصدار']||o.branch||'HRG';
 
     const params = new URLSearchParams({
       orderId, contractNo, branch,
       rentalMode : days > 28 ? 'Monthly' : 'Daily',
-      cl_fname   : firstName || clientName.split(' ')[0] || '',
-      cl_sname   : lastName  || clientName.split(' ').slice(1).join(' ') || '',
-      cl_pass    : customer['رقم جواز السفر']     || '',
-      cl_nation  : customer['رمز الدولة']          || '',
-      cl_phone   : customer['رقم التليفون']        || '',
-      cl_email   : customer['البريد الإلكتروني']   || '',
-      cl_lic     : customer['رقم رخصة القيادة']    || '',
-      carCode,
-      carModel   : carLabel,
-      carPlate   : plate,
-      carVin     : car.chassis || car['رقم الشاسية'] || car['رقم الشاسيه'] || '',
-      carMotor   : car['رقم الموتور'] || '',
-      pickup     : start ? start.toISOString().slice(0, 16) : '',
-      dropoff    : end   ? end.toISOString().slice(0, 16)   : '',
+      cl_fname   : firstName||clientName.split(' ')[0]||'',
+      cl_sname   : lastName||clientName.split(' ').slice(1).join(' ')||'',
+      cl_pass    : customer['رقم جواز السفر']||'',
+      cl_nation  : customer['رمز الدولة']||'',
+      cl_phone   : customer['رقم التليفون']||'',
+      cl_email   : customer['البريد الإلكتروني']||'',
+      cl_lic     : customer['رقم رخصة القيادة']||'',
+      carCode, carModel:carLabel, carPlate:plate,
+      carVin     : car.chassis||car['رقم الشاسية']||car['رقم الشاسيه']||'',
+      carMotor   : car['رقم الموتور']||'',
+      pickup     : start ? start.toISOString().slice(0,16) : '',
+      dropoff    : end   ? end.toISOString().slice(0,16)   : '',
       rateRent   : String(daily),
       contractNo, branch
     });
 
     const file = lang === 'ar' ? 'contract-ar.html' : 'contract-en.html';
-    // Add this block just before window.open(file + '?' + ...) in generateOrderContractDirect:
 
-	// ✅ Save contract as proposal record
-	const proposalRef = `PR-${branch.slice(0,3).toUpperCase()}-${
-	  new Date().toISOString().slice(2,10).replace(/-/g,'')}-${
-	  String(Date.now()).slice(-4)}`;
+    // ✅ Save to proposals
+    const proposalRef = `PR-${branch.slice(0,3).toUpperCase()}-${
+      new Date().toISOString().slice(2,10).replace(/-/g,'')}-${
+      String(Date.now()).slice(-4)}`;
 
-	await db.collection('proposals').add({
-	  proposal_ref  : proposalRef,
-	  order_id      : orderId,
-	  contract_no   : contractNo,
-	  client_name   : clientName,
-	  car_label     : carLabel,
-	  car_plate     : plate,
-	  branch,
-	  lang,
-	  daily_rate    : daily,
-	  rental_days   : days,
-	  rental_mode   : days > 28 ? 'Monthly' : 'Daily',
-	  start_date    : start ? start.toISOString().slice(0,10) : '',
-	  end_date      : end   ? end.toISOString().slice(0,10)   : '',
-	  params_url    : file + '?' + params.toString(),
-	  generated_by  : G.user?.username || '',
-	  generated_at  : Date.now(),
-	  type          : lang === 'ar' ? 'contract_ar' : 'contract_en',
-	  status        : 'generated',
-	  _sys_created  : firebase.firestore.FieldValue.serverTimestamp()
-	}).catch(() => {});
+    await db.collection('proposals').add({
+      proposal_ref : proposalRef,
+      order_id     : orderId,
+      contract_no  : contractNo,
+      client_name  : clientName,
+      car_label    : carLabel,
+      car_plate    : plate,
+      branch, lang,
+      daily_rate   : daily,
+      rental_days  : days,
+      start_date   : start ? start.toISOString().slice(0,10) : '',
+      end_date     : end   ? end.toISOString().slice(0,10)   : '',
+      params_url   : file + '?' + params.toString(),
+      generated_by : G.user?.username || '',
+      generated_at : Date.now(),
+      type         : lang === 'ar' ? 'contract_ar' : 'contract_en',
+      status       : 'generated',
+      _sys_created : firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>{});
 
-	toast('✅ Contract generated and saved to Proposals', 'success');
-	window.open(file + '?' + params.toString(), '_blank');
+    window.open(file + '?' + params.toString(), '_blank');
+    toast('✅ Contract generated and saved to Proposals', 'success');
+
   } catch (e) {
     toast('Contract error: ' + e.message, 'error');
   }
 };
 
 // ============================================================
-// FULL ORDER RECEIPT (from Receipt button — saves record)
+// FULL ORDER RECEIPT (Receipt button)
 // ============================================================
 window.generateOrderReceiptDirect = async function(orderId) {
   try {
     let o = allOrders.find(x => x.id === orderId);
     if (!o) {
       const snap = await db.collection('bookings').doc(orderId).get();
-      if (!snap.exists) { toast('Order not found', 'error'); return; }
-      o = { id: snap.id, ...snap.data() };
+      if (!snap.exists) { toast('Order not found','error'); return; }
+      o = { id:snap.id, ...snap.data() };
     }
 
-    const clientCode = String(o['كود العميل'] || '').trim();
-    const customer   = G.customers.find(c =>
-      String(c['No.'] || c.col_A || c.id) === clientCode
-    ) || {};
-    const carCode    = String(o['كود السيارة'] || '').trim();
-    const car        = G.fleet.find(c =>
-      String(c.ID || c.id) === carCode
-    ) || {};
-
+    const carCode    = String(o['كود السيارة']||'').trim();
+    const car        = G.fleet.find(c => String(c.ID||c.id) === carCode) || {};
     const { start, end } = getOrderDates(o);
-    const clientName = o['اسم العميل'] || '';
+    const clientName = o['اسم العميل']||'';
     const paid       = getOrderPaid(o);
-    const total      = parseAmount(o['إجمالي المستحق (Total)'] || 0);
-    const contractNo = o['No.'] || o.id;
+    const total      = parseAmount(o['إجمالي المستحق (Total)']||0);
+    const contractNo = o['No.']||o.id;
+    const plate      = formatPlate(car)||'';
+    const carLabel   = (car.car_label||getCarLabel(car,'en')||carCode).slice(0,40);
+    const branch     = o['فرع الإصدار']||o.branch||'HRG';
 
-    // ✅ Use fixed formatPlate
-    const plate    = formatPlate(car) || '';
-    const carLabel = (car.car_label || getCarLabel(car, 'en') || carCode).slice(0, 40);
-    const branch   = o['فرع الإصدار'] || o.branch || 'HRG';
-    const dateStr  = new Date().toISOString().slice(0, 10);
-
-    const paidEGP  = parseAmount(o['المدفوع EGP'] || 0);
-    const paidUSD  = parseAmount(o['المدفوع USD'] || 0);
-    const paidEUR  = parseAmount(o['المدفوع EUR'] || 0);
+    const paidEGP  = parseAmount(o['المدفوع EGP']||0);
+    const paidUSD  = parseAmount(o['المدفوع USD']||0);
+    const paidEUR  = parseAmount(o['المدفوع EUR']||0);
 
     const parts = [];
     if (paidEGP > 0) parts.push(`${paidEGP.toLocaleString()} Cash (EGP)`);
@@ -2648,15 +2488,26 @@ window.generateOrderReceiptDirect = async function(orderId) {
     if (paidEUR > 0) parts.push(`${paidEUR} EUR`);
     const paymentStr = parts.join(' + ') || `${paid.toLocaleString()} EGP`;
 
-    const branchCode = branch.toUpperCase().slice(0, 3);
+    const branchCode = branch.toUpperCase().slice(0,3);
     const now        = new Date();
-    const rcRef      = `RC-${branchCode}-${
-      String(now.getMonth() + 1).padStart(2, '0')}${
-      String(now.getDate()).padStart(2, '0')}-${
+
+    // ✅ rcRef built first
+    const rcRef = `RC-${branchCode}-${
+      String(now.getMonth()+1).padStart(2,'0')}${
+      String(now.getDate()).padStart(2,'0')}-${
       String(Date.now()).slice(-4)}`;
 
-    const logo       = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
-    const verifyUrl = buildVerifyUrl(o);
+    // ✅ verifyUrl uses rcRef
+    const verifyUrl = `https://sabryabr.github.io/BrothersEGY-ERP/verify.html?ref=${
+      encodeURIComponent(rcRef)}`;
+
+    const timestampStr = now.toLocaleString('en-GB', {
+      day:'2-digit', month:'short', year:'numeric',
+      hour:'2-digit', minute:'2-digit', second:'2-digit',
+      timeZone: 'Africa/Cairo'
+    });
+
+    const logo = 'https://brothersegy.com/wp-content/uploads/2026/02/12345.png';
 
     const slip = copyType => `
       <div style="font-family:'Courier New',monospace;width:80mm;padding:10px;
@@ -2673,21 +2524,18 @@ window.generateOrderReceiptDirect = async function(orderId) {
             <img src="https://api.qrserver.com/v1/create-qr-code/?data=${
               encodeURIComponent(verifyUrl)}&size=60x60"
                  style="height:50px;">
-            <div style="font-size:6pt;">DATE: ${dateStr}</div>
+            <div style="font-size:6pt;">DATE: ${timestampStr}</div>
           </div>
         </div>
-
         <div style="border-bottom:1px dashed #ccc;padding-bottom:6px;margin-bottom:6px;">
           <div>Ref: <strong>${rcRef}</strong></div>
           <div>Contract: <strong>#${contractNo}</strong></div>
           <div>Client: <strong>${clientName}</strong></div>
-          <div>Car: ${carLabel}${plate ? ' | ' + plate : ''}</div>
-          <div>
-            Period: ${start ? start.toLocaleDateString('en-GB') : '—'}
-            → ${end ? end.toLocaleDateString('en-GB') : '—'}
+          <div>Car: ${carLabel}${plate?' | '+plate:''}</div>
+          <div>Period: ${start?start.toLocaleDateString('en-GB'):'—'}
+            → ${end?end.toLocaleDateString('en-GB'):'—'}
           </div>
         </div>
-
         <div style="padding:8px;border:1px solid #000;border-radius:4px;margin-bottom:6px;">
           <div style="font-size:7pt;font-weight:700;text-transform:uppercase;">
             Amount Received
@@ -2695,16 +2543,14 @@ window.generateOrderReceiptDirect = async function(orderId) {
           <div style="font-size:16pt;font-weight:900;">£${paid.toLocaleString()}.00</div>
           <div style="font-size:7pt;">${paymentStr}</div>
         </div>
-
-        ${(total - paid) > 0
+        ${(total-paid) > 0
           ? `<div style="color:#dc2626;font-weight:700;font-size:8pt;">
-               ⚠ OUTSTANDING BALANCE: £${(total - paid).toLocaleString()}.00
+               ⚠ OUTSTANDING: £${(total-paid).toLocaleString()}.00
              </div>`
           : `<div style="color:#16a34a;font-weight:700;font-size:8pt;">
                ✅ FULLY PAID
              </div>`}
-      </div>
-    `;
+      </div>`;
 
     const html = `<!DOCTYPE html>
 <html>
@@ -2735,23 +2581,25 @@ window.generateOrderReceiptDirect = async function(orderId) {
 </html>`;
 
     await db.collection('receipts').add({
-      order_id       : orderId,
-      contract_no    : contractNo,
-      receipt_ref    : rcRef,
-      client_name    : clientName,
-      car_label      : carLabel + (plate ? ' | ' + plate : ''),
-      branch,
-      branch_code    : branchCode,
-      receipt_date   : dateStr,
-      type           : 'Rental Payment',
-      amount_egp     : paidEGP,
-      amount_usd     : paidUSD,
-      total_egp_equiv: paid,
-      payment_details: paymentStr,
-      collected_by   : G.user?.username || '',
-      timestamp      : Date.now(),
-      _sys_created   : firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(() => {});
+      order_id        : orderId,
+      contract_no     : contractNo,
+      receipt_ref     : rcRef,
+      client_name     : clientName,
+      car_label       : carLabel + (plate?' | '+plate:''),
+      branch, branch_code: branchCode,
+      receipt_date    : now.toISOString().slice(0,10),
+      issued_at       : timestampStr,
+      type            : 'Rental Payment',
+      amount_egp      : paidEGP,
+      amount_usd      : paidUSD,
+      total_egp_equiv : paid,
+      payment_details : paymentStr,
+      qr_ref          : rcRef,       // ✅ rcRef not contractNo
+      verify_url      : verifyUrl,   // ✅ points to rcRef
+      collected_by    : G.user?.username || '',
+      timestamp       : Date.now(),
+      _sys_created    : firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>{});
 
     const win = window.open('', '_blank');
     if (win) {
@@ -2759,6 +2607,7 @@ window.generateOrderReceiptDirect = async function(orderId) {
       win.document.close();
       setTimeout(() => win.print(), 600);
     }
+
   } catch (e) {
     toast('Receipt error: ' + e.message, 'error');
   }
@@ -2770,9 +2619,7 @@ window.generateOrderReceiptDirect = async function(orderId) {
 window.uploadOrderPhoto = async function(event, orderId, type) {
   const file = event.target.files?.[0];
   if (!file) return;
-  if (file.size > 10 * 1024 * 1024) {
-    toast('Max 10MB per photo', 'error'); return;
-  }
+  if (file.size > 10 * 1024 * 1024) { toast('Max 10MB per photo','error'); return; }
 
   toast('Uploading...', 'info', 2000);
   try {
@@ -2782,23 +2629,19 @@ window.uploadOrderPhoto = async function(event, orderId, type) {
     await ref.put(compressed);
     const url        = await ref.getDownloadURL();
 
-    const order = allOrders.find(o => o.id === orderId) ||
+    const order      = allOrders.find(o => o.id === orderId) ||
       (await db.collection('bookings').doc(orderId).get()).data();
     const mediaField = type === 'pickup' ? 'pickup_media' : 'dropoff_media';
     const existing   = order?.[mediaField] || [];
 
     await db.collection('bookings').doc(orderId).update({
-      [mediaField]   : [...existing, {
-        url,
-        timestamp    : Date.now(),
-        uploaded_by  : G.user.username,
-        type
-      }],
+      [mediaField]   : [...existing, { url, timestamp:Date.now(),
+                        uploaded_by:G.user.username, type }],
       '_sys_updated' : Date.now()
     });
 
-    await logAction('ADD', 'Order Book',
-      `Photo uploaded for Order #${order?.['No.'] || orderId} — ${type}`);
+    await logAction('ADD','Order Book',
+      `Photo uploaded for Order #${order?.['No.']||orderId} — ${type}`);
     toast('Photo uploaded!', 'success');
     openOrderDetail(orderId);
   } catch (e) {

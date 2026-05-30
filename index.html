@@ -8,10 +8,7 @@
     href="https://brothersegy.com/wp-content/uploads/2026/02/12345.png"/>
 
   <!-- ================================================
-       EXTERNAL LIBRARIES
-       Loaded as regular scripts so they attach to
-       window globals (QRCode, JsBarcode, Chart, firebase)
-       before any module code runs
+    EXTERNAL LIBRARIES
   ================================================ -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -21,517 +18,495 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <!-- ================================================
-       FIREBASE CONFIG
-       Must load before any module that uses db or storage
-       Loaded as a regular script (not module) so window.db
-       and window.storage are available to all modules
+    FIREBASE CONFIG
   ================================================ -->
   <script src="config/firebase.js"></script>
 
   <!-- ================================================
-       APP STYLES
+    APP STYLES
   ================================================ -->
   <link rel="stylesheet" href="assets/style.css"/>
-</head>
 
+  <!-- ================================================
+    INLINE CRITICAL STYLES
+    Session warning modal + session clock
+  ================================================ -->
+  <style>
+    /* ── Session warning modal ── */
+    #session-warn-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0,0,0,0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+
+    /* ── Inactivity bar ── */
+    #inactivity-bar {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9000;
+      background: rgba(245,158,11,0.95);
+      color: #000;
+      text-align: center;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #inactivity-bar.visible {
+      display: flex;
+    }
+
+    #stay-logged-in-btn {
+      background: #000;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    /* ── Session clock in topbar ── */
+    .session-clock-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text3);
+      font-family: 'Courier New', monospace;
+      padding: 3px 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .session-clock-wrap .session-icon {
+      font-size: 10px;
+    }
+
+    /* ── Back button ── */
+    #back-btn {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 8000;
+      padding: 8px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
 <body>
 
-  <!-- ================================================
-       BACKGROUND
-  ================================================ -->
-  <video id="bg-video" autoplay muted loop playsinline>
-    <source src="assets/background.mp4" type="video/mp4"/>
-  </video>
-  <div id="bg-overlay"></div>
+<!-- ================================================
+  BACKGROUND
+================================================ -->
+<video id="bg-video" autoplay muted loop playsinline>
+  <source src="assets/background.mp4" type="video/mp4"/>
+</video>
+<div id="bg-overlay"></div>
 
-  <!-- ================================================
-       COMMAND PALETTE  (Ctrl+K)
-       Rendered here so it sits above everything else
-       Logic handled in core/modal.js
-  ================================================ -->
-  <div id="cmd-palette-overlay">
-    <div id="cmd-palette">
-
-      <div id="cmd-input-wrap">
-        <span class="cmd-icon">⚡</span>
-        <input
-          type="text"
-          id="cmd-input"
-          placeholder="Search pages, orders, customers, cars…"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <span id="cmd-kbd">ESC</span>
-      </div>
-
-      <div id="cmd-results"></div>
-
-      <div id="cmd-footer">
-        <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
-        <span><kbd>↵</kbd> Open</span>
-        <span><kbd>Esc</kbd> Close</span>
-      </div>
-
+<!-- ================================================
+  COMMAND PALETTE (Ctrl+K)
+================================================ -->
+<div id="cmd-palette-overlay">
+  <div id="cmd-palette">
+    <div id="cmd-input-wrap">
+      <span class="cmd-icon">⚡</span>
+      <input type="text" id="cmd-input"
+        placeholder="Search pages, orders, customers, cars…"
+        autocomplete="off" spellcheck="false"/>
+      <span id="cmd-kbd">ESC</span>
+    </div>
+    <div id="cmd-results"></div>
+    <div id="cmd-footer">
+      <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+      <span><kbd>↵</kbd> Open</span>
+      <span><kbd>Esc</kbd> Close</span>
     </div>
   </div>
+</div>
 
-  <!-- ================================================
-       INACTIVITY WARNING BAR
-       Shown 25 minutes after last interaction
-       Logic handled in core/auth.js
-  ================================================ -->
-  <div id="inactivity-bar">
-    ⚠️ Session expires in 5 minutes.
-    <button id="stay-logged-in-btn">Stay Logged In</button>
+<!-- ================================================
+  INACTIVITY WARNING BAR
+  Shown by session management in app.js
+================================================ -->
+<div id="inactivity-bar">
+  ⚠️ Session expires in 5 minutes.
+  <button id="stay-logged-in-btn" onclick="extendSession()">
+    Stay Logged In
+  </button>
+</div>
+
+<!-- ================================================
+  LOGIN PAGE
+================================================ -->
+<div id="login-page">
+  <canvas id="particle-canvas"></canvas>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo-wrap">
+        <img src="https://brothersegy.com/wp-content/uploads/2026/02/12345.png"
+             alt="Brothers EGY"/>
+      </div>
+      <div class="login-title">
+        <h1>BROTHERS EGY</h1>
+      </div>
+      <div class="login-subtitle" id="login-typewriter"></div>
+      <form id="login-form">
+        <div class="login-field">
+          <span class="field-icon">👤</span>
+          <input type="text" id="li-user"
+            placeholder="Username" autocomplete="username"/>
+        </div>
+        <div class="login-field">
+          <span class="field-icon">🔒</span>
+          <input type="password" id="li-pass"
+            placeholder="Password" autocomplete="current-password"/>
+          <button class="pw-toggle" type="button" id="pw-toggle-btn">👁</button>
+        </div>
+        <button class="login-btn" id="login-btn" type="submit">
+          <span id="login-btn-text">AUTHORIZE ACCESS</span>
+          <div class="login-spinner" id="login-spinner"></div>
+        </button>
+      </form>
+      <div class="login-err" id="login-err"></div>
+    </div>
+    <div class="login-footer">
+      BROTHERS EGY EXECUTIVE HUB &nbsp;|&nbsp; v3.0 &nbsp;|&nbsp;
+      <span id="login-date"></span>
+    </div>
   </div>
+</div>
 
-  <!-- ================================================
-       LOGIN PAGE
-       Hidden after successful authentication
-       Logic handled in core/auth.js
-  ================================================ -->
-  <div id="login-page">
+<!-- ================================================
+  MAIN APPLICATION
+================================================ -->
+<div id="app" class="hidden">
 
-    <canvas id="particle-canvas"></canvas>
+  <!-- TOPBAR -->
+  <div id="topbar">
 
-    <div class="login-wrap">
-      <div class="login-card">
-
-        <div class="login-logo-wrap">
-          <img
-            src="https://brothersegy.com/wp-content/uploads/2026/02/12345.png"
-            alt="Brothers EGY"
-          />
-        </div>
-
-        <div class="login-title">
-          <h1>BROTHERS EGY</h1>
-        </div>
-
-        <div class="login-subtitle" id="login-typewriter"></div>
-
-        <form id="login-form">
-
-          <div class="login-field">
-            <span class="field-icon">👤</span>
-            <input
-              type="text"
-              id="li-user"
-              placeholder="Username"
-              autocomplete="username"
-            />
-          </div>
-
-          <div class="login-field">
-            <span class="field-icon">🔒</span>
-            <input
-              type="password"
-              id="li-pass"
-              placeholder="Password"
-              autocomplete="current-password"
-            />
-            <button class="pw-toggle" type="button" id="pw-toggle-btn">
-              👁
-            </button>
-          </div>
-
-          <button class="login-btn" id="login-btn" type="submit">
-            <span id="login-btn-text">AUTHORIZE ACCESS</span>
-            <div class="login-spinner" id="login-spinner"></div>
-          </button>
-
-        </form>
-
-        <div class="login-err" id="login-err"></div>
-
-      </div>
-
-      <div class="login-footer">
-        BROTHERS EGY EXECUTIVE HUB &nbsp;|&nbsp; v3.0 &nbsp;|&nbsp;
-        <span id="login-date"></span>
-      </div>
+    <!-- Brand -->
+    <div class="topbar-brand" id="topbar-brand">
+      <img src="https://brothersegy.com/wp-content/uploads/2026/02/12345.png"
+           alt="Logo"/>
+      <span class="brand-text">BROTHERS EGY</span>
     </div>
 
-  </div><!-- end #login-page -->
-
-  <!-- ================================================
-       MAIN APPLICATION
-       Hidden until login succeeds
-       Shown by onLoginSuccess() in core/auth.js
-  ================================================ -->
-  <div id="app" class="hidden">
-
-    <!-- ============================================
-         TOPBAR
-    ============================================ -->
-    <div id="topbar">
-
-      <!-- Brand -->
-      <div class="topbar-brand" id="topbar-brand">
-        <img
-          src="https://brothersegy.com/wp-content/uploads/2026/02/12345.png"
-          alt="Logo"
-        />
-        <span class="brand-text">BROTHERS EGY</span>
-      </div>
-
-      <!-- Quick action buttons -->
-      <div class="topbar-actions">
-        <button class="topbar-action-btn" data-page="proposals">
-          📋 Proposal
-        </button>
-        <button class="topbar-action-btn" data-page="en-contract">
-          📄 EN Contract
-        </button>
-        <button class="topbar-action-btn" data-page="ar-contract">
-          📝 AR Contract
-        </button>
-        <button class="topbar-action-btn" data-page="receipts">
-          🧾 Receipt
-        </button>
-      </div>
-
-      <div class="topbar-spacer"></div>
-
-      <!-- Search / Command Palette trigger -->
-      <button class="topbar-cmd-btn" id="cmd-trigger">
-        🔍 Search anything… <kbd>Ctrl K</kbd>
+    <!-- Quick action buttons -->
+    <div class="topbar-actions">
+      <button class="topbar-action-btn" data-page="proposals">
+        📋 Proposal
       </button>
+      <button class="topbar-action-btn" data-page="en-contract">
+        📄 EN Contract
+      </button>
+      <button class="topbar-action-btn" data-page="ar-contract">
+        📝 AR Contract
+      </button>
+      <button class="topbar-action-btn" data-page="receipts">
+        🧾 Receipt
+      </button>
+    </div>
 
-      <!-- USD Rate Pill -->
-      <div class="rate-pill-wrap" id="usd-pill-wrap">
-        <div class="rate-pill-full" id="usd-pill">
-          <span class="r-currency-symbol" style="color:#f59e0b;">$</span>
-          <div class="r-detail">
-            <span class="r-label">1 USD =</span>
-            <span class="r-val" id="tb-usd">--</span>
-            <span class="r-unit">EGP</span>
-          </div>
-          <button class="r-edit-btn"  id="usd-edit-btn">✏️</button>
-          <button class="r-reset-btn hidden" id="usd-reset-btn">🔄</button>
-        </div>
-        <div class="rate-edit-popup hidden" id="usd-edit-popup">
-          <div class="rep-label">USD Rate (EGP per 1 USD)</div>
-          <div class="rep-row">
-            <input
-              type="number"
-              id="usd-edit-input"
-              step="0.01"
-              placeholder="e.g. 51.50"
-            />
-            <button class="rep-confirm" id="usd-confirm-btn">✓</button>
-            <button class="rep-cancel"  id="usd-cancel-btn">✕</button>
-          </div>
-        </div>
-      </div>
+    <div class="topbar-spacer"></div>
 
-      <!-- EUR Rate Pill -->
-      <div class="rate-pill-wrap" id="eur-pill-wrap">
-        <div class="rate-pill-full" id="eur-pill">
-          <span class="r-currency-symbol" style="color:#6366f1;">€</span>
-          <div class="r-detail">
-            <span class="r-label">1 EUR =</span>
-            <span class="r-val" id="tb-eur">--</span>
-            <span class="r-unit">EGP</span>
-          </div>
-          <button class="r-edit-btn"  id="eur-edit-btn">✏️</button>
-          <button class="r-reset-btn hidden" id="eur-reset-btn">🔄</button>
-        </div>
-        <div class="rate-edit-popup hidden" id="eur-edit-popup">
-          <div class="rep-label">EUR Rate (EGP per 1 EUR)</div>
-          <div class="rep-row">
-            <input
-              type="number"
-              id="eur-edit-input"
-              step="0.01"
-              placeholder="e.g. 55.00"
-            />
-            <button class="rep-confirm" id="eur-confirm-btn">✓</button>
-            <button class="rep-cancel"  id="eur-cancel-btn">✕</button>
-          </div>
-        </div>
-      </div>
+    <!-- Search / Command Palette trigger -->
+    <button class="topbar-cmd-btn" id="cmd-trigger">
+      🔍 Search anything… <kbd>Ctrl K</kbd>
+    </button>
 
-      <!-- EGP base pill (static, no interaction) -->
-      <div class="rate-pill-full rate-pill-static">
-        <span class="r-currency-symbol" style="color:#22c55e;">£</span>
+    <!-- USD Rate Pill -->
+    <div class="rate-pill-wrap" id="usd-pill-wrap">
+      <div class="rate-pill-full" id="usd-pill">
+        <span class="r-currency-symbol" style="color:#f59e0b;">$</span>
         <div class="r-detail">
-          <span class="r-label">EGP</span>
-          <span class="r-equals">=</span>
-          <span class="r-val" style="color:var(--success);">Base</span>
+          <span class="r-label">1 USD =</span>
+          <span class="r-val" id="tb-usd">--</span>
+          <span class="r-unit">EGP</span>
         </div>
+        <button class="r-edit-btn" id="usd-edit-btn">✏️</button>
+        <button class="r-reset-btn hidden" id="usd-reset-btn">🔄</button>
       </div>
-
-      <!-- Live clock -->
-      <div class="topbar-clock">
-        📅 <span id="live-date"></span>&nbsp;
-        🕐 <span id="live-time"></span>
-      </div>
-
-      <!-- Notification bell -->
-      <button class="notif-btn" id="notif-btn">
-        🔔
-        <span class="notif-badge hidden" id="notif-badge">0</span>
-      </button>
-
-      <!-- User badge -->
-      <div class="user-badge">
-        <div class="user-avatar" id="user-avatar">?</div>
-        <div class="user-info">
-          <div class="u-name" id="ub-name">-</div>
-          <div class="u-role-row">
-            <span id="ub-role-pill" class="role-pill">-</span>
-            <span id="ub-branch"></span>
-          </div>
+      <div class="rate-edit-popup hidden" id="usd-edit-popup">
+        <div class="rep-label">USD Rate (EGP per 1 USD)</div>
+        <div class="rep-row">
+          <input type="number" id="usd-edit-input"
+            step="0.01" placeholder="e.g. 51.50"/>
+          <button class="rep-confirm" id="usd-confirm-btn">✓</button>
+          <button class="rep-cancel"  id="usd-cancel-btn">✕</button>
         </div>
-      </div>
-
-      <!-- Logout -->
-      <button class="logout-btn" id="logout-btn" title="Logout">⏻</button>
-
-    </div><!-- end #topbar -->
-
-    <!-- ============================================
-         NOTIFICATIONS DROPDOWN
-         Positioned relative to topbar via CSS
-    ============================================ -->
-    <div class="notif-dropdown" id="notif-dropdown">
-      <div class="notif-header">
-        <span>🔔 Notifications</span>
-        <button class="btn btn-ghost btn-xs" id="mark-all-read-btn">
-          Mark all read
-        </button>
-      </div>
-      <div id="notif-list">
-        <div class="notif-empty">No notifications</div>
       </div>
     </div>
 
-    <!-- ============================================
-         MAIN BODY  (sidebar + content)
-    ============================================ -->
-    <div id="main-body">
-
-      <!-- ==========================================
-           SIDEBAR
-      ========================================== -->
-      <div id="sidebar">
-
-        <button class="sidebar-toggle" id="sidebar-toggle">◀</button>
-
-        <!-- Operations group -->
-        <div class="sidebar-group">Operations</div>
-
-        <div class="nav-item" data-page="dashboard"
-          data-tooltip="Dashboard">
-          <span class="nav-icon">📊</span>
-          <span class="nav-label">Dashboard</span>
+    <!-- EUR Rate Pill -->
+    <div class="rate-pill-wrap" id="eur-pill-wrap">
+      <div class="rate-pill-full" id="eur-pill">
+        <span class="r-currency-symbol" style="color:#6366f1;">€</span>
+        <div class="r-detail">
+          <span class="r-label">1 EUR =</span>
+          <span class="r-val" id="tb-eur">--</span>
+          <span class="r-unit">EGP</span>
         </div>
-
-        <div class="nav-item" data-page="fleet-radar"
-          data-tooltip="Fleet Radar">
-          <span class="nav-icon">📡</span>
-          <span class="nav-label">Fleet Radar</span>
-          <span class="nav-badge success hidden" id="badge-fleet">0</span>
-        </div>
-
-        <div class="nav-item" data-page="order-book"
-          data-tooltip="Order Book">
-          <span class="nav-icon">📋</span>
-          <span class="nav-label">Order Book</span>
-          <span class="nav-badge hidden" id="badge-orders">0</span>
-        </div>
-
-        <div class="nav-item" data-page="vehicle-360"
-          data-tooltip="Vehicle 360">
-          <span class="nav-icon">🔭</span>
-          <span class="nav-label">Vehicle 360</span>
-        </div>
-
-        <div class="nav-item" data-page="risk-radar"
-          data-tooltip="Risk Radar">
-          <span class="nav-icon">⚠️</span>
-          <span class="nav-label">Risk Radar</span>
-          <span class="nav-badge danger hidden" id="badge-risk">0</span>
-        </div>
-
-        <!-- Documents group -->
-        <div class="sidebar-group">Documents</div>
-
-        <div class="nav-item" data-page="proposals"
-          data-tooltip="Proposals">
-          <span class="nav-icon">📋</span>
-          <span class="nav-label">Proposals</span>
-          <span class="nav-badge warning hidden" id="badge-proposals">0</span>
-        </div>
-
-        <div class="nav-item" data-page="en-contract"
-          data-tooltip="EN Contract">
-          <span class="nav-icon">📄</span>
-          <span class="nav-label">EN Contract</span>
-        </div>
-
-        <div class="nav-item" data-page="ar-contract"
-          data-tooltip="AR Contract">
-          <span class="nav-icon">📝</span>
-          <span class="nav-label">AR Contract</span>
-        </div>
-
-        <div class="nav-item" data-page="receipts"
-          data-tooltip="Receipts">
-          <span class="nav-icon">🧾</span>
-          <span class="nav-label">Receipts</span>
-        </div>
-
-        <!-- Finance group -->
-        <div class="sidebar-group">Finance</div>
-
-        <div class="nav-item" data-page="income-expenses"
-          data-tooltip="Income &amp; Expenses">
-          <span class="nav-icon">💰</span>
-          <span class="nav-label">Income &amp; Expenses</span>
-        </div>
-
-        <!-- Management group -->
-        <div class="sidebar-group">Management</div>
-
-        <div class="nav-item" data-page="crm"
-          data-tooltip="CRM Hub">
-          <span class="nav-icon">👥</span>
-          <span class="nav-label">CRM Hub</span>
-        </div>
-
-        <div class="nav-item" data-page="tasks"
-          data-tooltip="Task Manager">
-          <span class="nav-icon">✅</span>
-          <span class="nav-label">Task Manager</span>
-          <span class="nav-badge hidden" id="badge-tasks">0</span>
-        </div>
-
-        <div class="nav-item admin-only" data-page="approvals"
-          data-tooltip="Approvals">
-          <span class="nav-icon">🔔</span>
-          <span class="nav-label">Approvals</span>
-          <span class="nav-badge danger hidden" id="badge-approvals">0</span>
-        </div>
-
-        <!-- Administration group -->
-        <div class="sidebar-group">Administration</div>
-
-        <div class="nav-item admin-only" data-page="system-logs"
-          data-tooltip="System Logs">
-          <span class="nav-icon">📜</span>
-          <span class="nav-label">System Logs</span>
-        </div>
-
-        <div class="nav-item admin-only" data-page="settings"
-          data-tooltip="Settings">
-          <span class="nav-icon">⚙️</span>
-          <span class="nav-label">Settings</span>
-        </div>
-
-        <div class="sidebar-footer">Brothers EGY ERP v3.0</div>
-
-      </div><!-- end #sidebar -->
-
-      <!-- ==========================================
-           CONTENT AREA
-           Each page section is an empty div.
-           Modules inject their HTML when the page
-           is navigated to via showPage()
-      ========================================== -->
-      <div id="content">
-
-        <!-- Return banner (shown during pending return workflows) -->
-        <div id="return-banner">
-          <span id="return-msg"></span>
-          <button id="cancel-return-btn">✕ Cancel</button>
-        </div>
-
-        <!-- Page sections — content injected by modules -->
-        <div class="page-section active" id="page-dashboard"></div>
-        <div class="page-section" id="page-fleet-radar"></div>
-        <div class="page-section" id="page-order-book"></div>
-        <div class="page-section" id="page-vehicle-360"></div>
-        <div class="page-section" id="page-risk-radar"></div>
-        <div class="page-section" id="page-proposals"></div>
-        <div class="page-section" id="page-en-contract"></div>
-        <div class="page-section" id="page-ar-contract"></div>
-        <div class="page-section" id="page-receipts"></div>
-        <div class="page-section" id="page-income-expenses"></div>
-        <div class="page-section" id="page-crm"></div>
-        <div class="page-section" id="page-tasks"></div>
-        <div class="page-section" id="page-approvals"></div>
-        <div class="page-section" id="page-system-logs"></div>
-        <div class="page-section" id="page-settings"></div>
-
-      </div><!-- end #content -->
-
-    </div><!-- end #main-body -->
-
-  </div><!-- end #app -->
-
-  <!-- ================================================
-       GLOBAL UI COMPONENTS
-       These sit outside #app so they are always
-       accessible regardless of app state
-  ================================================ -->
-
-  <!-- Toast notification container -->
-  <div id="toast-wrap"></div>
-
-  <!-- Back button (fixed position, shown by modal.js) -->
-  <button id="back-btn">← Back</button>
-
-  <!-- Global modal overlay -->
-  <div class="modal-overlay" id="global-modal">
-    <div class="modal-box" id="global-modal-box">
-      <div class="modal-header">
-        <h3 id="global-modal-title">Modal</h3>
-        <button class="modal-close" id="modal-close-btn">✕</button>
+        <button class="r-edit-btn" id="eur-edit-btn">✏️</button>
+        <button class="r-reset-btn hidden" id="eur-reset-btn">🔄</button>
       </div>
-      <div id="global-modal-body"></div>
+      <div class="rate-edit-popup hidden" id="eur-edit-popup">
+        <div class="rep-label">EUR Rate (EGP per 1 EUR)</div>
+        <div class="rep-row">
+          <input type="number" id="eur-edit-input"
+            step="0.01" placeholder="e.g. 55.00"/>
+          <button class="rep-confirm" id="eur-confirm-btn">✓</button>
+          <button class="rep-cancel"  id="eur-cancel-btn">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EGP base pill -->
+    <div class="rate-pill-full rate-pill-static">
+      <span class="r-currency-symbol" style="color:#22c55e;">£</span>
+      <div class="r-detail">
+        <span class="r-label">EGP</span>
+        <span class="r-equals">=</span>
+        <span class="r-val" style="color:var(--success);">Base</span>
+      </div>
+    </div>
+
+    <!-- ✅ Session clock — shows time remaining in session -->
+    <div class="session-clock-wrap" title="Session time remaining">
+      <span class="session-icon">🔐</span>
+      <span id="session-clock">--:--</span>
+    </div>
+
+    <!-- Live clock -->
+    <div class="topbar-clock">
+      📅 <span id="live-date"></span>&nbsp;
+      🕐 <span id="live-time"></span>
+    </div>
+
+    <!-- Notification bell -->
+    <button class="notif-btn" id="notif-btn">
+      🔔
+      <span class="notif-badge hidden" id="notif-badge">0</span>
+    </button>
+
+    <!-- User badge -->
+    <div class="user-badge">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-info">
+        <div class="u-name" id="ub-name">-</div>
+        <div class="u-role-row">
+          <span id="ub-role-pill" class="role-pill">-</span>
+          <span id="ub-branch"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logout -->
+    <button class="logout-btn" id="logout-btn" title="Logout">⏻</button>
+  </div><!-- end #topbar -->
+
+  <!-- NOTIFICATIONS DROPDOWN -->
+  <div class="notif-dropdown" id="notif-dropdown">
+    <div class="notif-header">
+      <span>🔔 Notifications</span>
+      <button class="btn btn-ghost btn-xs" id="mark-all-read-btn">
+        Mark all read
+      </button>
+    </div>
+    <div id="notif-list">
+      <div class="notif-empty">No notifications</div>
     </div>
   </div>
 
-  <!-- ================================================
-       MODULE SCRIPTS
-       Load order matters:
-       1. Core modules (globals, utils, toast, modal, auth)
-       2. Feature modules (one per page)
-       3. app.js last — wires everything together
+  <!-- MAIN BODY -->
+  <div id="main-body">
 
-       All loaded as type="module" which means:
-       - Deferred automatically (run after HTML parses)
-       - Each file has its own scope
-       - window.X assignments make functions globally available
-  ================================================ -->
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <button class="sidebar-toggle" id="sidebar-toggle">◀</button>
 
-  <!-- Core -->
-  <script type="module" src="core/globals.js"></script>
-  <script type="module" src="core/utils.js"></script>
-  <script type="module" src="core/toast.js"></script>
-  <script type="module" src="core/modal.js"></script>
-  <script type="module" src="core/auth.js"></script>
+      <div class="sidebar-group">Operations</div>
+      <div class="nav-item" data-page="dashboard" data-tooltip="Dashboard">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </div>
+      <div class="nav-item" data-page="fleet-radar" data-tooltip="Fleet Radar">
+        <span class="nav-icon">📡</span>
+        <span class="nav-label">Fleet Radar</span>
+        <span class="nav-badge success hidden" id="badge-fleet">0</span>
+      </div>
+      <div class="nav-item" data-page="order-book" data-tooltip="Order Book">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Order Book</span>
+        <span class="nav-badge hidden" id="badge-orders">0</span>
+      </div>
+      <div class="nav-item" data-page="vehicle-360" data-tooltip="Vehicle 360">
+        <span class="nav-icon">🔭</span>
+        <span class="nav-label">Vehicle 360</span>
+      </div>
+      <div class="nav-item" data-page="risk-radar" data-tooltip="Risk Radar">
+        <span class="nav-icon">⚠️</span>
+        <span class="nav-label">Risk Radar</span>
+        <span class="nav-badge danger hidden" id="badge-risk">0</span>
+      </div>
 
-  <!-- Feature modules -->
-  <script type="module" src="modules/dashboard.js"></script>
-  <script type="module" src="modules/fleet.js"></script>
-  <script type="module" src="modules/orders.js"></script>
-  <script type="module" src="modules/proposals.js"></script>
-  <script type="module" src="modules/contracts.js"></script>
-  <script type="module" src="modules/receipts.js"></script>
-  <script type="module" src="modules/finance.js"></script>
-  <script type="module" src="modules/crm.js"></script>
-  <script type="module" src="modules/tasks.js"></script>
-  <script type="module" src="modules/approvals.js"></script>
-  <script type="module" src="modules/risk.js"></script>
-  <script type="module" src="modules/vehicle360.js"></script>
-  <script type="module" src="modules/logs.js"></script>
-  <script type="module" src="modules/settings.js"></script>
+      <div class="sidebar-group">Documents</div>
+      <div class="nav-item" data-page="proposals" data-tooltip="Proposals">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Proposals</span>
+        <span class="nav-badge warning hidden" id="badge-proposals">0</span>
+      </div>
+      <div class="nav-item" data-page="en-contract" data-tooltip="EN Contract">
+        <span class="nav-icon">📄</span>
+        <span class="nav-label">EN Contract</span>
+      </div>
+      <div class="nav-item" data-page="ar-contract" data-tooltip="AR Contract">
+        <span class="nav-icon">📝</span>
+        <span class="nav-label">AR Contract</span>
+      </div>
+      <div class="nav-item" data-page="receipts" data-tooltip="Receipts">
+        <span class="nav-icon">🧾</span>
+        <span class="nav-label">Receipts</span>
+      </div>
 
-  <!-- App entry point -->
-  <script type="module" src="app.js"></script>
+      <div class="sidebar-group">Finance</div>
+      <div class="nav-item" data-page="income-expenses"
+           data-tooltip="Income &amp; Expenses">
+        <span class="nav-icon">💰</span>
+        <span class="nav-label">Income &amp; Expenses</span>
+      </div>
+
+      <div class="sidebar-group">Management</div>
+      <div class="nav-item" data-page="crm" data-tooltip="CRM Hub">
+        <span class="nav-icon">👥</span>
+        <span class="nav-label">CRM Hub</span>
+      </div>
+      <div class="nav-item" data-page="tasks" data-tooltip="Task Manager">
+        <span class="nav-icon">✅</span>
+        <span class="nav-label">Task Manager</span>
+        <span class="nav-badge hidden" id="badge-tasks">0</span>
+      </div>
+      <div class="nav-item admin-only" data-page="approvals"
+           data-tooltip="Approvals">
+        <span class="nav-icon">🔔</span>
+        <span class="nav-label">Approvals</span>
+        <span class="nav-badge danger hidden" id="badge-approvals">0</span>
+      </div>
+
+      <div class="sidebar-group">Administration</div>
+      <div class="nav-item admin-only" data-page="system-logs"
+           data-tooltip="System Logs">
+        <span class="nav-icon">📜</span>
+        <span class="nav-label">System Logs</span>
+      </div>
+      <div class="nav-item admin-only" data-page="settings"
+           data-tooltip="Settings">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Settings</span>
+      </div>
+
+      <div class="sidebar-footer">Brothers EGY ERP v3.0</div>
+    </div><!-- end #sidebar -->
+
+    <!-- CONTENT AREA -->
+    <div id="content">
+      <!-- Return banner -->
+      <div id="return-banner">
+        <span id="return-msg"></span>
+        <button id="cancel-return-btn">✕ Cancel</button>
+      </div>
+
+      <!-- Page sections -->
+      <div class="page-section active" id="page-dashboard"></div>
+      <div class="page-section" id="page-fleet-radar"></div>
+      <div class="page-section" id="page-order-book"></div>
+      <div class="page-section" id="page-vehicle-360"></div>
+      <div class="page-section" id="page-risk-radar"></div>
+      <div class="page-section" id="page-proposals"></div>
+      <div class="page-section" id="page-en-contract"></div>
+      <div class="page-section" id="page-ar-contract"></div>
+      <div class="page-section" id="page-receipts"></div>
+      <div class="page-section" id="page-income-expenses"></div>
+      <div class="page-section" id="page-crm"></div>
+      <div class="page-section" id="page-tasks"></div>
+      <div class="page-section" id="page-approvals"></div>
+      <div class="page-section" id="page-system-logs"></div>
+      <div class="page-section" id="page-settings"></div>
+    </div><!-- end #content -->
+
+  </div><!-- end #main-body -->
+</div><!-- end #app -->
+
+<!-- ================================================
+  GLOBAL UI COMPONENTS
+================================================ -->
+
+<!-- Toast container -->
+<div id="toast-wrap"></div>
+
+<!-- Back button -->
+<button id="back-btn">← Back</button>
+
+<!-- Global modal -->
+<div class="modal-overlay" id="global-modal">
+  <div class="modal-box" id="global-modal-box">
+    <div class="modal-header">
+      <h3 id="global-modal-title">Modal</h3>
+      <button class="modal-close" id="modal-close-btn">✕</button>
+    </div>
+    <div id="global-modal-body"></div>
+  </div>
+</div>
+
+<!-- ================================================
+  MODULE SCRIPTS
+  Load order: core → features → app
+================================================ -->
+
+<!-- Core -->
+<script type="module" src="core/globals.js"></script>
+<script type="module" src="core/utils.js"></script>
+<script type="module" src="core/toast.js"></script>
+<script type="module" src="core/modal.js"></script>
+<script type="module" src="core/auth.js"></script>
+
+<!-- Feature modules -->
+<script type="module" src="modules/dashboard.js"></script>
+<script type="module" src="modules/fleet.js"></script>
+<script type="module" src="modules/orders.js"></script>
+<script type="module" src="modules/proposals.js"></script>
+<script type="module" src="modules/contracts.js"></script>
+<script type="module" src="modules/receipts.js"></script>
+<script type="module" src="modules/finance.js"></script>
+<script type="module" src="modules/crm.js"></script>
+<script type="module" src="modules/tasks.js"></script>
+<script type="module" src="modules/approvals.js"></script>
+<script type="module" src="modules/risk.js"></script>
+<script type="module" src="modules/vehicle360.js"></script>
+<script type="module" src="modules/logs.js"></script>
+<script type="module" src="modules/settings.js"></script>
+
+<!-- App entry point — loads last -->
+<script type="module" src="app.js"></script>
 
 </body>
 </html>

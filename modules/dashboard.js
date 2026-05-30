@@ -1,5 +1,5 @@
 // ============================================================
-// modules/dashboard.js v4.2
+// modules/dashboard.js v4.3
 // ============================================================
 
 window.renderDashboard = function() {
@@ -16,12 +16,10 @@ window.loadDashboard = async function() {
   if (!document.getElementById('dash-pulse-style')) {
     const s = document.createElement('style');
     s.id = 'dash-pulse-style';
-    s.textContent =
-      '@keyframes dashPulse{0%,100%{opacity:1;}50%{opacity:0.3;}}';
+    s.textContent = '@keyframes dashPulse{0%,100%{opacity:1;}50%{opacity:0.3;}}';
     document.head.appendChild(s);
   }
 
-  // ✅ getCairoNow() now returns proper datetime
   const cairoStr = getCairoNow().toLocaleDateString('en-GB', {
     weekday:'long', year:'numeric', month:'long', day:'numeric'
   });
@@ -53,44 +51,42 @@ window.loadDashboard = async function() {
     <!-- KPI Row -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
                 gap:11px;margin-bottom:18px;">
-      <div class="kpi-card" id="kpi-active-card" style="cursor:pointer;"
-           onclick="showPage('order-book');
-                    setTimeout(()=>setOrderFilter('Active'),300)">
+      <div class="kpi-card" style="cursor:pointer;"
+           onclick="showPage('order-book');setTimeout(()=>setOrderFilter('Active'),300)">
         <div class="kpi-label">Active Orders</div>
         <div class="kpi-value text-accent" id="kpi-active">--</div>
         <div class="kpi-sub">Currently rented</div>
         <div class="kpi-icon">🚗</div>
       </div>
-      <div class="kpi-card" id="kpi-overdue-card" style="cursor:pointer;"
-           onclick="showPage('order-book');
-                    setTimeout(()=>setOrderFilter('overdue'),300)">
+      <div class="kpi-card" style="cursor:pointer;"
+           onclick="showPage('order-book');setTimeout(()=>setOrderFilter('overdue'),300)">
         <div class="kpi-label">Unpaid Overdue</div>
         <div class="kpi-value text-danger" id="kpi-overdue">--</div>
         <div class="kpi-sub">Zero payment collected</div>
         <div class="kpi-icon">⚠️</div>
       </div>
-      <div class="kpi-card" id="kpi-settled-card" style="cursor:pointer;"
+      <div class="kpi-card" style="cursor:pointer;"
            onclick="showPage('order-book')">
         <div class="kpi-label">Settled (Pending Close)</div>
         <div class="kpi-value text-warning" id="kpi-settled">--</div>
         <div class="kpi-sub">Paid but not formally closed</div>
         <div class="kpi-icon">💛</div>
       </div>
-      <div class="kpi-card" id="kpi-avail-card" style="cursor:pointer;"
+      <div class="kpi-card" style="cursor:pointer;"
            onclick="showPage('fleet-radar')">
         <div class="kpi-label">Available Cars</div>
         <div class="kpi-value text-success" id="kpi-avail">--</div>
         <div class="kpi-sub">Ready to rent today</div>
         <div class="kpi-icon">✅</div>
       </div>
-      <div class="kpi-card" id="kpi-revenue-card" style="cursor:pointer;"
+      <div class="kpi-card" style="cursor:pointer;"
            onclick="showPage('income-expenses')">
         <div class="kpi-label" id="kpi-revenue-label">Monthly Revenue</div>
         <div class="kpi-value text-success" id="kpi-revenue">--</div>
         <div class="kpi-sub" id="kpi-revenue-sub">This month</div>
         <div class="kpi-icon">💰</div>
       </div>
-      <div class="kpi-card" id="kpi-tasks-card" style="cursor:pointer;"
+      <div class="kpi-card" style="cursor:pointer;"
            onclick="showPage('tasks')">
         <div class="kpi-label">My Pending Tasks</div>
         <div class="kpi-value text-warning" id="kpi-tasks">--</div>
@@ -279,40 +275,30 @@ window.loadDashboard = async function() {
 // PERIOD SELECTOR
 // ============================================================
 window.buildPeriodOptions = function() {
-  // ✅ Use getCairoNow() not new Date()
   const now  = getCairoNow();
   const opts = ['<option value="all">📅 All Time</option>'];
   for (let i = 0; i < 18; i++) {
     const d   = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const val = d.getFullYear() + '-' +
-                String(d.getMonth() + 1).padStart(2, '0');
-    const lbl = d.toLocaleString('en-GB', {
-      month:'long', year:'numeric'
-    });
-    opts.push(
-      `<option value="${val}"${i === 0 ? ' selected' : ''}>${lbl}</option>`
-    );
+    const val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const lbl = d.toLocaleString('en-GB', { month:'long', year:'numeric' });
+    opts.push(`<option value="${val}"${i === 0 ? ' selected' : ''}>${lbl}</option>`);
   }
   return opts.join('');
 };
 
-// ✅ Returns start/end Date objects — matches what loadDashKPIs expects
 window.getPeriodFilter = function() {
   const val = document.getElementById('dash-period')?.value || 'all';
   if (val === 'all') return { start:null, end:null, label:'All Time' };
-
   const [yr, mo] = val.split('-').map(Number);
   const start    = new Date(yr, mo - 1, 1);
   const end      = new Date(yr, mo, 0, 23, 59, 59);
-  const label    = start.toLocaleString('en-GB', {
-    month:'long', year:'numeric'
-  });
+  const label    = start.toLocaleString('en-GB', { month:'long', year:'numeric' });
   return { start, end, label, month:String(mo), year:String(yr) };
 };
 
 window.onDashPeriodChange = function() {
   const period = getPeriodFilter();
-  const rl     = document.getElementById('kpi-revenue-label');
+  const rl = document.getElementById('kpi-revenue-label');
   if (rl) rl.textContent = period.label === 'All Time'
     ? 'Total Revenue' : `Revenue — ${period.label}`;
   const fl = document.getElementById('dash-finance-period-label');
@@ -324,21 +310,22 @@ window.onDashPeriodChange = function() {
 };
 
 // ============================================================
-// KPIs v4.2
+// KPIs v4.3
 // ============================================================
 window.loadDashKPIs = async function() {
   try {
-    const today    = getCairoNow(); // ✅ proper datetime now
+    const today    = getCairoNow();
     const bookings = G.bookings || [];
     const fleet    = G.fleet    || [];
 
-    // Retry if data not ready
     if (!bookings.length && !fleet.length) {
       setTimeout(loadDashKPIs, 800);
       return;
     }
 
-    // ── 1. Active orders: booking covers today ────────────────
+    const CUTOFF_2026 = new Date('2026-01-01');
+
+    // ── 1. Active: booking covers today ──────────────────────
     const activeCount = bookings.filter(b => {
       if (b.closed === true || b.closed === 'true') return false;
       const st = String(b['حالة الطلب'] || b.status || '').toLowerCase();
@@ -355,7 +342,9 @@ window.loadDashKPIs = async function() {
       const st = String(b['حالة الطلب'] || b.status || '').toLowerCase();
       if (st === 'closed' || st === 'cancelled') return false;
       const { end } = getOrderDates(b);
-      if (!end || today <= end) return false;
+      if (!end)              return false;
+      if (end < CUTOFF_2026) return false;
+      if (today <= end)      return false;
       return getOrderPaid(b) <= 0;
     }).length;
 
@@ -364,9 +353,13 @@ window.loadDashKPIs = async function() {
       if (b.closed === true || b.closed === 'true') return false;
       const st = String(b['حالة الطلب'] || b.status || '').toLowerCase();
       if (st === 'closed' || st === 'cancelled') return false;
+      const { end } = getOrderDates(b);
+      if (!end)              return false;
+      if (end < CUTOFF_2026) return false;
+      if (today <= end)      return false;
       const total = getOrderTotal(b);
       const paid  = getOrderPaid(b);
-      return total > 0 && paid >= total;
+      return paid > 0 && total > 0;
     }).length;
 
     // ── 4. Available cars ─────────────────────────────────────
@@ -383,9 +376,7 @@ window.loadDashKPIs = async function() {
           if (!start) return false;
           return start >= period.start && start <= period.end;
         });
-    const periodRevenue = revenueOrders.reduce(
-      (s, b) => s + getOrderPaid(b), 0
-    );
+    const periodRevenue = revenueOrders.reduce((s, b) => s + getOrderPaid(b), 0);
 
     // ── 6. Pending tasks ──────────────────────────────────────
     let pendingTasks = 0;
@@ -393,8 +384,9 @@ window.loadDashKPIs = async function() {
       const taskSnap = await db.collection('tasks')
         .where('assigned_to', '==', G.user?.username || '')
         .where('status', '==', 'pending')
-        .get().catch(() => ({ size:0 }));
-      pendingTasks = taskSnap.size;
+        .get()
+        .catch(() => ({ size: 0 }));
+      pendingTasks = taskSnap.size || 0;
     } catch (_) {}
 
     // ── 7. Update DOM ─────────────────────────────────────────
@@ -428,10 +420,7 @@ window.loadDashTodayStats = async function() {
 
     const pickups = orders.filter(o => {
       const { start } = getOrderDates(o);
-      return start &&
-             start >= todayStart &&
-             start <= todayEnd &&
-             !o.closed;
+      return start && start >= todayStart && start <= todayEnd && !o.closed;
     }).length;
 
     const dropoffs = orders.filter(o => {
@@ -440,28 +429,25 @@ window.loadDashTodayStats = async function() {
     }).length;
 
     const depositLiability = orders.reduce((sum, o) => {
-      const held     = parseAmount(
-        o.deposit_held     || o['الوديعة المحتجزة'] || 0
-      );
-      const returned = parseAmount(
-        o.deposit_returned || o['الوديعة المردودة']  || 0
-      );
+      if (o.closed === true || o.closed === 'true') return sum;
+      const st = getOrderStatus(o);
+      if (st === 'Closed') return sum;
+      const held     = parseAmount(o['الوديعة المحتجزة'] || o.deposit_held     || 0);
+      const returned = parseAmount(o['الوديعة المردودة'] || o.deposit_returned || 0);
       return sum + Math.max(0, held - returned);
     }, 0);
 
-    // ✅ Fixed: reads total_egp_equiv first, then fallbacks
     let collected = 0;
     try {
       const paySnap = await db.collection('payment_log')
         .where('date', '==', cairoDateStr)
-        .get();
+        .get()
+        .catch(() => ({ forEach: () => {} }));
       paySnap.forEach(d => {
         const data = d.data();
         collected += parseAmount(
-          data.total_egp_equiv ||
-          data.amount_egp      ||
-          data.total_egp       ||
-          data.egp             || 0
+          data.total_egp_equiv || data.amount_egp ||
+          data.total_egp       || data.egp        || 0
         );
       });
     } catch (_) {}
@@ -494,9 +480,8 @@ window.loadDashFleetChart = async function() {
       else if (cat === 'archived')    cArchived++;
     });
 
-    // ✅ Use getCairoNow() for proper datetime comparison
-    const cairoToday = getCairoNow();
-    const CUTOFF     = new Date('2026-01-01');
+    const cairoToday  = getCairoNow();
+    const CUTOFF_2026 = new Date('2026-01-01');
     let cOverdueOrders = 0, cSettledOrders = 0, cFutureOrders = 0;
 
     G.bookings.forEach(o => {
@@ -505,17 +490,9 @@ window.loadDashFleetChart = async function() {
       if (st === 'Closed' || st === 'Cancelled') return;
       const { start, end } = getOrderDates(o);
       if (!end) return;
-
-      // Future booking
       if (start && start > cairoToday) { cFutureOrders++; return; }
-
-      // Still active
-      if (end >= cairoToday) return;
-
-      // Too old to count
-      if (end < CUTOFF) return;
-
-      // Past end — check payment
+      if (end >= cairoToday)           return;
+      if (end < CUTOFF_2026)           return;
       const paid = getOrderPaid(o);
       if (paid <= 0) cOverdueOrders++;
       else           cSettledOrders++;
@@ -562,7 +539,7 @@ window.loadDashFleetChart = async function() {
         cutout             : '65%',
         animation          : { duration:800, easing:'easeOutQuart' },
         plugins: {
-          legend : { display: false },
+          legend : { display:false },
           tooltip: { callbacks: { label: ctx =>
             `${ctx.label}: ${ctx.parsed} car${ctx.parsed !== 1 ? 's' : ''} ` +
             `(${total ? Math.round(ctx.parsed / total * 100) : 0}%)`
@@ -606,7 +583,6 @@ window.loadDashFleetChart = async function() {
           <span>📦 Finished contracts</span>
           <span style="font-weight:700;">${cArchived}</span>
         </div>`;
-
       if (extras) legendEl.innerHTML += `
         <div style="grid-column:1/-1;margin-top:6px;padding-top:6px;
                     border-top:1px solid var(--border);">${extras}</div>`;
@@ -624,10 +600,21 @@ window.loadActivityFeed = function() {
     const unsub = db.collection('logs')
       .orderBy('timestamp', 'desc')
       .limit(60)
-      .onSnapshot(snap => {
-        window.allLogs = snap.docs.map(d => d.data());
-        renderActivityFeed();
-      });
+      .onSnapshot(
+        snap => {
+          window.allLogs = snap.docs.map(d => d.data());
+          renderActivityFeed();
+        },
+        err => {
+          // ✅ Graceful permission error handling
+          console.warn('Activity feed:', err.message);
+          const f = document.getElementById('activity-feed');
+          if (f) f.innerHTML = `
+            <div class="empty-state" style="padding:24px;">
+              <p style="color:var(--text3);">Activity log unavailable</p>
+            </div>`;
+        }
+      );
     G.unsubscribers.push(unsub);
   } catch (e) {
     const f = document.getElementById('activity-feed');
@@ -647,8 +634,7 @@ window.renderActivityFeed = function() {
 
   if (!logs.length) {
     feed.innerHTML =
-      '<div class="empty-state" style="padding:24px;">' +
-      '<p>No activity found</p></div>';
+      '<div class="empty-state" style="padding:24px;"><p>No activity found</p></div>';
     return;
   }
 
@@ -710,20 +696,19 @@ window.loadDashFinance = async function() {
   try {
     let income = 0, expenses = 0;
 
+    // ✅ Each collection fetched with individual .catch() so one failure
+    // doesn't break the others
     const [cSnap, ceSnap, geSnap] = await Promise.all([
-      db.collection('collections').get(),
-      db.collection('car_expenses').get(),
-      db.collection('gen_expenses').get()
+      db.collection('collections').get().catch(() => ({ docs: [] })),
+      db.collection('car_expenses').get().catch(() => ({ docs: [] })),
+      db.collection('gen_expenses').get().catch(() => ({ docs: [] }))
     ]);
 
-    // ✅ matchesPeriod uses Date objects from getPeriodFilter
     function matchesPeriod(data) {
       if (!period.start) return true;
-      // Try month/year string fields
       const m = String(data['شهر'] || '').replace(/^0+/, '');
       const y = String(data['سنة'] || data['paid_year'] || '');
       if (m && y && m === period.month && y === period.year) return true;
-      // Try date field
       const dateRaw = data['تاريخ التحصيل'] || data['تاريخ المصروف'] ||
                       data['Date']           || data.col_A || '';
       if (dateRaw) {
@@ -740,7 +725,7 @@ window.loadDashFinance = async function() {
       if (!isPriv) {
         const b = data['موقع الفرع'] || data.Branch || '';
         if (!b.toLowerCase().includes(
-          (BRANCH_MAP[G.user.branch] || '').toLowerCase()
+          (BRANCH_MAP[G.user?.branch] || '').toLowerCase()
         )) return;
       }
       if (matchesPeriod(data)) income += parseAmount(data['قيمة التحصيل']);
@@ -750,7 +735,9 @@ window.loadDashFinance = async function() {
       const data = d.data();
       if (!isPriv) {
         const b = data['موقع الفرع'] || '';
-        if (!b.includes(BRANCH_AR[G.user.branch] || G.user.branch)) return;
+        if (!b.includes(
+          (window.BRANCH_AR?.[G.user?.branch]) || G.user?.branch || ''
+        )) return;
       }
       if (matchesPeriod(data)) expenses += parseAmount(data['قيمة المصروف']);
     });
@@ -760,7 +747,7 @@ window.loadDashFinance = async function() {
       if (!isPriv) {
         const b = data.Branch || data['موقع الفرع'] || '';
         if (!b.toLowerCase().includes(
-          (BRANCH_MAP[G.user.branch] || '').toLowerCase()
+          (BRANCH_MAP[G.user?.branch] || '').toLowerCase()
         )) return;
       }
       if (matchesPeriod(data)) expenses += parseAmount(data['قيمة المصروف']);
@@ -776,6 +763,8 @@ window.loadDashFinance = async function() {
     }
   } catch (e) {
     console.warn('Finance error:', e.message);
+    _setEl('dash-income',   fmtMoney(0));
+    _setEl('dash-expenses', fmtMoney(0));
   }
 };
 
@@ -787,10 +776,11 @@ window.loadDashTasks = async function() {
   if (!el) return;
   try {
     const snap = await db.collection('tasks')
-      .where('assigned_to', '==', G.user.username)
+      .where('assigned_to', '==', G.user?.username || '')
       .where('status', 'in', ['pending', 'inprogress'])
       .limit(10)
-      .get();
+      .get()
+      .catch(() => ({ empty: true, docs: [] })); // ✅ silent fail
 
     if (snap.empty) {
       el.innerHTML = `
@@ -825,7 +815,7 @@ window.loadDashTasks = async function() {
                          background:${pColors[t.priority] || 'var(--text3)'};"></span>
             <span style="font-size:11px;font-weight:700;flex:1;white-space:nowrap;
                          overflow:hidden;text-overflow:ellipsis;">
-              ${t.title || 'Task'}
+              ${t.title || t.type || 'Task'}
             </span>
             <span class="pill pill-${t.status}">${t.status}</span>
           </div>
@@ -838,6 +828,10 @@ window.loadDashTasks = async function() {
           ${t.linked_order_no ? `
             <div style="font-size:9px;color:var(--accent);margin-top:2px;">
               📋 Order #${t.linked_order_no}
+            </div>` : ''}
+          ${t.linked_car_label ? `
+            <div style="font-size:9px;color:var(--text3);margin-top:1px;">
+              🚗 ${t.linked_car_label}
             </div>` : ''}
         </div>`;
     }).join('');
@@ -857,9 +851,15 @@ window.loadDashApprovals = async function() {
   try {
     const snap = isPriv
       ? await db.collection('approvals')
-          .where('status', '==', 'pending').limit(10).get()
+          .where('status', '==', 'pending')
+          .limit(10)
+          .get()
+          .catch(() => ({ empty: true, docs: [] })) // ✅
       : await db.collection('approvals')
-          .where('requested_by', '==', G.user.username).limit(10).get();
+          .where('requested_by', '==', G.user?.username || '')
+          .limit(10)
+          .get()
+          .catch(() => ({ empty: true, docs: [] })); // ✅
 
     if (snap.empty) {
       el.innerHTML = `
@@ -888,7 +888,7 @@ window.loadDashApprovals = async function() {
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
           <span style="font-size:13px;">${icons[a.type] || '🔔'}</span>
           <span style="font-size:11px;font-weight:700;flex:1;">
-            ${(a.type || '').replace(/_/g,' ').toUpperCase()}
+            ${(a.type || '').replace(/_/g, ' ').toUpperCase()}
           </span>
           <span class="pill pill-${a.status}">${a.status}</span>
         </div>
@@ -906,7 +906,7 @@ window.loadDashApprovals = async function() {
 };
 
 // ============================================================
-// RECENT ORDERS WIDGET v4.2
+// RECENT ORDERS WIDGET v4.3
 // ============================================================
 window.loadDashRecentOrders = async function() {
   const el     = document.getElementById('dash-orders');
@@ -917,8 +917,8 @@ window.loadDashRecentOrders = async function() {
     let orders = [...(G.bookings || [])];
     if (!isPriv) {
       orders = orders.filter(o =>
-        o['فرع الإصدار'] === G.user.branch ||
-        o.assigned_user  === G.user.username ||
+        o['فرع الإصدار'] === G.user?.branch ||
+        o.assigned_user  === G.user?.username ||
         (!o['فرع الإصدار'] && !o.assigned_user)
       );
     }
@@ -970,9 +970,7 @@ window.loadDashRecentOrders = async function() {
       const pct      = totalDue > 0
         ? Math.min(100, Math.round(paid / totalDue * 100)) : 100;
 
-      const sc = statusConfig[statusRaw] || statusConfig['Active'];
-
-      // ✅ Use global getPaymentStatus / getPaymentStatusLabel from utils.js
+      const sc       = statusConfig[statusRaw] || statusConfig['Active'];
       const payKey   = getPaymentStatus(o);
       const payColor = window.PAYMENT_STATUS_COLORS[payKey] || '#64748b';
       const payLabel = getPaymentStatusLabel(o);
@@ -1029,8 +1027,7 @@ window.loadDashRecentOrders = async function() {
             <div style="height:100%;width:${pct}%;border-radius:99px;
                         background:${pct >= 100 ? 'var(--success)' :
                           pct > 50 ? 'var(--accent)' : 'var(--warning)'};
-                        transition:width 0.5s;">
-            </div>
+                        transition:width 0.5s;"></div>
           </div>
 
           <div style="display:flex;justify-content:space-between;
@@ -1088,7 +1085,6 @@ window.loadDashExpiries = async function() {
       });
     });
 
-    // Deduplicate
     const seen    = new Set();
     const deduped = [];
     risks.sort((a, b) => a.daysLeft - b.daysLeft);
